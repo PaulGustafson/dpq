@@ -408,9 +408,9 @@ resolveDecl scope (C.Instance pos t mths) =
      t' <- resolve lscope t
      mths' <- makeMethods scope mths
      
-     let (_, ty') = decomposeForall t'
-         (_, h) = deCompose ty'
-         Just (Right d', _) = getId h
+     let (_, ty') = removePrefixes False t'
+         (_, h) = flattenArrows ty'
+         Just (Right d', _) = flatten h
          instName = "instAt" ++ hashPos pos ++ (getName d')
      (d, scope1) <- addConst pos instName Const scope    
      return (Instance pos d t' mths', scope1)
@@ -431,7 +431,7 @@ resolveDecl scope (C.SimpData pos c args resKind eqs) =
   do (d, scope') <- addConst pos c LBase scope
      let lscope = toLScope scope'
      kd <- resolve lscope resKind
-     let (bd, _) = deCompose (snd $ decomposePrefixes kd)
+     let (bd, _) = flattenArrows (snd $ removePrefixes False kd)
          lta = length bd
      (eqs', scope'') <- makeConstrs lta scope' eqs
      return (SimpData pos d (length args) kd eqs', scope'')

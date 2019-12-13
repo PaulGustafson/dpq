@@ -392,21 +392,6 @@ erasePos (Case e (B br)) = Case (erasePos e) (B (map helper br))
   where helper (Abst p m) = abst p (erasePos m)
 erasePos e = error $ "from erasePos " ++ (show $ disp e)
 
--- | Decompose a expression into bodies and head, with variables intact.
--- e.g. unfoldExp ((x :: A1) -> A2 -> (P) => H) produces
--- ([(Just (Right x), A1), (Nothing, A2), (Nothing, P)], H)
-unfoldExp :: Exp -> ([(Maybe Variable, Exp)], Exp)
-unfoldExp (Pos p a) = unfoldExp a
-unfoldExp (Arrow t1 t2) =
-  let (res, h) = unfoldExp t2 in
-  ((Nothing, t1):res, h)
-unfoldExp (Pi (Abst vs t2) t1) = 
-  let (res, h) = unfoldExp t2 in
-  (map (\ x -> (Just x, t1)) vs ++ res, h)
-unfoldExp (Imply t1 t2) =
-  let (res, h) = unfoldExp t2 in
-  ((map (\ x -> (Nothing, x)) t1)++ res, h)  
-unfoldExp a = ([], a)  
 
 -- | Similar to unfoldExp, it decompose a type into bodies and head.
 -- But the bind variables are discarded. 
@@ -487,21 +472,6 @@ unwindDep (Pos p e) = unwindDep e
 unwindDep a = (a, [])
 
 
--- | Flatten a n-tuple into a list. 
-unPair n (Pos _ e) = unPair n e
-unPair n (Pair x y) | n == 2 = Just [x, y]
-unPair n (Pair x y) | n > 2 =
-  do r <- unPair (n-1) x
-     return (r++[y])
-unPair _ _ = Nothing
-
--- | Flatten a multi-tensor into a list. 
-unTensor n (Pos _ e) = unTensor n e
-unTensor n (Tensor x y) | n == 2 = Just [x, y]
-unTensor n (Tensor x y) | n > 2 =
-  do r <- unTensor (n-1) x
-     return (r++[y])
-unTensor _ _ = Nothing
 
 
 -- | A predicate to tell whether an expression is a variable. 

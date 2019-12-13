@@ -182,3 +182,84 @@ varSwitch _ (GoalVar x) = S.empty
 
 
 
+-- | Flatten a n-tuple into a list. 
+unPair n (Pos _ e) = unPair n e
+unPair n (Pair x y) | n == 2 = Just [x, y]
+unPair n (Pair x y) | n > 2 =
+  do r <- unPair (n-1) x
+     return (r++[y])
+unPair _ _ = Nothing
+
+-- | Flatten a multi-tensor into a list. 
+unTensor n (Pos _ e) = unTensor n e
+unTensor n (Tensor x y) | n == 2 = Just [x, y]
+unTensor n (Tensor x y) | n > 2 =
+  do r <- unTensor (n-1) x
+     return (r++[y])
+unTensor _ _ = Nothing
+
+-- | Flatten a type expression into bodies and head, with variables intact.
+-- e.g. flattenArrows ((x :: A1) -> A2 -> (P) => H) produces
+-- ([(Just x, A1), (Nothing, A2), (Nothing, P)], H)
+
+flattenArrows :: Exp -> ([(Maybe Variable, Exp)], Exp)
+flattenArrows (Pos p a) = flattenArrows a
+flattenArrows (Arrow t1 t2) =
+  let (res, h) = flattenArrows t2 in
+  ((Nothing, t1):res, h)
+flattenArrows (Arrow' t1 t2) =
+  let (res, h) = flattenArrows t2 in
+  ((Nothing, t1):res, h)  
+flattenArrows (Pi (Abst vs t2) t1) = 
+  let (res, h) = flattenArrows t2 in
+  (map (\ x -> (Just x, t1)) vs ++ res, h)
+flattenArrows (Pi' (Abst vs t2) t1) = 
+  let (res, h) = flattenArrows t2 in
+  (map (\ x -> (Just x, t1)) vs ++ res, h)  
+flattenArrows (Imply t1 t2) =
+  let (res, h) = flattenArrows t2 in
+  ((map (\ x -> (Nothing, x)) t1)++ res, h)  
+flattenArrows a = ([], a)  
+
+
+-- | Remove the leading forall and class quantifiers (if flag is True).
+removePrefixes :: Bool -> Exp -> ([(Maybe Variable, Exp)], Exp)
+removePrefixes flag (Forall bd ty) =
+  open bd $ \ vs m ->
+  let vs' = map (\ x -> (Just x, ty)) vs
+      (xs, m') = removePrefixes flag m
+  in (vs' ++ xs, m')
+removePrefixes flag (Imply bd ty) | flag =
+  let vs' = map (\ x -> (Nothing, x)) bd
+      (xs, m') = removePrefixes flag ty
+  in (vs' ++ xs, m')
+removePrefixes flag (Pos _ a) = removePrefixes flag a
+removePrefixes flag a = ([], a)
+
+-- | Flatten an applicative expression, it can
+-- be applied to both type and term expression. It return Nothing if the input is not
+-- in a applicative form. Left indicates the identifier is a term constructor, Right 
+-- indicates the identifier is a type construtor.
+-- 'flatten' also returns a list of computational relevant arguments, note that the arguments
+-- for AppType and AppTm are not considered relevant.
+
+flatten :: Exp -> Maybe (Either Id Id, [Exp])
+flatten (Base id) = return (Right id, [])
+flatten (LBase id) = return (Right id, [])
+flatten (Const id) = return (Left id, [])
+flatten (App t1 t2) =
+  do (id, args) <- flatten t1
+     return (id, args ++ [t2])
+flatten (App' t1 t2) =
+  do (id, args) <- flatten t1
+     return (id, args ++ [t2])     
+flatten (AppDep t1 t2) =
+  do (id, args) <- flatten t1
+     return (id, args ++ [t2])
+flatten (AppDict t1 t2) =
+  do (id, args) <- flatten t1
+     return (id, args ++ [t2])          
+flatten (AppType t1 t2) = flatten t1
+flatten (AppTm t1 t2) = flatten t1
+flatten (Pos p e) = flatten e
+flatten _ = Nothing
