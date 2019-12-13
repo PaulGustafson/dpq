@@ -144,15 +144,210 @@ data Pattern = PApp Id [Either (NoBind Exp) Variable]
              deriving (Eq, Generic, NominalShow, NominalSupport, Nominal, Bindable)
 
 
-{-
+
 instance Disp Pattern where
   display flag (PApp id vs) =
     display flag id <+>
     hsep (map helper vs) 
     where helper (Left (NoBind x)) =
             braces $ display flag x
-          helper (Right (x, NoBind c)) = display flag x 
+          helper (Right x) = display flag x 
 
+instance Disp Morphism where
+  display b (Morphism ins gs outs) =
+    (braces $ display b ins) $$
+    nest 2 (vcat $ map (display b) gs) $$
+    (braces $ display b outs) 
+
+instance Disp Gate where
+  display flag (Gate g params ins outs ctrls) =
+    disp g <+> brackets (hsep $ punctuate comma (map (display flag) params))
+    <+> (braces $ display flag ins) <+> (braces $ display flag outs) <+> (brackets $ display flag ctrls)
+
+
+instance Disp Exp where
+  display flag (Var x) = display flag x
+  display flag (Label x) = display flag x
+  display flag (GoalVar x) = braces $ display flag x
+  display flag (EigenVar x) = brackets (display flag x)
+  display flag (Const id) = display flag id
+  display flag (LBase id) = display flag id
+  display flag (Base id) = display flag id
+  display flag (Pos _ e) = display flag e
+  display flag (Lam bds) =
+    open bds $ \ vs b ->
+    fsep [text "\\" , (hsep $ map (display flag) vs), text ".", nest 2 $ display flag b]
+  display flag (Lam' bds) =
+    open bds $ \ vs b ->
+    fsep [text "\\'" , (hsep $ map (display flag) vs), text ".", nest 2 $ display flag b]
+  display flag (LamDict bds) =
+    open bds $ \ vs b ->
+    fsep [text "\\dict" , (hsep $ map (display flag) vs), text ".", nest 2 $ display flag b]    
+  display flag (LamTm bds) =
+    open bds $ \ vs b ->
+    fsep [text "\\tm" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
+    
+  display flag (LamDep bds) =
+    open bds $ \ vs b ->
+    fsep [text "\\dep" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
+
+  display flag (LamDep' bds) =
+    open bds $ \ vs b ->
+    fsep [text "\\dep'" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
+    
+  display flag (LamType bds) =
+    open bds $ \ vs b ->
+    fsep [text "\\ty" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
+
+  display flag (Forall bds t) =
+    open bds $ \ vs b ->
+    fsep [text "forall", parens ((hsep $ map (display flag) vs) <+> text "::" <+> display flag t) <+> text ".", nest 5 $ display flag b]
+
+  display flag a@(App t t') = 
+     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+
+  display flag a@(AppType t t') =
+     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+
+  display flag a@(App' t t') =
+     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+--    fsep [dParen flag (precedence a - 1) t, text "@2", dParen flag (precedence a) t']
+
+  display flag a@(AppDep t t') =
+       fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+--    fsep [text "@0", dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+  display flag a@(AppDep' t t') =
+        fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+--    fsep [text "@1", dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+    
+  display flag a@(AppDict t t') =
+    fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+--    fsep [text "@4", dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+    
+  display flag a@(AppTm t t') =
+     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+--    fsep [text "@5", dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+    
+  display flag a@(Bang t) = text "!" <> dParen flag (precedence a - 1) t
+  display flag a@(Arrow t1 t2) =
+    fsep [dParen flag (precedence a) t1, text "->" , dParen flag (precedence a - 1) t2]
+  display flag a@(Arrow' t1 t2) =
+    fsep [dParen flag (precedence a) t1, text "->'" , dParen flag (precedence a - 1) t2]    
+  display flag (Imply [] t2) = display flag t2
+  display flag a@(Imply t1 t2) =
+    fsep [parens (fsep $ punctuate comma $ map (display flag) t1), text "=>" , nest 2 $ display flag t2]
+    
+  display flag Set = text "Type"
+  display flag Sort = text "Sort"
+  display flag Unit = text "Unit"
+  display flag Star = text "()"
+  display flag a@(Tensor t t') =
+    fsep [dParen flag (precedence a - 1) t,  text "*", dParen flag (precedence a) t']
+  display flag (Pair a b) =
+    parens $ fsep [display flag a, text "," , display flag b]
+  display flag (Pack a b) =
+    braces $ display flag a <+> text "," <+> display flag b
+    
+  display flag (Force m) = text "&" <> display flag m
+  display flag (Force' m) = text "&'" <> display flag m
+  display flag (Lift m) = text "lift" <+> display flag m
+
+  display flag (Circ u t) =
+    text "Circ" <> (parens $ fsep [display flag u <> comma, display flag t])
+  display flag (Pi bd t) =
+    open bd $ \ vs b ->
+    fsep [parens ((hsep $ map (display flag) vs) <+> text "::" <+> display flag t)
+    <+> text "->" , nest 2 $ display flag b]
+  display flag (Pi' bd t) =
+    open bd $ \ vs b ->
+    fsep [parens ((hsep $ map (display flag) vs) <+> text "::" <+> display flag t)
+    <+> text "->'" , nest 2 $ display flag b]
+    
+  display flag (Exists bd t) =
+    open bd $ \ v b ->
+    fsep [text "exists" <+> display flag v <+> text "::" <+> display flag t,
+           text "." , nest 2 $ display flag b]    
+  display flag (Box) = text "box"
+  display flag (ExBox) = text "existsBox"
+  display flag (UnBox) = text "unbox" 
+  display flag (Revert) = text "revert"
+  display flag (RunCirc) = text "runCirc"
+  display flag (Let m bd) =
+    open bd $ \ x b ->
+    fsep [text "let" <+> display flag x <+> text "=", display flag m,
+          text "in" <+> display flag b]
+    
+  display flag (LetPair m bd) =
+    open bd $ \ xs b ->
+    fsep [text "let" <+> parens (hsep $ punctuate comma $ map (display flag) xs),
+          text "=", display flag m,
+          text "in" <+> display flag b]
+
+  display flag (LetEx m bd) =
+    open bd $ \ (x, y) b ->
+    fsep [text "let" <+> braces (display flag x<>comma<+> display flag y)
+          <+> text "=", display flag m,
+          text "in" <+> display flag b]
+    
+  display flag (LetPat m bd) =
+    open bd $ \ ps b ->
+    fsep [text "let" <+> (display flag ps) <+> text "=" , display flag m,
+          text "in" <+> display flag b]
+
+  display flag (Case e (B brs)) =
+    text "case" <+> display flag e <+> text "of" $$
+    nest 2 (vcat $ map helper brs)
+    where helper bd =
+            open bd $ \ p b -> fsep [display flag p, text "->" , nest 2 (display flag b)]
+
+  display flag (Wired bd) = 
+   open bd $ \ wires e -> (display flag e)
+
+  display flag e = error $ "from display: " ++ show e
+
+  precedence (Var _ ) = 12
+  precedence (GoalVar _ ) = 12
+  precedence (EigenVar _ ) = 12
+  precedence (Base _ ) = 12
+  precedence (LBase _ ) = 12
+  precedence (Const _ ) = 12
+  precedence (Circ _ _ ) = 12
+  precedence (Unit) = 12
+  precedence (Star) = 12
+  precedence (Box) = 12
+  precedence (UnBox) = 12
+  precedence (Revert) = 12
+  precedence (RunCirc) = 12
+  precedence (ExBox) = 12
+  precedence (Set) = 12
+  precedence (App _ _) = 10
+  precedence (App' _ _) = 10  
+  precedence (AppType _ _) = 10
+  precedence (AppDep _ _) = 10
+  precedence (AppDict _ _) = 10
+  precedence (AppTm _ _) = 10
+  precedence (Pair _ _) = 11
+  precedence (Arrow _ _) = 7
+  precedence (Arrow' _ _) = 7
+  precedence (Tensor _ _) = 8
+  precedence (Bang _) = 9
+  precedence (Pos p e) = precedence e
+  precedence _ = 0
+
+
+data Decl = Object Position Id
+          | Data Position Id Exp [(Position, Id, Exp)] 
+          | SimpData Position Id Int Exp [(Position, Maybe Int, Id, Exp)] 
+          | Class Position Id Exp Id Exp [(Position, Id, Exp, Exp)]
+          | Instance Position Id Exp [(Position, Id, Exp)]
+          | Def Position Id Exp Exp
+          | GateDecl Position Id (Maybe Exp) Exp
+          | ControlDecl Position Id [Exp] Exp
+          | ImportDecl Position String
+          | OperatorDecl Position String Int String
+
+
+{-
 instance Disp (Either (NoBind Exp) (Variable, NoBind UseFlag)) where
   display flag (Left (NoBind e)) = braces $ display flag e
   display flag (Right (x, _)) = display flag x
@@ -1405,236 +1600,8 @@ getWires (Pair e1 e2) = getWires e1 ++ getWires e2
 getWires a = error $ "applying getWires function to an ill-formed template:" ++ (show $ disp a)
 
 
-instance Disp Morphism where
-  display b (Morphism ins gs outs) =
-    (braces $ display b ins) $$
-    nest 2 (vcat $ map (display b) gs) $$
-    (braces $ display b outs) 
-
-instance Disp Gate where
-  display flag (Gate g params ins outs ctrls) =
-    disp g <+> brackets (hsep $ punctuate comma (map (display flag) params))
-    <+> (braces $ (display flag ins)) <+> (braces $ (display flag outs)) <+> (brackets $ (display flag ctrls))
 
 
-instance Disp Exp where
-  display flag (Var x) = display flag x
-  display flag (Label x) = display flag x
-  display flag (WrapR (MR len x)) = text $ showCReal (fromInteger len) x
-  display flag RealNum = text "Real"
-  display flag (RealOp x) = text x
-  display flag (GoalVar x) = braces $ display flag x
-  display flag (EigenVar x) = brackets (display flag x)
-  display flag (Const id) | getIdName id == "Z" = int 0
-  display flag (Const id) = display flag id
-  display flag (LBase id) = display flag id
-  display flag (Base id) = display flag id
-  display flag (Pos _ e) = display flag e
-  display flag (Lam bds cs) =
-    open bds $ \ vs b ->
-    fsep [text "\\" , (hsep $ map (display flag) vs), text ".", nest 2 $ display flag b]
-  display flag (Lam' bds) =
-    open bds $ \ vs b ->
-    fsep [text "\\'" , (hsep $ map (display flag) vs), text ".", nest 2 $ display flag b]
-  display flag (LamDict bds) =
-    open bds $ \ vs b ->
-    fsep [text "\\dict" , (hsep $ map (display flag) vs), text ".", nest 2 $ display flag b]    
-  display flag (LamAnn ty bds _) =
-    open bds $ \ x b ->
-    fsep [text "\\" <+> display flag x <+> text "::" <+> display flag ty <+> text ".", nest 2 $ display flag b]
-    
-  display flag (LamTm bds) =
-    open bds $ \ vs b ->
-    fsep [text "\\" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
-    
-  display flag (LamDep bds _) =
-    open bds $ \ vs b ->
-    fsep [text "\\" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
-  display flag (LamDep' bds) =
-    open bds $ \ vs b ->
-    fsep [text "\\'" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
-    
-  display flag (LamImp bds) =
-    open bds $ \ vs b ->
-    fsep [text "\\" , (hsep $ map (\ x -> braces (display flag x) ) vs) <+> text ".", nest 2 $ display flag b]    
-    
-  display flag (LamType bds) =
-    open bds $ \ vs b ->
-    fsep [text "\\" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
-  display flag (Forall bds t) =
-    open bds $ \ vs b ->
-    fsep [text "forall", parens ((hsep $ map (display flag) vs) <+> text "::" <+> display flag t) <+> text ".",
-            nest 5 $ display flag b]
-
-  display flag (Forall' bds t) =
-    open bds $ \ vs b ->
-    fsep [text "forall'", parens ((hsep $ map (display flag) vs) <+> text "::" <+> display flag t) <+> text ".",
-            nest 5 $ display flag b]
-    
-  display flag a@(App t t') =
-    case toInt a of
-      Nothing -> -- fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
-        case toVec a of
-          Nothing ->
-            fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
-          Just vs -> brackets $ fsep $ punctuate comma $ map (\ x -> display flag x ) vs
-      Just i -> int i
-    where
-          toVec (Const id) =
-            if getIdName id == "VNil" then return []
-            else Nothing
-          toVec (App (App (Const id) e) res) =
-            if getIdName id == "VCons" then
-              do vs <- toVec res
-                 return $ e:vs
-            else Nothing
-          toVec _ = Nothing
-            
-            
-
-  display flag a@(AppType t t') =
-     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
---    fsep [dParen flag (precedence a - 1) t, text "@3", dParen flag (precedence a) t']
-  display flag a@(App' t t') =
-     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
---    fsep [dParen flag (precedence a - 1) t, text "@2", dParen flag (precedence a) t']
-  display flag a@(AppDep t t') =
-       fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
---    fsep [text "@0", dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
-  display flag a@(AppDep' t t') =
-        fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
---    fsep [text "@1", dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
-    
-  display flag a@(AppDict t t') =
-    fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
---    fsep [text "@4", dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
-    
-  display flag a@(AppTm t t') =
-     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
---    fsep [text "@5", dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
-  display flag a@(AppImp t t') =
-    fsep [dParen flag (precedence a - 1) t, braces $ display flag t']    
-    
-  display flag a@(Bang t) = text "!" <> dParen flag (precedence a - 1) t
-  display flag a@(Arrow t1 t2) =
-    fsep [dParen flag (precedence a) t1, text "->" , dParen flag (precedence a - 1) t2]
-  display flag a@(Arrow' t1 t2) =
-    fsep [dParen flag (precedence a) t1, text "->'" , dParen flag (precedence a - 1) t2]    
-  display flag (Imply [] t2) = display flag t2
-  display flag a@(Imply t1 t2) =
-    fsep [parens (fsep $ punctuate comma $ map (display flag) t1), text "=>" , nest 2 $ display flag t2]
-    
-  display flag Set = text "Type"
-  display flag Sort = text "Sort"
-  display flag Unit = text "Unit"
-  display flag Star = text "()"
-  display flag a@(Tensor t t') =
-    fsep [dParen flag (precedence a - 1) t,  text "*", dParen flag (precedence a) t']
-  display flag (Pair a b) =
-    parens $ fsep [display flag a, text "," , display flag b]
-  display flag (Pack a b) =
-    braces $ display flag a <+> text "," <+> display flag b
-    
-  display flag (Force m) = text "&" <> display flag m
-  display flag (Force' m) = text "&'" <> display flag m
-  display flag (Lift m) = text "lift" <+> display flag m
-
-  display flag (Circ u t) =
-    text "Circ" <> (parens $ fsep [display flag u <> comma, display flag t])
-  display flag (Pi bd t) =
-    open bd $ \ vs b ->
-    fsep [parens ((hsep $ map (display flag) vs) <+> text "::" <+> display flag t)
-    <+> text "->" , nest 2 $ display flag b]
-  display flag (Pi' bd t) =
-    open bd $ \ vs b ->
-    fsep [parens ((hsep $ map (display flag) vs) <+> text "::" <+> display flag t)
-    <+> text "->'" , nest 2 $ display flag b]
-    
-  display flag (PiImp bd t) =
-    open bd $ \ vs b ->
-    fsep [text "PiImp", braces ((hsep $ map (display flag) vs) <+> text "::" <+> display flag t)
-    <+> text "." , nest 2 $ display flag b]
-    
-  display flag (Exists bd t) =
-    open bd $ \ v b ->
-    fsep [text "exists" <+> display flag v <+> text "::" <+> display flag t,
-           text "." , nest 2 $ display flag b]    
-  display flag (Box) = text "box"
-  display flag (ExBox) = text "existsBox"
-  display flag (UnBox) = text "unbox" 
-  display flag (Revert) = text "revert"
-  display flag (RunCirc) = text "runCirc"
-  display flag (Let m bd _) =
-    open bd $ \ x b ->
-    fsep [text "let" <+> display flag x <+> text "=", display flag m,
-          text "in" <+> display flag b]
-  display flag (LetAnn bd ty m _) =
-    open bd $ \ x b ->
-    fsep [text "let" <+> display flag x <+> text "::" <+> display flag ty $$
-          nest 3 (display flag x <+> text "=" <+> display flag m),
-          text "in" <+> display flag b]
-    
-  display flag (LetPair m bd cs) =
-    open bd $ \ xs b ->
-    fsep [text "let" <+> parens (hsep $ punctuate comma $ map (display flag) xs), text "=", display flag m ,
-           text "in" <+> display flag b]
-  display flag (LetEx m bd _) =
-    open bd $ \ (x, y) b ->
-    fsep [text "let" <+> braces (display flag x<>comma<+> display flag y) <+> text "=", display flag m ,
-           text "in" <+> display flag b]
-    
-  display flag (LetPat m bd) =
-    open bd $ \ ps b ->
-    fsep [text "let" <+> (display flag ps) <+> text "=" , display flag m,
-          text "in" <+> display flag b]
-  display flag (Case e (B brs)) =
-    text "case" <+> display flag e <+> text "of" $$
-    nest 2 (vcat $ map helper brs)
-    where helper bd =
-            open bd $ \ p b -> fsep [display flag p, text "->" , nest 2 (display flag b)]
-
-  display flag (WithType m t) =
-    fsep [text "withType" <+> display flag t <+> text ":", display flag m]
-
-  display flag (Wired bd) = 
-   open bd $ \ wires e -> (display flag e)
-  display flag e = error $ "from display: " ++ show e
-  precedence (Var _ ) = 12
-  precedence (GoalVar _ ) = 12
-  precedence (EigenVar _ ) = 12
-  precedence (RealNum) = 12
-  precedence (RealOp _) = 12
-  precedence (WrapR _) = 12
-  precedence (Base _ ) = 12
-  precedence (LBase _ ) = 12
-  precedence (Const _ ) = 12
-  precedence (Circ _ _ ) = 12
-  precedence (Unit) = 12
-  precedence (Star) = 12
-  precedence (Box) = 12
-  precedence (UnBox) = 12
-  precedence (Revert) = 12
-  precedence (RunCirc) = 12
-  precedence (ExBox) = 12
-  
-
-  precedence (Set) = 12
-
-  precedence (App _ _) = 10
-  precedence (App' _ _) = 10  
-  precedence (AppImp _ _) = 10
-  precedence (AppType _ _) = 10
-  precedence (AppDep _ _) = 10
-  precedence (AppDict _ _) = 10
-  precedence (AppTm _ _) = 10
-  precedence (Pair _ _) = 11
-  precedence (Arrow _ _) = 7
-  precedence (Arrow' _ _) = 7
-  precedence (Tensor _ _) = 8
-  precedence (Bang _) = 9
-
-  precedence (Pos p e) = precedence e
-  precedence _ = 0
 
 
 -- | Internal representations of declarations, they are obtained from
