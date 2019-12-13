@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE PatternSynonyms, ViewPatterns #-}
 
 module Utils where
 
@@ -12,6 +13,43 @@ import Text.Parsec.Error(ParseError,showErrorMessages,errorPos,errorMessages)
 import Prelude hiding((<>))
 import Nominal
 import Data.Char
+
+data V
+
+instance AtomKind V where
+  suggested_names _ = ["a", "b", "c", "d", "e", "x", "y", "z"]
+  expand_names _ xs = xs ++ [ x ++ (show n) | n <- [1..], x <- xs ]
+
+data Variable = Variable (AtomOfKind V) (NoBind String) 
+  deriving (Generic, Bindable, Nominal, NominalShow, NominalSupport, Ord)
+
+instance NominalShow (NoBind String) where
+  showsPrecSup sup d (NoBind x) = showsPrecSup sup d x
+
+   
+instance Show Variable where
+  show (Variable a _) = show a
+
+instance Eq Variable where
+  (Variable x _) == (Variable y _) = x == y
+  
+instance Disp Variable where
+  display True (Variable x (NoBind y)) = text y
+  display False (Variable x _) = text (show x)
+  
+
+pattern Abst :: (Bindable a, Nominal t) => a -> t -> Bind a t
+pattern Abst x t <- ((\ b -> open b (\ x b' -> (x, b'))) -> (x, t))
+
+
+freshNames :: [String] -> ([Variable] -> t) -> t
+freshNames [] body = body []
+freshNames (n:ns) body =
+  freshName n $ \ a ->
+  freshNames ns $ \ as ->
+  body (a:as)
+  where freshName s k =
+          with_fresh $ \a -> k (Variable a (NoBind s))
 
 
 data Id = Id String

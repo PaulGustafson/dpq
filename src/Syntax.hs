@@ -16,8 +16,6 @@ import Prelude hiding ((.), (<>))
 
 
 import Nominal
-import Nominal.Atom
-import Nominal.Atomic
 
 import Control.Monad.Identity
 import Control.Monad.Except
@@ -31,43 +29,6 @@ import Debug.Trace
 
 
 
-data V
-
-instance AtomKind V where
-  suggested_names _ = ["a", "b", "c", "d", "e", "x", "y", "z"]
-  expand_names _ xs = xs ++ [ x ++ (show n) | n <- [1..], x <- xs ]
-
-data Variable = Variable (AtomOfKind V) (NoBind String) 
-  deriving (Generic, Bindable, Nominal, NominalShow, NominalSupport, Ord)
-
-instance NominalShow (NoBind String) where
-  showsPrecSup sup d (NoBind x) = showsPrecSup sup d x
-
-instance NominalShow (NoBind Exp) where
-  showsPrecSup sup d (NoBind x) = showsPrecSup sup d x
-   
-instance Show Variable where
-  show (Variable a _) = show a
-
-instance Eq Variable where
-  (Variable x _) == (Variable y _) = x == y
-  
-instance Disp Variable where
-  display True (Variable x (NoBind y)) = text y
-  display False (Variable x _) = text (show x)
-  
-pattern Abst :: (Bindable a, Nominal t) => a -> t -> Bind a t
-pattern Abst x t <- ((\ b -> open b (\ x b' -> (x, b'))) -> (x, t))
-
-
-freshNames :: [String] -> ([Variable] -> t) -> t
-freshNames [] body = body []
-freshNames (n:ns) body =
-  freshName n $ \ a ->
-  freshNames ns $ \ as ->
-  body (a:as)
-  where freshName s k =
-          with_fresh $ \a -> k (Variable a (NoBind s))
 
 data Exp =
   Var Variable
@@ -334,6 +295,8 @@ instance Disp Exp where
   precedence (Pos p e) = precedence e
   precedence _ = 0
 
+instance NominalShow (NoBind Exp) where
+  showsPrecSup sup d (NoBind x) = showsPrecSup sup d x
 
 data Decl = Object Position Id
           | Data Position Id Exp [(Position, Id, Exp)] 
@@ -341,7 +304,7 @@ data Decl = Object Position Id
           | Class Position Id Exp Id Exp [(Position, Id, Exp, Exp)]
           | Instance Position Id Exp [(Position, Id, Exp)]
           | Def Position Id Exp Exp
-          | GateDecl Position Id (Maybe Exp) Exp
+          | GateDecl Position Id [Exp] Exp
           | ControlDecl Position Id [Exp] Exp
           | ImportDecl Position String
           | OperatorDecl Position String Int String
@@ -659,162 +622,6 @@ data VarSwitch = GetGoal -- ^ Get goal variables only.
   | OnlyEigen  -- ^ Obtain only eigen variables from an expression.
   | All
 -- | Obtain the set of variables in an expression.
-free_vars :: VarSwitch -> Exp -> S.Set Variable
-free_vars AllowEigen (EigenVar x) = S.insert x S.empty
-free_vars OnlyEigen (EigenVar x) = S.insert x S.empty
-free_vars All (EigenVar x) = S.insert x S.empty
-free_vars All (Label x) = S.insert x S.empty
-free_vars a (Label x) = S.empty
-free_vars NoEigen (EigenVar _) = S.empty
-free_vars GetGoal (EigenVar _) = S.empty
-free_vars NoImply (EigenVar x) = S.insert x S.empty
-free_vars GetGoal (Var x) = S.empty
-free_vars OnlyEigen (Var x) = S.empty
-free_vars b (Var x) = S.insert x S.empty
-free_vars OnlyEigen (GoalVar x) = S.empty
-free_vars GetGoal (GoalVar x) = S.insert x S.empty
-free_vars All (GoalVar x) = S.insert x S.empty
-free_vars b (GoalVar x) = S.empty
-free_vars b (Base _) = S.empty
-free_vars b (LBase _) = S.empty
-free_vars b (Const _) = S.empty
-free_vars b (Unit) = S.empty
-free_vars b (Star) = S.empty
-free_vars b (Set) = S.empty
-free_vars b (UnBox) = S.empty
-free_vars b (Revert) = S.empty
-free_vars b (RealNum) = S.empty
-free_vars b (WrapR _) = S.empty
-free_vars b (RealOp _) = S.empty
-free_vars b (RunCirc) = S.empty
-free_vars b (App t t') =
-  free_vars b t `S.union` free_vars b t'
-free_vars b (App' t t') =
-  free_vars b t `S.union` free_vars b t'  
-free_vars b (AppType t t') =
-  free_vars b t `S.union` free_vars b t'
-free_vars b (AppDep t t') =
-  free_vars b t `S.union` free_vars b t'
-free_vars b (AppDep' t t') =
-  free_vars b t `S.union` free_vars b t'  
-free_vars b (AppDict t t') =
-  free_vars b t `S.union` free_vars b t'    
-free_vars b (AppTm t t') =
-  free_vars b t `S.union` free_vars b t'
-free_vars b (AppImp t t') =
-  free_vars b t `S.union` free_vars b t'
-  
-free_vars b (Tensor ty tm) =
-  free_vars b ty `S.union` free_vars b tm
-free_vars b (Arrow ty tm) =
-  free_vars b ty `S.union` free_vars b tm
-free_vars b (Arrow' ty tm) =
-  free_vars b ty `S.union` free_vars b tm  
-free_vars NoImply (Imply ty tm) = free_vars NoImply tm
-free_vars b (Imply ty tm) =
-  (S.unions $ map (free_vars b) ty) `S.union` free_vars b tm  
-free_vars b (Bang t) = free_vars b t
-free_vars b (Pi bind t) =
-  free_vars b t `S.union`
-  (open bind $ \ xs m -> free_vars b m `S.difference` S.fromList xs)
-free_vars b (Pi' bind t) =
-  free_vars b t `S.union`
-  (open bind $ \ xs m -> free_vars b m `S.difference` S.fromList xs)  
-free_vars b (PiImp bind t) =
-  free_vars b t `S.union`
-  (open bind $ \ xs m -> free_vars b m `S.difference` S.fromList xs)  
-free_vars b (Exists bind t) =
-  free_vars b t `S.union`
-  (open bind $ \ xs m -> free_vars b m `S.difference` S.fromList [xs])
-free_vars b (Lam bind _) =
-  open bind $ \ xs m -> free_vars b m `S.difference` S.fromList xs
-free_vars b (Lam' bind) =
-  open bind $ \ xs m -> free_vars b m `S.difference` S.fromList xs  
-free_vars b (LamImp bind) =
-  open bind $ \ xs m -> free_vars b m `S.difference` S.fromList xs                        
-free_vars b (LamType bind) =
-  open bind $ \ xs m -> free_vars b m `S.difference` S.fromList xs
-free_vars b (LamDep bind _) =
-  open bind $ \ xs m -> free_vars b m `S.difference` S.fromList xs
-free_vars b (LamDep' bind) =
-  open bind $ \ xs m -> free_vars b m `S.difference` S.fromList xs                          
-free_vars b (LamTm bind) =
-  open bind $ \ xs m -> free_vars b m `S.difference` S.fromList xs
-free_vars b (LamDict bind) =
-  open bind $ \ xs m -> free_vars b m `S.difference` S.fromList xs                        
-free_vars b (LamAnn ty bind _) =
-    free_vars b ty `S.union` (open bind $ \ xs m -> free_vars b m `S.difference` S.fromList [xs])
-                        
-free_vars b (Forall bind ty) =
-  open bind $ \ xs m -> S.union (free_vars b m `S.difference` S.fromList xs) (free_vars b ty)
-free_vars b (Forall' bind ty) =
-  open bind $ \ xs m -> S.union (free_vars b m `S.difference` S.fromList xs) (free_vars b ty)                        
-free_vars b (Circ t u) = S.union (free_vars b t) (free_vars b u)
-free_vars b (Pair ty tm) =
-  free_vars b ty `S.union` free_vars b tm
-free_vars b (Pack ty tm) =
-  free_vars b ty `S.union` free_vars b tm
-free_vars b (WithType ty tm) =
-  free_vars b ty `S.union` free_vars b tm
-
-free_vars b (Let t bind _) =
-  free_vars b t `S.union`
-  (open bind $ \ x m -> S.delete x (free_vars b m))
-
-free_vars b (LetAnn bind t m _) =
-  free_vars b t `S.union` free_vars b m `S.union` 
-  (open bind $ \ x m -> S.delete x (free_vars b m))
-
-free_vars b (LetPair t bind _) =
-  free_vars b t `S.union`
-  (open bind $ \ xs m -> (S.difference (free_vars b m) (S.fromList xs)))
-
-free_vars b (LetEx t bind _) =
-  free_vars b t `S.union`
-  (open bind $ \ (x, y) m -> S.delete y (S.delete x (free_vars b m)))
-
-free_vars b (LetPat t (Abst ps m)) =
-  let (bvs, fvs) = pvar ps in
-  (free_vars b t `S.union` fvs `S.union` free_vars b m)
-  `S.difference` bvs
-  where pvar (PApp _ []) = (S.empty, S.empty)
-        pvar (PApp k ((Right (x, _)):xs)) =
-          let (bv, fv) = pvar (PApp k xs) in
-          (S.insert x bv, fv)
-        pvar (PApp k ((Left (NoBind x)):xs)) =
-          let (bv, fv) = pvar (PApp k xs)
-              fbv = free_vars b x
-          in (bv, S.union fbv fv)
-
-
-free_vars b (Force t) = free_vars b t
-free_vars b (Force' t) = free_vars b t
-
-free_vars b (Box) = S.empty
-
-free_vars b (ExBox) = S.empty
-
-
-free_vars b (Lift t) = free_vars b t
-  
-free_vars b (Case t (B brs)) =
-  free_vars b t `S.union` S.unions (map helper brs)
-  where helper bind = open bind $ \ ps m ->
-          let (bvs, fvs) = pvar ps in
-          (fvs `S.union` free_vars b m) `S.difference` bvs
-        pvar (PApp _ []) = (S.empty, S.empty)
-        pvar (PApp k ((Right (x, _)):xs)) =
-          let (bv, fv) = pvar (PApp k xs) in
-          (S.insert x bv, fv)
-        pvar (PApp k ((Left (NoBind x)):xs)) =
-          let (bv, fv) = pvar (PApp k xs)
-              fbv = free_vars b x
-          in (bv, S.union fbv fv)
-
-
-free_vars b (Pos p e) = free_vars b e
-free_vars b (Wired _) = S.empty
-free_vars b a = error $ "from free_vars  " ++ render (disp a)
 
 -- * Substitution
    
@@ -1509,35 +1316,6 @@ unEigenBound vars a = error $ "from unEigenBound" ++ (show $ disp a)
 
 
 
--- | Removing all the vacuous pi quantifiers.
-removeVacuousPi :: Exp -> Exp
-removeVacuousPi (Pos p e) = Pos p $ removeVacuousPi e
-removeVacuousPi (Forall (Abst xs m) ty) =
-  Forall (abst xs $ removeVacuousPi m) (removeVacuousPi ty)
-removeVacuousPi (PiImp (Abst xs m) ty) =
-  PiImp (abst xs $ removeVacuousPi m) (removeVacuousPi ty)  
-removeVacuousPi (Pi (Abst xs m) ty) =
-  let fvs = free_vars AllowEigen m
-      xs' = map (\ x ->
-                  if S.member x fvs then
-                    Just x
-                  else Nothing
-                ) xs
-      ty' = removeVacuousPi ty
-      m' = removeVacuousPi m
-  in foldr (\ x y -> case x of
-                       Nothing -> Arrow ty' y
-                       Just x' -> Pi (abst [x'] y) ty'
-           ) m' xs'
-     
-removeVacuousPi (Arrow ty1 ty2) =
-  Arrow (removeVacuousPi ty1) (removeVacuousPi ty2)
-
-removeVacuousPi (Imply ps ty2) =
-  Imply ps (removeVacuousPi ty2)
-
-removeVacuousPi (Bang ty) = Bang $ removeVacuousPi ty
-removeVacuousPi a = a
   
 -- | Detect vacuous forall quantifications, returns a list of vacuous variables, their type
 --  and the expression that they should occur in. 
