@@ -233,15 +233,6 @@ instanceDecl =
                   reservedOp "="
                   def <- term
                   return (P pos, n, args, def)
-             multi = 
-               do bds <- try (parens $ typeExp `sepBy` comma)
-                         <|> (typeExp >>= \ x -> return [x])
-                  reservedOp "=>"
-                  head <- typeExp     
-                  return (bds, head)
-             single =
-               do head <- typeExp
-                  return ([], head)
 
 -- | A parser for object declaration.
 objectDecl :: Parser Decl
@@ -251,8 +242,7 @@ objectDecl =
      o <- const
      return $ Object (P p) o
 
--- | A parser for gate declaration, the parameter can be "Real n"
--- (a real number of length n). 
+-- | A parser for gate declaration
 gateDecl :: Parser Decl
 gateDecl =
   do reserved "gate"
@@ -262,12 +252,6 @@ gateDecl =
      reservedOp "::"
      ty <- typeExp
      return $ GateDecl (P p) g args ty
-  where ann1 = 
-          braces $ 
-          do x <- var
-             reservedOp "::"
-             ty <- typeExp 
-             return (x, ty)    
 
 -- | Generalized controlled declaration. 
 
@@ -275,11 +259,10 @@ controlDecl =
   do reserved "controlled"
      p <- getPosition
      g <- const
-     args <- many const
-     let args' = map (\ a -> Pos (P p) (Base a)) args
+     args <- many (const >>= \ a -> return $ Pos (P p) (Base a))
      reservedOp "::"
      ty <- typeExp
-     return $ ControlDecl (P p) g args' ty
+     return $ ControlDecl (P p) g args ty
 
 -- | A parser for data type declaration. We allow data type without any constructor,
 -- in that case, one should not use '='.     
