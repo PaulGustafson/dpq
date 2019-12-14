@@ -15,6 +15,10 @@ data TypeError = Unhandle Exp
                | ErrPos Position TypeError
                | NoDef Id
 
+-- | Add a position to an error message if the message does not already contain
+addErrPos p a@(ErrPos _ _) = a
+addErrPos p a = ErrPos p a
+
 
 instance Disp TypeError where
   display flag (ErrPos p e) =

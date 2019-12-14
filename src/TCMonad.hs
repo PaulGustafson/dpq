@@ -49,11 +49,16 @@ data VarIdentification = TermVar ZipCount (Maybe Exp)
                          -- ^ whether a type variable is a parameter variable
 
 
+type Context = Map Id Info
 
 data LContext = LContext {
   localCxt :: Map Variable VarInfo, -- ^ local variable info.
-  globalCxt  :: Map Id Info  -- ^ global typing context.
+  globalCxt  :: Context  -- ^ global typing context.
   }
+
+fromGlobal :: Context -> LContext
+fromGlobal gl = LContext {localCxt = Map.empty, globalCxt = gl }
+
 
 type GlobalInstanceCxt = [(Id, Exp)]
 
@@ -66,6 +71,11 @@ data InstanceContext = IC {
                                   -- (<variable>, (<type>, <original-term-for-error-info)).
   }
 
+makeInstanceCxt :: GlobalInstanceCxt -> InstanceContext
+makeInstanceCxt gl =
+  IC {localInstance = [], globalInstance = gl, goalInstance = []}
+
+
 data TypeState = TS {
                      lcontext :: LContext,
                      subst :: Subst, -- ^ Substitution generated during the type checking.
@@ -75,8 +85,8 @@ data TypeState = TS {
 
 -- | Initial type state from a global typing context and a
 -- global type class instance context.
--- initTS :: Map Id Info -> GlobalInstanceCxt -> TypeState
--- initTS gl inst = TS (from_global gl) Map.empty 0 (makeInstanceEnv inst)
+initTS :: Map Id Info -> GlobalInstanceCxt -> TypeState
+initTS gl inst = TS (fromGlobal gl) Map.empty 0 (makeInstanceCxt inst)
 
 -- * The type checking monad tranformer
 
@@ -84,6 +94,11 @@ newtype TCMonadT m a = TC{runTC :: ExceptT TypeError (StateT TypeState m) a}
   deriving (Functor, Monad, Applicative, MonadError TypeError, MonadState TypeState)
 
 type TCMonad a = TCMonadT Identity a
+
+runTCMonadT :: Context -> GlobalInstanceCxt -> 
+                      TCMonadT m a -> m (Either TypeError a, TypeState)
+runTCMonadT env inst m =
+  runStateT (runExceptT $ runTC m) (initTS env inst) 
 
 lookupId :: Id -> TCMonad Info
 lookupId x =
