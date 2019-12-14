@@ -15,6 +15,21 @@ typeInfer flag (Pos p e) =
   do (ty, ann) <- typeInfer flag e `catchError` \ e -> throwError $ addErrPos p e
      return (ty, (Pos p ann))
 
+typeInfer flag Set = return (Sort, Set)
+
+typeInfer flag a@(Base kid) =
+  lookupId kid >>= \ x -> return (classifier x, a)
+
+typeInfer flag a@(Var x) =
+  do (t, _) <- lookupVar x
+     if flag then
+       do t' <- shape t 
+          return (t', a)
+       else
+       do updateCount x
+          return (t, a)
+
+
 
 
 

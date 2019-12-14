@@ -14,7 +14,7 @@ import Control.Monad.Except
 data TypeError = Unhandle Exp
                | ErrPos Position TypeError
                | NoDef Id
-
+               | UnBoundErr Variable
 -- | Add a position to an error message if the message does not already contain
 addErrPos p a@(ErrPos _ _) = a
 addErrPos p a = ErrPos p a
@@ -32,4 +32,6 @@ instance Disp TypeError where
   display flag (NoDef t) =
     text "no definition for the identifier:" $$ nest 2 (display flag t)
 
+  display flag (UnBoundErr x) =
+    text "unbound variable:" <+> display flag x
 
