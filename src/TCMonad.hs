@@ -21,7 +21,7 @@ data Info =
        }
 
 data Identification = DataConstr Id  -- ^ Data type id 
-                    | DefinedGate Exp
+                    | DefinedGate Exp -- storing value
                     | DefinedFunction Exp
                     | DefinedMethod Exp 
                     | DefinedInstFunction Exp 
@@ -45,8 +45,8 @@ data VarInfo =
            varIdentification :: VarIdentification
          } 
 
-data VarIdentification = TermVar ZipCount (Maybe Exp)
-                         -- ^ a term variable's count and let-definition if any.
+data VarIdentification = TermVar ZipCount 
+                         -- ^ a term variable's count
                        | TypeVar Bool
                          -- ^ whether a type variable is a parameter variable
 
@@ -88,7 +88,7 @@ data TypeState = TS {
 -- | Initial type state from a global typing context and a
 -- global type class instance context.
 initTS :: Map Id Info -> GlobalInstanceCxt -> TypeState
-initTS gl inst = TS (fromGlobal gl) Map.empty 0 (makeInstanceCxt inst)
+initTS gl inst = TS (fromGlobal gl) Map.empty 0 (makeInstanceCxt inst) 
 
 -- * The type checking monad tranformer
 
@@ -122,7 +122,7 @@ lookupVar x =
          do let a = substitute s $ varClassifier lp
                 varid = varIdentification lp
             case varid of
-              TermVar c _ -> return (a, Just c)
+              TermVar c -> return (a, Just c)
               _ -> return (a, Nothing)
 
 
@@ -241,8 +241,8 @@ updateCount x =
        Just lpkg ->
          case varIdentification lpkg of
            TypeVar b -> return ()
-           TermVar c d ->
-             do let lty' = Map.insert x (lpkg{varIdentification = TermVar (incr c) d}) lty
+           TermVar c ->
+             do let lty' = Map.insert x (lpkg{varIdentification = TermVar (incr c)}) lty
                     gamma' = gamma {localCxt = lty'}
                 put ts{lcontext = gamma'}
 
@@ -395,3 +395,31 @@ shape (LetPat m (Abst (PApp id vs) b)) =
      
 shape (Pos _ a) = shape a
 shape a = error $ "from shape: " ++ (show $ disp a)
+
+
+updateWithSubst :: Exp -> TCMonad Exp
+updateWithSubst e =
+  do ts <- get
+     return $ substitute (subst ts) e
+
+-- | Add a variable into the typing context
+addVar :: Variable -> Exp -> TCMonad ()
+addVar x t =
+  do ts <- get
+     let b = isKind t
+         env = lcontext ts
+         pkg = if b then VarInfo t (TypeVar False) else VarInfo t (TermVar initCount)
+         gamma' =  Map.insert x pkg (localCxt env)
+         env' = env{localCxt = gamma'}
+     put ts{lcontext = env'}
+
+
+-- | Add a goal variable, its type and its origin into the type class context. 
+addGoalInst :: Variable -> Exp -> Exp -> TCMonad ()
+addGoalInst x t e =
+  do ts <- get
+     let env = instanceContext ts
+         gamma' = (x, (t, e)) : goalInstance env
+         env' = env{goalInstance = gamma'}
+     put ts{instanceContext = env'}
+

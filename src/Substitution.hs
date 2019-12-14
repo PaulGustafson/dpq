@@ -195,3 +195,4 @@ substitute s a =
               subs = Map.fromList $ map (\ y -> (y, EigenVar y)) fvs
           in substitute' subs v
 
+apply s t = let s' = Map.fromList s in substitute s' t
