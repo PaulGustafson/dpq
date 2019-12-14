@@ -499,18 +499,6 @@ isArrow (Set) = True
 isArrow (Unit) = True
 isArrow a = False
 
--- | Determine whether an expression is a kind expression. Note we allow
--- dependent kind such as: (a :: Type) -> (x :: !a) -> Type. 
-isKind (Set) = True
-isKind (Arrow k1 k2) = isKind k2
-isKind (Arrow' k1 k2) = isKind k2
-isKind (Pi b ty) = open b $ \ vs b' -> isKind b'
-isKind (Pi' b ty) = open b $ \ vs b' -> isKind b'
--- isKind (PiImp b ty) = open b $ \ vs b' -> isKind b'
-isKind (Forall b ty) = open b $ \ vs b' -> isKind b'
-isKind (Forall' b ty) = open b $ \ vs b' -> isKind b'
-isKind (Pos _ e) = isKind e
-isKind _ = False
 
 -- | Convert an implicit type to its explicit version
 toExplicit (Forall (Abst [] t) ty) = toExplicit t

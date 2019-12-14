@@ -5,6 +5,7 @@ import Syntax
 import Nominal
 import Utils
 import TCMonad
+import SyntacticOperations
 
 import Control.Monad.Except
 import Control.Monad.State
@@ -81,12 +82,12 @@ erasure a@(LamDict (Abst xs m)) =
 
 erasure (LamDep (Abst ys m)) =
   do m' <- erasure m
-     return $ LamDep (abst xs m') 
+     return $ LamDep (abst ys m') 
 
 
 erasure (LamDep' (Abst ys m)) =
   do m' <- erasure m
-     return $ LamDep' (abst xs m') 
+     return $ LamDep' (abst ys m') 
 
 erasure (LamTm bd) =
   open bd $ \ xs m -> erasure m
@@ -94,18 +95,18 @@ erasure (LamTm bd) =
 erasure (LamType bd) =
   open bd $ \ xs m -> erasure m
 
-erasure (Lift t) =  Lift $ erasure t
+erasure (Lift t) =  Lift <$> erasure t
 
-erasure (Force t) = Force $ erasure t
-erasure (Force' t) = Force' $ erasure t
+erasure (Force t) = Force <$> erasure t
+erasure (Force' t) = Force' <$> erasure t
 
-erasure (UnBox) = UnBox
+erasure (UnBox) = return UnBox
 
-erasure (Revert) = Revert
-erasure (RunCirc) = RunCirc
+erasure (Revert) = return Revert
+erasure (RunCirc) = return RunCirc
 
-erasure a@(Box) = a
-erasure a@(ExBox) = a
+erasure a@(Box) = return a
+erasure a@(ExBox) = return a
 
 erasure (Let m bd) = open bd $ \ vs b -> 
   do m' <- erasure m
@@ -127,8 +128,8 @@ erasure (LetPat m bd) = open bd $ \ pa b ->
     PApp kid args ->
       do b' <- erasure b
          m' <- erasure m
-         funP <- lookupConst kid
-         isSemi <- querySemiSimple kid
+         funP <- lookupId kid
+         isSemi <- isSemiSimple kid
          let ty = classifier funP
          args' <- helper isSemi ty args b 
          return $ LetPat m' (abst (PApp kid args') b')
@@ -179,9 +180,9 @@ erasure l@(Case e (B br)) =
        where helper bd = open bd $ \ p m ->
                case p of
                  PApp kid args ->
-                   do funP <- lookupConst kid
+                   do funP <- lookupId kid
                       let ty = classifier funP
-                      isSemi <- querySemiSimple kid
+                      isSemi <- isSemiSimple kid
                       args' <- helper2 isSemi ty args m 
                       m' <- erasure m
                       return (abst (PApp kid args') m')

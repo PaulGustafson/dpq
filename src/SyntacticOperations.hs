@@ -263,3 +263,13 @@ flatten (AppType t1 t2) = flatten t1
 flatten (AppTm t1 t2) = flatten t1
 flatten (Pos p e) = flatten e
 flatten _ = Nothing
+
+
+-- | Determine whether an expression is a kind expression. Note we allow
+-- dependent kind such as: (a :: Type) -> (x :: !a) -> Type. 
+isKind (Set) = True
+isKind (Arrow k1 k2) = isKind k2
+isKind (Pi b ty) = open b $ \ vs b' -> isKind b'
+isKind (Forall b ty) = open b $ \ vs b' -> isKind b'
+isKind (Pos _ e) = isKind e
+isKind _ = False
