@@ -129,7 +129,7 @@ erasure (LetPat m bd) = open bd $ \ pa b ->
       do b' <- erasure b
          m' <- erasure m
          funP <- lookupId kid
-         isSemi <- isSemiSimple kid
+         (isSemi, _) <- isSemiSimple kid
          let ty = classifier funP
          args' <- helper isSemi ty args b 
          return $ LetPat m' (abst (PApp kid args') b')
@@ -182,7 +182,7 @@ erasure l@(Case e (B br)) =
                  PApp kid args ->
                    do funP <- lookupId kid
                       let ty = classifier funP
-                      isSemi <- isSemiSimple kid
+                      (isSemi, _) <- isSemiSimple kid
                       args' <- helper2 isSemi ty args m 
                       m' <- erasure m
                       return (abst (PApp kid args') m')

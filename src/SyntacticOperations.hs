@@ -177,11 +177,6 @@ varSwitch _ (Var x) = S.empty
 varSwitch GetGoal (GoalVar x) = S.insert x S.empty
 varSwitch _ (GoalVar x) = S.empty
 
-
-
-
-
-
 -- | Flatten a n-tuple into a list. 
 unPair n (Pos _ e) = unPair n e
 unPair n (Pair x y) | n == 2 = Just [x, y]
@@ -328,3 +323,233 @@ erasePos (LetPat m (Abst (PApp id vs) b)) = LetPat (erasePos m) (abst (PApp id v
 erasePos (Case e (B br)) = Case (erasePos e) (B (map helper br))
   where helper (Abst p m) = abst p (erasePos m)
 erasePos e = error $ "from erasePos " ++ (show $ disp e)
+
+isEigenVar (EigenVar _) = True
+isEigenVar (Pos p e) = isEigenVar e
+isEigenVar _ = False
+
+
+-- | change eigenvariable to the usual variable
+unEigen = unEigenBound []
+
+-- | Helper function for unEigen
+unEigenBound :: [Variable] -> Exp -> Exp
+unEigenBound vars (Pos p e) = Pos p (unEigenBound vars e)
+unEigenBound vars (Unit) = Unit
+unEigenBound vars (Set) = Set
+unEigenBound vars Star = Star
+unEigenBound vars a@(Var x) = a
+unEigenBound vars a@(GoalVar x) = a
+unEigenBound vars a@(EigenVar x) = if x `elem` vars then Var x else a
+unEigenBound vars a@(Base x) = a
+unEigenBound vars a@(LBase x) = a
+unEigenBound vars a@(Const x) = a
+
+unEigenBound vars (App e1 e2) =
+  let e1' = (unEigenBound vars e1)
+      e2' = (unEigenBound vars e2)
+  in App e1' e2'
+
+unEigenBound vars (App' e1 e2) =
+  let e1' = (unEigenBound vars e1)
+      e2' = (unEigenBound vars e2)
+  in App' e1' e2'
+  
+unEigenBound vars (AppType e1 e2) =
+  let e1' = (unEigenBound vars e1)
+      e2' = (unEigenBound vars e2)
+  in AppType e1' e2'  
+
+unEigenBound vars (AppTm e1 e2) =
+  let e1' = (unEigenBound vars e1)
+      e2' = (unEigenBound vars e2)
+  in AppTm e1' e2'  
+
+unEigenBound vars (AppDep e1 e2) =
+  let e1' = (unEigenBound vars e1)
+      e2' = (unEigenBound vars e2)
+  in AppDep e1' e2'  
+
+unEigenBound vars (AppDep' e1 e2) =
+  let e1' = (unEigenBound vars e1)
+      e2' = (unEigenBound vars e2)
+  in AppDep' e1' e2'  
+
+unEigenBound vars (AppDict e1 e2) =
+  let e1' = (unEigenBound vars e1)
+      e2' = (unEigenBound vars e2)
+  in AppDict e1' e2'  
+
+unEigenBound vars (Tensor e1 e2) =
+  let e1' = (unEigenBound vars e1)
+      e2' = (unEigenBound vars e2)
+  in Tensor e1' e2'
+  
+unEigenBound vars (Pair e1 e2) = 
+  let e1' = (unEigenBound vars e1)
+      e2' = (unEigenBound vars e2)
+  in  Pair e1' e2'
+
+unEigenBound vars (Pack e1 e2) = 
+  let e1' = (unEigenBound vars e1)
+      e2' = (unEigenBound vars e2)
+  in Pack e1' e2' 
+
+unEigenBound vars (Arrow e1 e2) =
+  let e1' = (unEigenBound vars e1)
+      e2' = (unEigenBound vars e2)
+  in Arrow e1' e2'
+
+unEigenBound vars (Arrow' e1 e2) =
+  let e1' = (unEigenBound vars e1)
+      e2' = (unEigenBound vars e2)
+  in Arrow' e1' e2'
+
+unEigenBound vars (Imply e1 e2) =
+  let e1' = map (unEigenBound vars) e1
+      e2' = unEigenBound vars e2
+  in Imply e1' e2'
+
+unEigenBound vars (Bang e) = Bang (unEigenBound vars e)
+unEigenBound vars (UnBox) = UnBox
+unEigenBound vars (Revert) = Revert
+unEigenBound vars (RunCirc) = RunCirc
+unEigenBound vars (Box) = Box 
+unEigenBound vars (ExBox) = ExBox 
+unEigenBound vars (Lift e) = Lift (unEigenBound vars e)
+unEigenBound vars (Force e) = Force (unEigenBound vars e)
+unEigenBound vars (Force' e) = Force' (unEigenBound vars e)
+
+unEigenBound vars (Circ e1 e2) =
+  let e1' = (unEigenBound vars e1)
+      e2' = (unEigenBound vars e2)
+  in Circ e1' e2'
+
+unEigenBound vars (LetPair m bd) = open bd $ \ xs b ->
+  let m' = (unEigenBound vars m)
+      b' = (unEigenBound (xs ++ vars) b)
+  in LetPair m' (abst xs b') 
+
+unEigenBound vars (LetEx m bd) = open bd $ \ (x, y) b ->
+  let m' = (unEigenBound vars m)
+      b' = (unEigenBound (x:y:vars) b)
+  in LetEx m' (abst (x, y) b')
+
+unEigenBound vars (LetPat m bd) = open bd $ \ (PApp id vs) b ->
+  let m' = unEigenBound vars m
+      (bvs, vs') = pvar vs
+      b' = unEigenBound (bvs ++ vars) b
+  in LetPat m' (abst (PApp id vs') b')
+ where  pvar ([]) = ([], [])
+        pvar (Right x : xs) =
+          let (bv, fv) = pvar xs in
+          (x:bv, Right x : fv)
+        pvar (Left (NoBind (Var x)):xs) =
+          let (bv, fv) = pvar xs in
+          if x `elem` vars then
+            (bv, Left (NoBind (Var x)):fv)
+          else (x:bv, Right x : fv)
+        pvar (Left (NoBind (EigenVar x)):xs) =
+          let (bv, fv) = pvar xs in
+          if x `elem` vars then
+            (bv, Left (NoBind (Var x)):fv)
+          else (x:bv, Right x : fv)
+          
+        pvar ((Left (NoBind x)):xs) =
+          let (bv, fv) = pvar xs
+              x' = unEigenBound vars x
+          in (bv, Left (NoBind x'):fv)
+   
+unEigenBound vars (Let m bd) = open bd $ \ p b ->
+  let m' = (unEigenBound vars m)
+      b' = (unEigenBound (p:vars) b)
+  in Let m' (abst p b') 
+
+unEigenBound vars (LamTm bd) =
+  open bd $ \ xs m ->
+   let m' = unEigenBound (xs ++ vars) m
+   in LamTm $ abst xs m'
+
+unEigenBound vars (LamDep bd) =
+  open bd $ \ xs m ->
+   let m' = unEigenBound (xs ++ vars) m
+   in LamDep (abst xs m') 
+
+unEigenBound vars (LamDep' bd) =
+  open bd $ \ xs m ->
+   let m' = unEigenBound (xs ++ vars) m
+   in LamDep' (abst xs m') 
+
+unEigenBound vars (Lam bd) =
+  open bd $ \ xs m ->
+   let m' = unEigenBound (xs ++ vars) m
+   in Lam (abst xs m') 
+
+unEigenBound vars (Lam' bd) =
+  open bd $ \ xs m ->
+   let m' = unEigenBound (xs ++ vars) m
+   in Lam' (abst xs m') 
+
+unEigenBound vars (LamType bd) =
+  open bd $ \ xs m ->
+   let m' = unEigenBound (xs ++ vars) m
+   in LamType $ abst xs m'
+
+unEigenBound vars (LamDict bd) =
+  open bd $ \ xs m ->
+   let m' = unEigenBound (xs ++ vars) m
+   in LamDict $ abst xs m'
+
+unEigenBound vars (Pi bd ty) =
+  open bd $ \ xs m ->
+   let m' = unEigenBound (xs ++ vars) m
+       ty' = unEigenBound vars ty
+   in Pi (abst xs m') ty'
+
+unEigenBound vars (Pi' bd ty) =
+  open bd $ \ xs m ->
+   let m' = unEigenBound (xs ++ vars) m
+       ty' = unEigenBound vars ty
+   in Pi' (abst xs m') ty'
+
+unEigenBound vars (Exists bd ty) =
+  open bd $ \ xs m ->
+   let m' = unEigenBound (xs:vars) m
+       ty' = unEigenBound vars ty
+   in Exists (abst xs m') ty'
+
+unEigenBound vars (Forall bd ty) =
+  open bd $ \ xs m ->
+   let m' = unEigenBound (xs ++ vars) m
+       ty' = unEigenBound vars ty
+   in Forall (abst xs m') ty'
+
+      
+unEigenBound vars a@(Case e (B br)) =
+  let e' = unEigenBound vars e
+      br' = map helper br
+  in Case e' (B br')
+  where helper b = open b $ \ (PApp id vs) b ->
+          let (bvs, vs') = pvar vs in
+          abst (PApp id vs') (unEigenBound (bvs ++vars) b)
+
+        pvar ([]) = ([], [])
+        pvar ((Right x):xs) =
+          let (bv, fv) = pvar xs in
+          (x:bv, (Right x):fv)
+        pvar ((Left (NoBind (Var x))):xs) =
+          let (bv, fv) = pvar xs in
+          if x `elem` vars then
+            (bv, (Left (NoBind (Var x))):fv)
+          else (x:bv, (Right x):fv)
+        pvar ((Left (NoBind (EigenVar x))):xs) =
+          let (bv, fv) = pvar xs in
+          if x `elem` vars then
+            (bv, (Left (NoBind (Var x))):fv)
+          else (x:bv, (Right x):fv)
+        pvar ((Left (NoBind x)):xs) =
+          let (bv, fv) = pvar xs
+              x' = unEigenBound vars x
+          in (bv, (Left (NoBind x')):fv)
+unEigenBound vars a@(Wired _) = a 
+unEigenBound vars a = error $ "from unEigenBound" ++ (show $ disp a)

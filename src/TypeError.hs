@@ -26,7 +26,10 @@ data TypeError = Unhandle Exp
                | LamErr Exp Exp
                | ExistsErr Exp Exp
                | TensorErr Int Exp Exp
-                 
+               | RetroErr Variable Exp
+               | UnifErr Exp Exp
+               | ExtendEnvErr [Either (NoBind Exp) Variable] Exp
+               | DataErr Exp Exp
 -- | Add a position to an error message if the message does not already contain
 addErrPos p a@(ErrPos _ _) = a
 addErrPos p a = ErrPos p a
@@ -120,4 +123,26 @@ instance Disp TypeError where
     text "the term:" <+> display flag a $$
     text "is expected to have a multi-tensor type of arity:" <+> int n $$ 
     text "but it has the type:" $$
+    nest 2 (display flag t)
+
+
+  display flag (RetroErr x tm) =
+    text "retroactive dependent pattern matching on the variable:" <+> display flag x 
+    $$ text "it is currently equals to:" $$
+    nest 2 (display flag tm)
+
+  display flag (UnifErr t1 t2) =
+    text "cannot unify the type:" $$
+    nest 2 (display flag t1) $$
+    text "with the type:" $$
+    nest 2 (display flag t2)
+
+  display flag (ExtendEnvErr vs b) =
+    text "error when extending variables:" <+> hsep (map (display flag) vs) $$
+    text "with type:" <+> display flag b
+
+  display flag (DataErr t tm) = 
+    text "the term:" $$
+    nest 2 (display flag tm) $$
+    text "is expected to have a data type, but it has type:" $$
     nest 2 (display flag t)

@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
 module Typechecking where
 
 import Syntax
@@ -12,6 +13,8 @@ import Unification
 
 import Nominal
 import qualified Data.Set as S
+import qualified Data.Map as Map
+import Data.Map (Map)
 
 import Control.Monad.Except
 import Control.Monad.State
@@ -443,7 +446,7 @@ typeCheck flag (LetPair m (Abst xs n)) goal =
             freshNames ns $ \ (h:ns) ->
                   do let newTensor = foldl Tensor (Var h) (map Var ns)
                          vars = map Var (h:ns)
-                     res <- lazyUnif Normal at newTensor
+                     res <- normalizeUnif at newTensor
                      case res of
                        Nothing -> throwError $ TensorErr (length xs) m at
                        Just s ->
@@ -465,68 +468,223 @@ typeCheck flag (LetPat m bd) goal =
      ss <- getSubst
      let t' = substitute ss tt
      open bd $ \ (PApp kid vs) n ->
-       do funPac <- lookupConst kid
+       do funPac <- lookupId kid
           let dt = classifier funPac
-          isSemi <- querySemiSimple kid
+          (isSemi, index) <- isSemiSimple kid
           (head, axs, ins, kid') <- extendEnv isSemi vs dt (Const kid)
           let matchEigen = isEigenVar m
-              isDpm = isSemi || matchEigen -- not $ null luv
-              mode = if isDpm then Eigen else Normal
-          when isDpm $ checkRetro m ss
-          unifRes <- lazyUnif mode head t'
+          when (isSemi && matchEigen) $
+            error "matchEigen and matchEigen cannot be true at the same time."
+          when (isSemi || matchEigen) $ checkRetro m ss
+          unifRes <- patternUnif m isSemi matchEigen index head t'
           case unifRes of
             Nothing ->
-              throwError $ withPosition m (UnifErr head t') -- AppendSub ss
+              throwError $ withPosition m (UnifErr head t') 
             Just sub' -> do
                  sub1 <- if matchEigen 
                          then makeSub m sub' $
-                              foldl (\ x (Right (y, _)) -> App x (EigenVar y)) kid' vs
+                              foldl (\ x (Right y) -> App x (EigenVar y)) kid' vs
                          else return sub'
                  let sub'' = sub1 `mergeSub` ss
                  updateSubst sub''
                  let goal' = substitute sub'' goal
                  (goal'', ann2) <- typeCheck flag n goal'
                  subb <- getSubst
-                 ufs <- mapM (\ (Right (v, _)) -> checkUsage v n >>= \ r -> (return (v, r))) vs
-                 mapM_ (\ (Right (v, _)) -> removeVar v) vs
+                 mapM (\ (Right v) -> checkUsage v n >>= \ r -> (return (v, r))) vs
+                 mapM_ (\ (Right v) -> removeVar v) vs
                  -- It is important to update the environment before going
                  -- out of a dependent pattern matching
                  updateLocalInst subb
                  ann2' <- resolveGoals (substitute subb ann2)
                  -- !!!! Note that let pat is ok to leak local substitution,
                  -- as the branch is really global!. 
-                 -- when isDpm $ updateSubst ss
-                 -- when (not isDpm) $ updateSubst subb
                  mapM removeInst ins
-                 let axs1 = map (updateL ufs) axs
-                     axs' = if isDpm then map (substVar subb) axs1 else axs1
+                 let axs' = if isSemi || matchEigen then map (substVar subb) axs else axs
                      goal''' = substitute subb goal''
                      res = LetPat ann (abst (PApp kid axs') ann2')
                  return (goal''', res)
      where
            makeSub (EigenVar x) s u =
-             do  u' <- shapeTC $ substitute s u
+             do  u' <- shape $ substitute s u
                  return $ Map.union s (Map.fromList [(x, u')])
            makeSub (Pos p x) s u = makeSub x s u
            makeSub a s u = return s
            
-           updateL ufs (Right (x, c)) =
-             case lookup x ufs of
-               Nothing -> Right (x, c)
-               Just c' -> Right (x, NoBind c')
-           getVarName (Var x) = [x]
-           getVarName (EigenVar x) = [x]
-           getVarName (Pos p x) = getVarName x
-           getVarName _ = []
-           substVar ss (Right (x, c)) =
+           substVar ss (Right x) =
              let r = substitute ss (Var x)
              in if r /= (Var x) then
                   Left (NoBind r)
-                else (Right (x, c))
+                else Right x
 
+
+typeCheck flag a@(Case tm (B brs)) goal =
+  do (t, ann) <- typeInfer flag tm
+     at <- updateWithSubst t
+     let t' = flatten at
+     when (t' == Nothing) $ throwError (DataErr at tm) 
+     let Just (Right id, _) = t'
+     updateCountWith (\ c -> enterCase c id)
+     r <- checkBrs at brs goal
+     let (_, brss) = unzip r
+     updateCountWith exitCase
+     let res = Case ann (B brss)
+     return (goal, res)
+  where makeSub (EigenVar x) s u =
+          do u' <- shape $ substitute s u
+             return $ s `Map.union` Map.fromList [(x, u')]
+        makeSub (Pos p x) s u = makeSub x s u
+        makeSub a s u = return s
+        substVar ss (Right x) =
+             let r = substitute ss (Var x)
+             in if r /= (Var x) then
+                  Left (NoBind r)
+                else Right x
+        
+        checkBrs t pbs goal =
+          mapM (checkBr t goal) pbs
+          
+        checkBr t goal pb =
+          open pb $ \ p m ->
+           case p of
+             PApp kid vs ->
+               do funPac <- lookupId kid
+                  let dt = classifier funPac
+                  updateCountWith (\ c -> enterCase c kid)
+                  (isSemi, index) <- isSemiSimple kid
+                  (head, axs, ins, kid') <- extendEnv isSemi vs dt (Const kid)
+                  let matchEigen = isEigenVar tm
+                  ss <- getSubst
+                  when (isSemi && matchEigen) $
+                    error "matchEigen and matchEigen cannot be true at the same time."
+                  when (isSemi || matchEigen) $ checkRetro tm ss
+                  unifRes <- patternUnif tm isSemi matchEigen index head t
+                  case unifRes of
+                    Nothing -> throwError $ withPosition tm (UnifErr head t) 
+                    Just sub' -> do
+                         sub1 <- if matchEigen then
+                                      makeSub tm sub' $
+                                      foldl (\ x (Right y) -> App x (EigenVar y)) kid' vs
+                                 else return sub'
+                         let sub'' = sub1 `mergeSub` ss
+                         updateSubst sub''
+                         -- We use special substitution for goal
+                         let goal' = substitute sub'' goal 
+                         (goal'', ann2) <- typeCheck flag m goal'
+                         subb <- getSubst 
+                         mapM (\ (Right v) -> checkUsage v m >>=
+                                                          \ r -> return (v, r)) vs
+
+                         updateLocalInst subb
+                         
+                         -- we need to restore the substitution to ss
+                         -- because subb' may be influenced by dependent pattern matching.
+                         let goal''' = substitute subb goal''
+                         ann2' <- resolveGoals (substitute subb ann2)
+                                  
+                         when (isSemi || matchEigen) $ updateSubst ss
+                         when (not (isSemi || matchEigen)) $ updateSubst subb
+                         
+                         -- because the variable axs may be in the domain
+                         -- of the substitution, hence it is necessary to update
+                         -- axs as well before binding.
+                         let axs' = if isSemi || matchEigen then map (substVar subb) axs else axs
+                         mapM_ (\ (Right v) -> removeVar v) vs
+                         mapM removeInst ins
+                         return (goal''', abst (PApp kid axs') ann2')
+
+     
 
 equality = undefined
-lazyUnif = undefined
+
+-- | normalized and unify two expression
+patternUnif m isSemi matchEigen index head t =
+  case (isSemi, matchEigen) of
+    (True, False) ->
+      case index of
+        Nothing -> normalizeUnif head t
+        Just i ->
+          case flatten t of
+            Just (Right h, args) -> 
+              let (bs, a:as) = splitAt i args
+                  a' = unEigen a
+                  t' = foldl App' (LBase h) (bs++(a':as))
+              in normalizeUnif head t
+            _ -> throwError $ withPosition m (UnifErr head t) 
+    (False, True) -> normalizeUnif head t
+      
+
+normalizeUnif t1 t2 =
+ do t1' <- resolveGoals t1
+    t2' <- resolveGoals t2
+    case (flatten t1', flatten t2') of
+       (Just (Right f1, args1), Just (Right f2, args2)) 
+         | (f1 == f2) && (length args1 == length args2) ->
+           foldM (\ s (x, y) ->
+                case s of
+                  Nothing -> return Nothing
+                  Just s1 ->
+                    let x' = substitute s1 x
+                        y' = substitute s1 y in
+                    do r <- normalizeUnif x' y'
+                       case r of
+                         Nothing -> return Nothing
+                         Just s2 -> return $ Just (mergeSub s2 s1)
+                ) (Just Map.empty) (zip args1 args2)
+         | otherwise -> return Nothing
+       (_, _) -> 
+         do t1'' <- normalize t1'
+            t2'' <- normalize t2'
+            return $ runUnify t1'' t2''
+
+
+extendEnv flag xs (Forall bind ty) kid | isKind ty =
+  open bind $
+      \ ys t' ->
+      do mapM_ (\ x -> addVar x ty) ys
+         let kid' = foldl AppType kid (map Var ys)
+         extendEnv flag xs t' kid'
+
+extendEnv flag xs (Forall bind ty) kid | otherwise =
+  open bind $
+      \ ys t' ->
+      do mapM_ (\ x -> addVar x ty) ys
+         let kid' = foldl AppTm kid (map Var ys)
+         (h, vs, ins, kid'') <- extendEnv flag xs t' kid'
+         let vs' = if flag then (map Right ys)++vs else vs
+         return (h, vs', ins, kid'')
+
+extendEnv flag xs (Imply bds ty) kid =
+  do let ns1 = take (length bds) (repeat "#inst")
+     ns <- newNames ns1
+     freshNames ns $ \ ns ->
+       do mapM_ (\ (x, y) -> insertLocalInst x y) (zip ns bds)
+          let kid' = foldl AppDict kid (map Var ns)
+          (h, vs, ins, kid'') <- extendEnv flag xs ty kid'
+          return (h, (map Right ns)++vs, ns++ins, kid'')
+
+extendEnv flag [] t kid = return (t, [], [], kid)
+
+extendEnv flag (Right x:xs) (Arrow t1 t2) kid =
+  do addVar x t1
+     (h, ys, ins, kid') <- extendEnv flag xs t2 kid
+     return (h,  Right x : ys, ins, kid')
+
+extendEnv flag (Right x : xs) (Pi bind ty) kid
+  | not (isKind ty) =
+    open bind $ \ ys t' ->
+    do let y = head ys
+           t'' = apply [(y , EigenVar x)] t'  -- note that Pi is existential
+       addVar x ty
+       if null (tail ys)
+         then do (h, ys, ins, kid') <- extendEnv flag xs t'' kid
+                 return (h, (Right x : ys), ins, kid')
+         else do (h, ys, ins, kid') <- extendEnv flag xs (Pi (abst (tail ys) t'') ty) kid
+                 return (h, (Right x : ys), ins, kid')
+
+     
+extendEnv flag a b kid = throwError $ ExtendEnvErr a b
+
+
 
 handleTypeApp ann t' t1 t2 =
   case erasePos t' of

@@ -298,6 +298,11 @@ instance Disp Exp where
 instance NominalShow (NoBind Exp) where
   showsPrecSup sup d (NoBind x) = showsPrecSup sup d x
 
+instance Disp (Either (NoBind Exp) Variable) where
+  display flag (Left (NoBind e)) = braces $ display flag e
+  display flag (Right x) = display flag x
+
+
 data Decl = Object Position Id
           | Data Position Id Exp [(Position, Id, Exp)] 
           | SimpData Position Id Int Exp [(Position, Maybe Int, Id, Exp)] 
@@ -308,3 +313,5 @@ data Decl = Object Position Id
           | ControlDecl Position Id [Exp] Exp
           | ImportDecl Position String
           | OperatorDecl Position String Int String
+
+

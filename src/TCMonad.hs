@@ -38,7 +38,7 @@ data DataClassifier =
   Param 
   | SemiParam -- ^ Semi-parameter data type, e.g., List a
   | Simple -- ^ Types defined by the 'object' keyword. e.g. Qubit 
-  | SemiSimple -- ^ Types defined by the 'simple' keyword. e.g. Vec a n 
+  | SemiSimple (Maybe Int) -- ^ Types defined by the 'simple' keyword. e.g. Vec a n 
   | Unknown 
   deriving (Show, Eq)
 
@@ -130,16 +130,16 @@ lookupVar x =
               _ -> return (a, Nothing)
 
 
-isSemiSimple :: Id -> TCMonad Bool
+isSemiSimple :: Id -> TCMonad (Bool, Maybe Int)
 isSemiSimple id =
   do tyinfo <- lookupId id
      case identification tyinfo of
        DataConstr dt ->
          do info <- lookupId dt
             case identification info of
-              DataType SemiSimple _ _ -> return True
-              _ -> return False
-       _ -> return False
+              DataType (SemiSimple b) _ _ -> return (True, b)
+              _ -> return (False, Nothing)
+       _ -> return (False, Nothing)
 
 -- | Determine if a type expression is a parameter type. 
 isParam :: Exp -> TCMonad Bool
@@ -614,3 +614,54 @@ getSubst :: TCMonad Subst
 getSubst =
   do ts <- get
      return $ subst ts
+
+-- | Make sure if an expression is a variable, then it
+-- is not in the domain of the substitution.
+
+checkRetro :: Exp -> Subst -> TCMonad ()
+checkRetro (Var x) sub =
+  case Map.lookup x sub of
+    Nothing -> return ()
+    Just m -> throwError $ RetroErr x m
+checkRetro (Pos p e) sub = checkRetro e sub
+checkRetro a sub = return ()
+
+
+-- | Add a position information of an expression to the error message without duplicating
+-- position.
+withPosition (Pos p e) er@(ErrPos _ _) = er
+withPosition (Pos p e) er = ErrPos p er
+withPosition _ er = er
+
+removeInst :: Variable -> TCMonad ()
+removeInst x =
+  do ts <- get
+     let env = instanceContext ts
+         gamma' = deleteBy (\ a b -> fst a == fst b) (x, Unit) $ localInstance env
+         env' = env{localInstance = gamma'}
+     put ts{instanceContext = env'}
+
+updateLocalInst :: Subst -> TCMonad ()     
+updateLocalInst sub =
+  do ts <- get
+     let tc = instanceContext ts
+         gi = localInstance tc
+         gi' = map (\ (x, t) -> (x, substitute sub t)) gi
+     put ts{instanceContext = tc{localInstance = gi'}}
+
+
+updateCountWith :: (ZipCount -> ZipCount) -> TCMonad ()
+updateCountWith update = 
+  do ts <- get
+     let env = lcontext ts
+         localVars = localCxt env
+         localVars' = Map.map helper localVars
+         res = env{localCxt = localVars'}
+     put ts{lcontext = res}
+  where
+        helper lpkg =
+          case varIdentification lpkg of
+            TypeVar _ -> lpkg
+            TermVar n d ->
+              let n' = update n 
+              in lpkg{varIdentification = TermVar n' d}
