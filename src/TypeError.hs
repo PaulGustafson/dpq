@@ -21,7 +21,11 @@ data TypeError = Unhandle Exp
                | ForallLinearErr [Variable] Exp
                | KArrowErr Exp Exp
                | LiftErrVar Variable Exp Exp
-
+               | LVarErr Variable Exp ZipCount Exp
+               | CaseErr Exp (Maybe Exp) ZipCount
+               | LamErr Exp Exp
+               | ExistsErr Exp Exp
+               | TensorErr Int Exp Exp
                  
 -- | Add a position to an error message if the message does not already contain
 addErrPos p a@(ErrPos _ _) = a
@@ -81,4 +85,39 @@ instance Disp TypeError where
     text "of the type:" $$
     nest 2 (display flag tt ) $$
     text "when lifting the term:" $$
+    nest 2 (display flag t)
+
+
+  display flag (LVarErr x m c t) =
+    text "the linear variable:" <+> display flag x $$
+    text "is used nonlinearly in:" $$
+    nest 2 (display flag m) $$
+    text "the count:" <+> display flag c $$
+    text "it has type:" <+> display flag t
+
+
+  display flag (CaseErr m a count) =
+    text "nonlinear use of" <+> quotes (display flag m) <+> text "due to branching in" $$
+    nest 2 (display flag a) $$
+    text "the count:" <+> display flag count
+
+
+  display flag (LamErr a t) =
+    text "the term:" $$
+    nest 2 (display flag a) $$
+    text "has an arrow type, but it is expected to have type:" $$
+    nest 2 (display flag t) 
+
+
+  display flag (ExistsErr m a) =
+    text "expecting an existential type for" $$
+    nest 2 (display flag m) $$
+    text "but actual type is:" $$
+    nest 2 (display flag a)
+
+
+  display flag (TensorErr n a t) =
+    text "the term:" <+> display flag a $$
+    text "is expected to have a multi-tensor type of arity:" <+> int n $$ 
+    text "but it has the type:" $$
     nest 2 (display flag t)

@@ -47,8 +47,9 @@ data VarInfo =
            varIdentification :: VarIdentification
          } 
 
-data VarIdentification = TermVar ZipCount 
-                         -- ^ a term variable's count
+data VarIdentification = TermVar ZipCount (Maybe Exp)
+                         -- ^ a term variable's count and its definition if it is defined
+                         -- by let
                        | TypeVar Bool
                          -- ^ whether a type variable is a parameter variable
 
@@ -112,6 +113,7 @@ lookupId x =
        Nothing -> throwError (NoDef x)
        Just tup -> return tup
 
+-- | Note that type variable does not have count
 lookupVar :: Variable -> TCMonad (Exp, Maybe ZipCount)
 lookupVar x =
   do ts <- get
@@ -124,7 +126,7 @@ lookupVar x =
          do let a = substitute s $ varClassifier lp
                 varid = varIdentification lp
             case varid of
-              TermVar c -> return (a, Just c)
+              TermVar c _ -> return (a, Just c)
               _ -> return (a, Nothing)
 
 
@@ -243,8 +245,8 @@ updateCount x =
        Just lpkg ->
          case varIdentification lpkg of
            TypeVar b -> return ()
-           TermVar c ->
-             do let lty' = Map.insert x (lpkg{varIdentification = TermVar (incr c)}) lty
+           TermVar c d ->
+             do let lty' = Map.insert x (lpkg{varIdentification = TermVar (incr c) d}) lty
                     gamma' = gamma {localCxt = lty'}
                 put ts{lcontext = gamma'}
 
@@ -410,11 +412,19 @@ addVar x t =
   do ts <- get
      let b = isKind t
          env = lcontext ts
-         pkg = if b then VarInfo t (TypeVar False) else VarInfo t (TermVar initCount)
+         pkg = if b then VarInfo t (TypeVar False) else VarInfo t (TermVar initCount Nothing) 
          gamma' =  Map.insert x pkg (localCxt env)
          env' = env{localCxt = gamma'}
      put ts{lcontext = env'}
 
+
+addVarDef :: Variable -> Exp -> Exp -> TCMonad ()
+addVarDef x t m =
+  do ts <- get
+     let env = lcontext ts
+         gamma' = Map.insert x (VarInfo t (TermVar initCount (Just m))) (localCxt env)
+         env' = env{localCxt = gamma'}
+     put ts{lcontext = env'}
 
 -- | Add a goal variable, its type and its origin into the type class context. 
 addGoalInst :: Variable -> Exp -> Exp -> TCMonad ()
@@ -466,7 +476,7 @@ updateParamInfo (p:ps) =
                Nothing -> error "from updateParam."
                Just lpkg ->
                  case varIdentification lpkg of
-                   TermVar c ->
+                   TermVar c _ ->
                      error "from updateParam, unexpected term variable when updating param info."
                    TypeVar _ ->
                      do let lti' = Map.insert x (lpkg{varIdentification = TypeVar True}) lty
@@ -575,7 +585,32 @@ checkParamCxt t =
                  do let t'= varClassifier lpkg
                     case varIdentification lpkg of
                       TypeVar _ -> return ()
-                      TermVar c ->
+                      TermVar c _ ->
                         do tt <- updateWithSubst t'
                            p <- isParam tt
                            when (not p) $ throwError $ LiftErrVar x t tt
+
+checkUsage :: Variable -> Exp -> TCMonad ()
+checkUsage x m = 
+  do (t', count) <- lookupVar x
+     case count of
+       Nothing -> return ()
+       Just c -> 
+         do p <- isParam t'
+            if p then return ()
+              else 
+              case evalCount c of
+                Nothing -> throwError $ CaseErr (Var x) (Just m) c
+                Just v | v == 1 -> return ()
+                       | otherwise -> throwError $ (LVarErr x m c t')
+
+
+updateSubst :: Subst -> TCMonad ()
+updateSubst ss =
+  do ts <- get
+     put ts{subst = ss}
+
+getSubst :: TCMonad Subst
+getSubst =
+  do ts <- get
+     return $ subst ts

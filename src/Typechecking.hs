@@ -8,6 +8,7 @@ import Utils
 import Normalize
 import Substitution
 import TypeClass
+import Unification
 
 import Nominal
 import qualified Data.Set as S
@@ -300,13 +301,13 @@ typeCheck flag a (Imply bds ty) =
 typeCheck flag a (Bang ty) =
   do r <- isValue a
      if r then
-       do checkParamCxt True a
+       do checkParamCxt a
           (t, ann) <- typeCheck flag a ty
           return (Bang t, Lift ann)
        else equality flag a (Bang ty)
 
 
-typeCheck False c@(Lam bind cs) t =
+typeCheck False c@(Lam bind) t =
   do at <- updateWithSubst t
      if not (at == t) then
        typeCheck False c at
@@ -317,20 +318,20 @@ typeCheck False c@(Lam bind cs) t =
            \ xs m ->
              case xs of
                x:[] -> 
-                 do insertVar x t1 
+                 do addVar x t1 
                     (t2', ann) <- typeCheck False m t2
-                    uf <- checkUsage x m 
+                    checkUsage x m 
                     removeVar x
                 -- x cannot appear in type annotation, so we do not
                 -- need to update the ann with current substitution.
-                    let res = Lam (abst [x] ann) [uf] 
+                    let res = Lam (abst [x] ann)
                     return (Arrow t1 t2', res)
                y:ys -> 
-                 do insertVar y t1 
-                    (t2', ann) <- typeCheck False (Lam (abst ys m) (tail cs)) t2
-                    uf <- checkUsage y m 
+                 do addVar y t1 
+                    (t2', ann) <- typeCheck False (Lam (abst ys m)) t2
+                    checkUsage y m 
                     removeVar y
-                    let res = Lam (abst [y] ann) [uf]
+                    let res = Lam (abst [y] ann)
                     return (Arrow t1 t2', res)
          Pi bd ty -> 
            open bind $ \ xs m -> open bd $ \ ys b ->
@@ -340,10 +341,10 @@ typeCheck False c@(Lam bind cs) t =
                             (vs, rs) = splitAt (length xs) ys
                             sub2 = zip xs (map EigenVar xs)
                             m' = apply sub2 m
-                        mapM_ (\ x -> insertVar x ty) xs
+                        mapM_ (\ x -> addVar x ty) xs
                         (t, ann) <- typeCheck False m'
                                     (if null rs then b' else Pi (abst rs b') ty)
-                        ufs <- mapM (\ x -> checkUsage x m') xs 
+                        mapM (\ x -> checkUsage x m') xs 
                         mapM_ removeVar xs
                         -- Since xs may appear in the type annotation in ann,
                         -- we have to update ann with current substitution.
@@ -353,7 +354,7 @@ typeCheck False c@(Lam bind cs) t =
                         ann2 <- updateWithSubst ann
                         ann' <- resolveGoals ann2
                         t' <- updateWithSubst t
-                        let res = LamDep (abst xs ann') ufs
+                        let res = LamDep (abst xs ann') 
                             t'' = Pi (abst xs t') ty
                         return (t'', res)
                    else
@@ -362,25 +363,170 @@ typeCheck False c@(Lam bind cs) t =
                             (vs, rs) = splitAt (length ys) xs
                             sub2 = zip xs $ take (length ys) (map EigenVar xs)
                             m' = apply sub2 m
-                        mapM_ (\ x -> insertVar x ty) vs
+                        mapM_ (\ x -> addVar x ty) vs
                         (t, ann) <- typeCheck False
-                                    (if null rs then m' else Lam (abst rs m')
-                                                             (map (\ r -> NonLinear) rs))
+                                    (if null rs then m' else Lam (abst rs m'))
                                     b'
-                        ufs <- mapM (\ x -> checkUsage x m') vs
+                        mapM (\ x -> checkUsage x m') vs
                         mapM_ removeVar vs
                         ann1 <- updateWithSubst ann
                         t' <- updateWithSubst t
                         ann' <- resolveGoals ann1
-                        let res = LamDep (abst vs ann') ufs
+                        let res = LamDep (abst vs ann') 
                         return (Pi (abst vs t') ty, res)
          b -> throwError $ LamErr c b
 
+typeCheck flag a@(Pack t1 t2) (Exists p ty)=
+  do (ty', ann1) <- typeCheck flag t1 ty
+     open p $ \ x t ->
+       do let vars = S.toList $ getVars NoEigen t1
+              sub1 = zip vars (map EigenVar vars)
+          t1Eigen <- shape $ apply sub1 ann1
+          let t' = apply [(x, t1Eigen)] t
+          (p', ann2) <- typeCheck flag t2 t'
+          -- t' is an instance of t, it does not contain x anymore,
+          -- hence the return type should be Exists p ty', not
+          -- Exists (abst x p') ty'
+          return (Exists p ty', Pack ann1 ann2)
 
+
+
+typeCheck flag (Let m bd) goal =
+  do (t', ann) <- typeInfer flag m
+     open bd $ \ x t ->
+           do let vs = S.toList $ getVars NoEigen ann
+                  su = zip vs (map EigenVar vs)
+              m'' <- shape $ apply su ann
+              addVarDef x t' m'' 
+              (goal', ann2) <- typeCheck flag t goal
+              checkUsage x t
+              removeVar x
+              ann2' <- updateWithSubst ann2
+              let res = Let ann (abst x ann2') 
+              return (goal', res)
+
+typeCheck flag (LetEx m bd) goal =
+  do (t', ann) <- typeInfer flag m
+     at <- updateWithSubst t'
+     case at of
+       Exists p t1 ->
+         open bd $ \ (x, y) b ->
+            open p $ \ x1 b' ->
+           do addVar x t1
+              addVar y (apply [(x1, EigenVar x)] b')
+              (goal', ann2) <- typeCheck flag b goal
+              ann2' <- updateWithSubst ann2
+              ann3 <- resolveGoals ann2'
+              checkUsage y b
+              checkUsage x b
+              removeVar x
+              removeVar y
+              let res = LetEx ann (abst (x, y) ann3) 
+              return (goal', res)
+       a -> throwError $ ExistsErr m a
+
+typeCheck flag (LetPair m (Abst xs n)) goal =
+  do (t', ann) <- typeInfer flag m
+     at <- updateWithSubst t'
+     case unTensor (length xs) at of
+       Just ts ->
+         do let env = zip xs ts
+            mapM (\ (x, t) -> addVar x t) env
+            (goal', ann2) <- typeCheck flag n goal
+            mapM (\ (x, t) -> checkUsage x n) env
+            mapM removeVar xs
+            ann2' <- updateWithSubst ann2
+            let res = LetPair ann (abst xs ann2') 
+            return (goal', res)
+       Nothing ->
+         do ns <- newNames $ map (\ x -> "#unif") xs
+            freshNames ns $ \ (h:ns) ->
+                  do let newTensor = foldl Tensor (Var h) (map Var ns)
+                         vars = map Var (h:ns)
+                     res <- lazyUnif Normal at newTensor
+                     case res of
+                       Nothing -> throwError $ TensorErr (length xs) m at
+                       Just s ->
+                         do ss <- getSubst
+                            let sub' = s `mergeSub` ss
+                            updateSubst sub'
+                            let ts' = map (substitute sub') vars
+                                env' = zip xs ts'
+                            mapM (\ (x, t) -> addVar x t) env'
+                            (goal', ann2) <- typeCheck flag n (substitute sub' goal)
+                            mapM (\ x -> checkUsage x n) xs
+                            mapM removeVar xs
+                            ann2' <- updateWithSubst ann2
+                            let res = LetPair ann (abst xs ann2') 
+                            return (goal', res)
+
+typeCheck flag (LetPat m bd) goal =
+  do (tt, ann) <- typeInfer flag m
+     ss <- getSubst
+     let t' = substitute ss tt
+     open bd $ \ (PApp kid vs) n ->
+       do funPac <- lookupConst kid
+          let dt = classifier funPac
+          isSemi <- querySemiSimple kid
+          (head, axs, ins, kid') <- extendEnv isSemi vs dt (Const kid)
+          let matchEigen = isEigenVar m
+              isDpm = isSemi || matchEigen -- not $ null luv
+              mode = if isDpm then Eigen else Normal
+          when isDpm $ checkRetro m ss
+          unifRes <- lazyUnif mode head t'
+          case unifRes of
+            Nothing ->
+              throwError $ withPosition m (UnifErr head t') -- AppendSub ss
+            Just sub' -> do
+                 sub1 <- if matchEigen 
+                         then makeSub m sub' $
+                              foldl (\ x (Right (y, _)) -> App x (EigenVar y)) kid' vs
+                         else return sub'
+                 let sub'' = sub1 `mergeSub` ss
+                 updateSubst sub''
+                 let goal' = substitute sub'' goal
+                 (goal'', ann2) <- typeCheck flag n goal'
+                 subb <- getSubst
+                 ufs <- mapM (\ (Right (v, _)) -> checkUsage v n >>= \ r -> (return (v, r))) vs
+                 mapM_ (\ (Right (v, _)) -> removeVar v) vs
+                 -- It is important to update the environment before going
+                 -- out of a dependent pattern matching
+                 updateLocalInst subb
+                 ann2' <- resolveGoals (substitute subb ann2)
+                 -- !!!! Note that let pat is ok to leak local substitution,
+                 -- as the branch is really global!. 
+                 -- when isDpm $ updateSubst ss
+                 -- when (not isDpm) $ updateSubst subb
+                 mapM removeInst ins
+                 let axs1 = map (updateL ufs) axs
+                     axs' = if isDpm then map (substVar subb) axs1 else axs1
+                     goal''' = substitute subb goal''
+                     res = LetPat ann (abst (PApp kid axs') ann2')
+                 return (goal''', res)
+     where
+           makeSub (EigenVar x) s u =
+             do  u' <- shapeTC $ substitute s u
+                 return $ Map.union s (Map.fromList [(x, u')])
+           makeSub (Pos p x) s u = makeSub x s u
+           makeSub a s u = return s
+           
+           updateL ufs (Right (x, c)) =
+             case lookup x ufs of
+               Nothing -> Right (x, c)
+               Just c' -> Right (x, NoBind c')
+           getVarName (Var x) = [x]
+           getVarName (EigenVar x) = [x]
+           getVarName (Pos p x) = getVarName x
+           getVarName _ = []
+           substVar ss (Right (x, c)) =
+             let r = substitute ss (Var x)
+             in if r /= (Var x) then
+                  Left (NoBind r)
+                else (Right (x, c))
 
 
 equality = undefined
-
+lazyUnif = undefined
 
 handleTypeApp ann t' t1 t2 =
   case erasePos t' of
@@ -470,3 +616,4 @@ addAnn flag e a (Imply bds ty) env =
           addAnn flag e a' ty env
     
 addAnn flag e a t env = return (a, t, env)  
+

@@ -196,3 +196,9 @@ substitute s a =
           in substitute' subs v
 
 apply s t = let s' = Map.fromList s in substitute s' t
+
+mergeSub :: Map Variable Exp -> Map Variable Exp -> Map Variable Exp
+mergeSub new old =
+  new `Map.union` Map.map (substitute new) old
+
+
