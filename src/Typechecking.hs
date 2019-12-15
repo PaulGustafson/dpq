@@ -7,7 +7,7 @@ import TypeError
 import Utils
 import Normalize
 import Substitution
-
+import TypeClass
 
 import Nominal
 import qualified Data.Set as S
@@ -131,10 +131,255 @@ typeCheck flag (Pos p e) ty =
   do (ty', ann) <- typeCheck flag e ty `catchError` \ e -> throwError $ addErrPos p e
      return (ty', Pos p ann)
 
+-- | Sort check
+typeCheck True Set Sort = return (Sort, Set)
+
+typeCheck True (Arrow ty1 ty2) Sort =
+  do (_, ty1') <- if isKind ty1 then typeCheck True ty1 Sort
+                  else typeCheck True ty1 Set
+     (_, ty2') <- typeCheck True ty2 Sort
+     return (Sort, Arrow ty1' ty2')
+
+
+typeCheck True (Pi (Abst xs m) ty) Sort = 
+  do (_, ty') <- if isKind ty then typeCheck True ty Sort
+            else typeCheck True ty Set
+     mapM_ (\ x -> addVar x (erasePos ty')) xs
+     let sub = zip xs (map EigenVar xs)
+         m' = apply sub m
+     (_, ann2) <- typeCheck True m' Sort
+     let res = Pi (abst xs ann2) ty'
+     mapM_ removeVar xs
+     return (Sort, res)
+
+-- | Kind check
+typeCheck True Unit Set = return (Set, Unit)
+
+typeCheck True (Bang ty) Set =
+  do (_, a) <- typeCheck True ty Set
+     return (Set, Bang a)
+
+typeCheck True (Arrow ty1 ty2) Set =
+  do (_, ty1') <- if isKind ty1 
+                  then typeCheck True ty1 Sort
+                  else typeCheck True ty1 Set
+     (_, ty2') <- typeCheck True ty2 Set
+     return (Set, Arrow ty1' ty2')
+
+
+typeCheck True (Imply tys ty2) Set =
+  do res <- mapM (\ x -> typeCheck True x Set) tys
+     let tys1 = map snd res
+     mapM checkClass tys1
+     updateParamInfo tys1
+     (_, ty2') <- typeCheck True ty2 Set
+     return (Set, Imply tys1 ty2')
+
+typeCheck True (Tensor ty1 ty2) Set =
+  do (_, ty1') <- typeCheck True ty1 Set
+     (_, ty2') <- typeCheck True ty2 Set
+     return (Set, Tensor ty1' ty2')
+     
+typeCheck True (Circ t u) Set =
+  do (_, t') <- typeCheck True t Set
+     (_, u') <- typeCheck True u Set
+     return (Set, Circ t' u')
+
+typeCheck True (Pi (Abst xs m) ty) Set = 
+    do (_, tyAnn) <- if isKind ty then typeCheck True ty Sort else typeCheck True ty Set
+       mapM_ (\ x -> addVar x (erasePos tyAnn)) xs
+       let sub = zip xs (map EigenVar xs)
+           m' = apply sub m
+       (_, ann2) <- typeCheck True m' Set
+       ann2' <- updateWithSubst ann2
+       ann2'' <- resolveGoals ann2'
+       let res = Pi (abst xs ann2'') tyAnn
+       mapM_ removeVar xs
+       return (Set, res)
+
+
+typeCheck True (Forall (Abst xs m) ty) a@(Set) | isKind ty = 
+  do (_, tyAnn) <- typeCheck True ty Sort
+     mapM_ (\ x -> addVar x (erasePos tyAnn)) xs
+     let sub = zip xs (map EigenVar xs)
+         m' = apply sub m
+     (_, ann) <- typeCheck True m' a
+     ann' <- updateWithSubst ann
+     ann'' <- resolveGoals ann'
+     let res = Forall (abst xs ann'') tyAnn
+     mapM_ (\ x -> removeVar x) xs
+     return (a, res)
+
+typeCheck True (Forall (Abst xs m) ty) a@(Set) | otherwise = 
+  do p <- isParam ty
+     when (not p) $ throwError (ForallLinearErr xs ty)
+     (_, tyAnn) <- typeCheck True ty a
+     mapM_ (\ x -> addVar x (erasePos tyAnn)) xs
+     let sub = zip xs (map EigenVar xs)
+         m' = apply sub m
+     (_, ann) <- typeCheck True m' a
+     ann' <- updateWithSubst ann
+     ann'' <- resolveGoals ann'  
+     let res = Forall (abst xs ann'') tyAnn
+     mapM_ removeVar xs
+     return (a, res)
+
+typeCheck True (Exists (Abst xs m) ty) a@(Set) | not (isKind ty) = 
+    do (_, ann1) <- typeCheck True ty a
+       addVar xs (erasePos ann1)
+       let sub = [(xs, EigenVar xs)]
+           m' = apply sub m  
+       (_, ann2) <- typeCheck True m' a
+       ann2' <- updateWithSubst ann2
+       ann2'' <- resolveGoals ann2'
+       let res = Exists (abst xs ann2'') ann1
+       removeVar xs
+       return (a, res)
+
+typeCheck True a@(Lam bind) t | isKind t =
+  case t of
+    Arrow t1 t2 -> 
+      open bind $
+      \ xs m -> 
+        case xs of
+          x:[] -> do
+             addVar x t1
+             (_, ann) <- typeCheck True m t2
+             ann' <- updateWithSubst ann
+             ann'' <- resolveGoals ann'
+             let res = Lam' (abst [x] ann'') 
+             removeVar x
+             return (t, res)
+          y:ys -> do
+             addVar y t1
+             (_, ann) <- typeCheck True (Lam (abst ys m)) t2
+             ann' <- updateWithSubst ann
+             ann'' <- resolveGoals ann'
+             let res = Lam' (abst [y] ann'') 
+             removeVar y
+             return (t, res)
+    b -> throwError $ KArrowErr a t
+
+
+-- | Type check
+typeCheck flag a (Forall (Abst xs m) ty) =
+  do let sub1 = zip xs (map EigenVar xs)
+         m' = apply sub1 m
+     mapM_ (\ x -> addVar x ty) xs
+     (t, ann) <- typeCheck flag a m'
+     mapM_ removeVar xs
+     -- It is important to update the annotation with current
+     -- substitution before rebinding xs, so that variables in xs does not get leaked
+     -- into outer environment. Also, we will have to resolve all the constraint before
+     -- going out of this forall environment.
+     ann' <- updateWithSubst ann
+     t' <- updateWithSubst t
+     -- It is necessary to resolve all the goals before going out of
+     -- the scope of xs as well.
+     ann'' <- resolveGoals ann'
+     let res = if isKind ty then (Forall (abst xs $ t') ty, LamType (abst xs $ ann''))
+               else (Forall (abst xs $ t') ty, LamTm (abst xs $ ann''))
+     return res
+    
+typeCheck flag a (Imply bds ty) =
+  do let ns1 = take (length bds) (repeat "#inst")
+     ns <- newNames ns1
+     -- Note that we update the parameter variable information here.
+     updateParamInfo bds
+     freshNames ns $ \ ns ->
+       do bds' <- mapM normalize bds
+          let instEnv = zip ns bds'
+          mapM_ (\ (x, t) -> insertLocalInst x t) instEnv
+          (t, ann) <- typeCheck flag a ty
+          -- Make sure we use the hypothesis before going out of the scope of Imply.
+          ann' <- resolveGoals ann
+          mapM_ (\ (x, t) -> removeLocalInst x) instEnv
+          let res = LamDict (abst ns ann') 
+          return (Imply bds t, res)
+
+typeCheck flag a (Bang ty) =
+  do r <- isValue a
+     if r then
+       do checkParamCxt True a
+          (t, ann) <- typeCheck flag a ty
+          return (Bang t, Lift ann)
+       else equality flag a (Bang ty)
+
+
+typeCheck False c@(Lam bind cs) t =
+  do at <- updateWithSubst t
+     if not (at == t) then
+       typeCheck False c at
+       else
+       case at of
+         Arrow t1 t2 -> 
+           open bind $
+           \ xs m ->
+             case xs of
+               x:[] -> 
+                 do insertVar x t1 
+                    (t2', ann) <- typeCheck False m t2
+                    uf <- checkUsage x m 
+                    removeVar x
+                -- x cannot appear in type annotation, so we do not
+                -- need to update the ann with current substitution.
+                    let res = Lam (abst [x] ann) [uf] 
+                    return (Arrow t1 t2', res)
+               y:ys -> 
+                 do insertVar y t1 
+                    (t2', ann) <- typeCheck False (Lam (abst ys m) (tail cs)) t2
+                    uf <- checkUsage y m 
+                    removeVar y
+                    let res = Lam (abst [y] ann) [uf]
+                    return (Arrow t1 t2', res)
+         Pi bd ty -> 
+           open bind $ \ xs m -> open bd $ \ ys b ->
+                   if length xs <= length ys then
+                     do let sub1 = zip ys (map EigenVar xs)
+                            b' = apply sub1 b
+                            (vs, rs) = splitAt (length xs) ys
+                            sub2 = zip xs (map EigenVar xs)
+                            m' = apply sub2 m
+                        mapM_ (\ x -> insertVar x ty) xs
+                        (t, ann) <- typeCheck False m'
+                                    (if null rs then b' else Pi (abst rs b') ty)
+                        ufs <- mapM (\ x -> checkUsage x m') xs 
+                        mapM_ removeVar xs
+                        -- Since xs may appear in the type annotation in ann,
+                        -- we have to update ann with current substitution.
+                        -- before going out of the scope of xs. We also have to
+                        -- resolve the current goals because current goals may
+                        -- depend on xs.
+                        ann2 <- updateWithSubst ann
+                        ann' <- resolveGoals ann2
+                        t' <- updateWithSubst t
+                        let res = LamDep (abst xs ann') ufs
+                            t'' = Pi (abst xs t') ty
+                        return (t'', res)
+                   else
+                     do let sub1 = zip ys (map EigenVar xs)
+                            b' = apply sub1 b
+                            (vs, rs) = splitAt (length ys) xs
+                            sub2 = zip xs $ take (length ys) (map EigenVar xs)
+                            m' = apply sub2 m
+                        mapM_ (\ x -> insertVar x ty) vs
+                        (t, ann) <- typeCheck False
+                                    (if null rs then m' else Lam (abst rs m')
+                                                             (map (\ r -> NonLinear) rs))
+                                    b'
+                        ufs <- mapM (\ x -> checkUsage x m') vs
+                        mapM_ removeVar vs
+                        ann1 <- updateWithSubst ann
+                        t' <- updateWithSubst t
+                        ann' <- resolveGoals ann1
+                        let res = LamDep (abst vs ann') ufs
+                        return (Pi (abst vs t') ty, res)
+         b -> throwError $ LamErr c b
 
 
 
 
+equality = undefined
 
 
 handleTypeApp ann t' t1 t2 =

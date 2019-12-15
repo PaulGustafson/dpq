@@ -217,3 +217,4 @@ betaNormalize a@(Case t (B brs)) =
 betaNormalize (Pos _ e) = betaNormalize e
 betaNormalize a = error $ "from betaNormalize" ++ (show (disp a))
 
+normalize = undefined

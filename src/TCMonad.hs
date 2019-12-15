@@ -14,6 +14,8 @@ import Control.Monad.Except
 
 import qualified Data.Map as Map
 import Data.Map (Map)
+import Data.List
+
 
 data Info =
   Info { classifier :: Exp,
@@ -21,9 +23,9 @@ data Info =
        }
 
 data Identification = DataConstr Id  -- ^ Data type id 
-                    | DefinedGate Exp -- storing value
-                    | DefinedFunction Exp
-                    | DefinedMethod Exp 
+                    | DefinedGate Exp -- storing basic gates
+                    | DefinedFunction Exp Exp -- Storing annotations and values
+                    | DefinedMethod Exp --
                     | DefinedInstFunction Exp 
                     | DataType DataClassifier [Id] (Maybe Exp)
                       -- ^ A data type, its classifier and its
@@ -423,3 +425,157 @@ addGoalInst x t e =
          env' = env{goalInstance = gamma'}
      put ts{instanceContext = env'}
 
+
+-- | Remove a variable from the local typing environment.
+removeVar :: Variable -> TCMonad ()
+removeVar x =
+  do ts <- get
+     let gamma = lcontext ts
+         lt = Map.delete x (localCxt gamma)
+         gamma' = gamma{localCxt = lt}
+     put ts{lcontext = gamma'}
+
+-- | Check if a type class is well-formed.
+checkClass h =
+  case flatten h of
+    Nothing -> throwError $ NotAValidClass h
+    Just (Right d', args) ->
+      do dconst <- lookupId d'
+         let dict = identification dconst
+         ensureDict dict h
+  where ensureDict (DictionaryType _ _) _ = return ()
+        ensureDict x h = throwError $ NotAValidClass h
+
+-- | update parameter info if a type variable has a Parameter assumption
+updateParamInfo :: [Exp] -> TCMonad ()
+updateParamInfo [] = return ()
+updateParamInfo (p:ps) =
+  case flatten p of
+    Just (Right i, [arg]) | getName i == "Parameter"  ->
+      case erasePos arg of
+        Var x -> updateParam x >> updateParamInfo ps
+        EigenVar x -> updateParam x >> updateParamInfo ps
+        _ -> updateParamInfo ps
+    _ -> updateParamInfo ps
+  where updateParam :: Variable -> TCMonad ()
+        updateParam x = 
+          do ts <- get
+             let gamma = lcontext ts
+                 lty = localCxt gamma
+             case Map.lookup x lty of
+               Nothing -> error "from updateParam."
+               Just lpkg ->
+                 case varIdentification lpkg of
+                   TermVar c ->
+                     error "from updateParam, unexpected term variable when updating param info."
+                   TypeVar _ ->
+                     do let lti' = Map.insert x (lpkg{varIdentification = TypeVar True}) lty
+                            gamma' = gamma {localCxt = lti'}
+                        put ts{lcontext = gamma'}
+
+insertLocalInst :: Variable -> Exp -> TCMonad ()
+insertLocalInst x t =
+  do ts <- get
+     let env = instanceContext ts
+         gamma' =  (x, t) : localInstance env
+         env' = env{localInstance = gamma'}
+     put ts{instanceContext = env'}
+
+
+removeLocalInst x =
+  do ts <- get
+     let env = instanceContext ts
+         gamma' = deleteBy (\ a b -> fst a == fst b) (x, Unit) $ localInstance env
+         env' = env{localInstance = gamma'}
+     put ts{instanceContext = env'}
+
+
+newNames :: [String] -> TCMonad [String]
+newNames ns =
+  do ts <- get
+     let i = clock ts
+         ns' = zipWith (\ j n -> n ++ show j) [i..]  ns
+         j = i + length ns
+     put ts{clock = j}
+     return ns'
+
+-- | check if a *program* is in value form.
+isValue (Pos p e) = isValue e
+isValue (Var _) = return True
+isValue (Label _) = return True
+isValue Star = return True
+isValue (Const _) = return True
+isValue (EigenVar _) = return True
+isValue (GoalVar _) = return True
+isValue (Lam _) = return True
+isValue (Lam' _) = return True
+isValue (Lift _) = return True
+isValue (LamDep _) = return True
+isValue (LamDep' _) = return True
+isValue (LamType (Abst xs m)) = isValue m
+isValue (LamTm (Abst xs m)) = isValue m
+isValue (LamDict _) = return True
+isValue (Pair x y) =
+  do x' <- isValue x
+     y' <- isValue y
+     return $ x' && y'
+     
+isValue (Pack x y) =
+  do x' <- isValue x
+     y' <- isValue y
+     return $ x' && y' 
+
+isValue (Force (App UnBox t)) = isValue t
+isValue (Force' (App' UnBox t)) = isValue t
+isValue a@(App UnBox t) = isValue t
+isValue a@(App' UnBox t) = isValue t
+
+isValue a@(App t t') = checkApp a
+isValue a@(App' t t') = checkApp a
+isValue a@(AppDep t t') = checkApp a
+isValue a@(AppDep' t t') = checkApp a
+isValue a@(AppDict t t') = checkApp a
+isValue a@(AppType t t') = isValue t
+isValue a@(AppTm t t') = isValue t
+isValue a@(Wired _) = return True
+isValue a@(RunCirc) = return True
+isValue _ = return False
+
+checkApp a = 
+  case flatten a of
+    Just (h, args) -> 
+        do pc <- lookupId (fromEither h)
+           case identification pc of
+             DataConstr _ ->
+               do rs <- mapM isValue args
+                  return $ and rs
+             DataType _ _ _ ->
+               do rs <- mapM isValue args
+                  return $ and rs
+             DictionaryType _ _ ->
+               do rs <- mapM isValue args
+                  return $ and rs
+             _ -> return False
+             where fromEither (Left x) = x
+                   fromEither (Right x) = x
+    _ -> return False
+
+
+checkParamCxt :: Exp -> TCMonad ()
+checkParamCxt t =
+  let fvars = getVars AllowEigen t
+  in do env <- get >>= \ x -> return (lcontext x)
+        mapM_ (checkFVars env) fvars
+  where
+        checkFVars env x =
+          let lvars = localCxt env              
+          in case Map.lookup x lvars of
+               Nothing -> throwError $ UnBoundErr x
+               Just lpkg ->
+                 do let t'= varClassifier lpkg
+                    case varIdentification lpkg of
+                      TypeVar _ -> return ()
+                      TermVar c ->
+                        do tt <- updateWithSubst t'
+                           p <- isParam tt
+                           when (not p) $ throwError $ LiftErrVar x t tt
