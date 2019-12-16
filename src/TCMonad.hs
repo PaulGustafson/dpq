@@ -666,3 +666,25 @@ updateCountWith update =
             TermVar n d ->
               let n' = update n 
               in lpkg{varIdentification = TermVar n' d}
+
+
+-- | Add a variable into the typing context
+addNewId :: Id -> Info -> TCMonad ()
+addNewId x t =
+  do ts <- get
+     let l = lcontext ts
+         env = globalCxt l 
+         env' =  Map.insert x t env
+         l' = l{globalCxt = env'}
+     put ts{lcontext = l'}
+
+
+
+-- | Check whether a type contains any vacuous forall quantification.
+
+checkVacuous pos ty =
+  case vacuousForall ty of
+       Nothing -> return ()
+       Just (Nothing, vs, ty, m) -> throwError (Vacuous pos vs ty m)
+       Just (Just p, vs, ty, m) -> throwError (Vacuous p vs ty m)
+

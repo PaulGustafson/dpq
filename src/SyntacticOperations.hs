@@ -35,6 +35,41 @@ removeVacuousPi (Imply ps ty2) =
 removeVacuousPi (Bang ty) = Bang $ removeVacuousPi ty
 removeVacuousPi a = a
 
+-- | Detect vacuous forall quantifications, returns a list of vacuous variables, their type
+-- and the expression that they should occur in. 
+vacuousForall :: Exp -> Maybe (Maybe Position, [Variable], Exp, Exp)
+vacuousForall (Arrow t1 t2) =
+  case vacuousForall t1 of
+    Nothing -> vacuousForall t2
+    Just p -> Just p
+
+vacuousForall (Pi (Abst vs m) ty) | isKind ty = vacuousForall m
+vacuousForall (Pi (Abst vs m) ty) | otherwise = 
+  case vacuousForall ty of
+    Nothing -> vacuousForall m
+    Just p -> Just p
+
+vacuousForall (Imply ts t2) = vacuousForall t2
+vacuousForall (Bang t2) = vacuousForall t2
+vacuousForall (Forall bds ty) =
+  open bds $ \ vs m ->
+   let fvs = getVars NoImply m
+       vs' = S.fromList vs
+       p = S.isSubsetOf vs' fvs
+   in if p then
+        case vacuousForall ty of
+          Nothing -> vacuousForall m
+          Just p -> Just p
+      else let diff = S.toList $ S.difference vs' fvs in
+             Just (Nothing, diff, ty, m)
+
+vacuousForall (Pos p e) =
+  case vacuousForall e of
+    Nothing -> Nothing
+    Just (Nothing, vs, t, m) -> Just (Just p, vs, t, m)
+    Just r -> Just r
+vacuousForall a = Nothing
+
 
 data VarSwitch = GetGoal -- ^ Get goal variables only.
   | OnlyEigen  -- ^ Obtain only eigen variables from an expression.
@@ -553,3 +588,4 @@ unEigenBound vars a@(Case e (B br)) =
           in (bv, (Left (NoBind x')):fv)
 unEigenBound vars a@(Wired _) = a 
 unEigenBound vars a = error $ "from unEigenBound" ++ (show $ disp a)
+

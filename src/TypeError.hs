@@ -33,6 +33,7 @@ data TypeError = Unhandle Exp
                | NotEq Exp Exp Exp
                | BangValue Exp Exp
                | MissBrErr Exp Exp
+               | Vacuous Position [Variable] Exp Exp
                
 -- | Add a position to an error message if the message does not already contain
 addErrPos p a@(ErrPos _ _) = a
@@ -175,3 +176,12 @@ instance Disp TypeError where
     nest 2 (display flag t) $$ 
     text "when evaluating" $$ nest 2 (display flag a)
 
+  display flag (Vacuous p vs ty m) =
+    display flag p <+> text "the following variables are vacuously quantified:" $$
+    nest 2 (hsep (map (display flag) vs)) $$
+    text "they have type:" $$
+    nest 2 (display flag ty) $$
+    text "their scope:" $$
+    nest 2 (display flag m) $$
+    text "note that the variables in the type constraints does not count toward their occurrences "
+    
