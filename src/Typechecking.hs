@@ -592,9 +592,38 @@ typeCheck flag a@(Case tm (B brs)) goal =
                          mapM removeInst ins
                          return (goal''', abst (PApp kid axs') ann2')
 
-     
+typeCheck flag tm ty = equality flag tm ty
 
-equality = undefined
+equality flag tm ty =
+  do ty' <- updateWithSubst ty
+     if not (ty == ty') then typeCheck flag tm ty'
+       else
+       do (tym, ann) <- typeInfer flag tm
+          tym1 <- updateWithSubst tym
+          ty1 <- updateWithSubst ty'
+          -- Here we are assuming there is no types like !!A
+          case (tym1, ty1) of
+            (Bang tym1, Bang ty1) ->
+              do (ty1, a2) <- handleEquality tm ann tym1 ty1
+                 return (Bang ty1, a2)
+            (tym1 , Bang ty1) -> throwError $ BangValue tm (Bang ty1)
+            (tym1, ty1) -> handleEquality tm ann tym1 ty1
+  where handleEquality tm ann tym1 ty1 = 
+          do (a2, tym', anEnv) <- addAnn flag tm ann tym1 []
+             mapM (\ (x, t) -> addVar x t) anEnv
+             unifRes <- normalizeUnif tym' ty1
+             case unifRes of
+               Nothing -> 
+                 do tyN1 <- normalize tym'
+                    tyN2 <- normalize ty1
+                    throwError $ NotEq tm tyN2 tyN1
+               Just s ->
+                 do ss <- getSubst
+                    let sub' = s `mergeSub` ss
+                    updateSubst sub'
+                    return (ty1, a2)
+
+
 
 -- | normalized and unify two expression
 patternUnif m isSemi matchEigen index head t =

@@ -30,6 +30,9 @@ data TypeError = Unhandle Exp
                | UnifErr Exp Exp
                | ExtendEnvErr [Either (NoBind Exp) Variable] Exp
                | DataErr Exp Exp
+               | NotEq Exp Exp Exp
+               | BangValue Exp Exp
+                 
 -- | Add a position to an error message if the message does not already contain
 addErrPos p a@(ErrPos _ _) = a
 addErrPos p a = ErrPos p a
@@ -145,4 +148,21 @@ instance Disp TypeError where
     text "the term:" $$
     nest 2 (display flag tm) $$
     text "is expected to have a data type, but it has type:" $$
+    nest 2 (display flag t)
+
+
+  display flag (BangValue a ty) =
+    text "Expecting a value form of the type" $$
+    nest 2 (display flag ty) $$
+    text "actual form:" $$
+    nest 2 (display flag a) $$
+    text "Suggestion: try eta-expansion on the above term"
+
+
+  display flag (NotEq a q t) =
+    text "the program:" $$
+    nest 2 (display flag a) $$
+    text "is expected to have type:" $$
+    nest 2 (display flag q) $$
+    text "but it has type:" $$
     nest 2 (display flag t)
