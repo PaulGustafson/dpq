@@ -24,7 +24,8 @@ data Info =
 
 data Identification = DataConstr Id  -- ^ Data type id 
                     | DefinedGate Exp -- storing basic gates
-                    | DefinedFunction Exp Exp -- Storing annotations and values
+                    | DefinedFunction Exp Exp Exp
+                    -- Storing annotation, value and annotated value
                     | DefinedMethod Exp --
                     | DefinedInstFunction Exp 
                     | DataType DataClassifier [Id] (Maybe Exp)

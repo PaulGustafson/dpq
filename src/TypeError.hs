@@ -32,7 +32,8 @@ data TypeError = Unhandle Exp
                | DataErr Exp Exp
                | NotEq Exp Exp Exp
                | BangValue Exp Exp
-                 
+               | MissBrErr Exp Exp
+               
 -- | Add a position to an error message if the message does not already contain
 addErrPos p a@(ErrPos _ _) = a
 addErrPos p a = ErrPos p a
@@ -166,3 +167,11 @@ instance Disp TypeError where
     nest 2 (display flag q) $$
     text "but it has type:" $$
     nest 2 (display flag t)
+
+
+  display flag (MissBrErr t a) =
+    text "Normalization error:" $$ 
+    text "missing a branch for" $$ 
+    nest 2 (display flag t) $$ 
+    text "when evaluating" $$ nest 2 (display flag a)
+
