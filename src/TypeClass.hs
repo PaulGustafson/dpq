@@ -61,20 +61,21 @@ rewrite goal localEnv globalEnv =
        Nothing -> tryGlobal goal globalEnv
        where tryLocal goal [] = return Nothing
              tryLocal goal ((x, t):xs) =
-               do let (res, sub) = runMatch t goal
+               do let (res, _) = runMatch t goal
                   if res then return $ Just (x, t)
                     else tryLocal goal xs
              tryGlobal goal [] =
                throwError $ ResolveErr goal
              tryGlobal goal ((k, t):xs) =
-               do let (vs, t') = decomposeForall' t
-                      (bds, h) = flattenArrows t'
+               do let (vs, t') = removePrefixes False t
+                      (bds1, h) = flattenArrows t'
+                      bds = map snd bds1
                       (r, subs) = runMatch h goal
                   if r then
                     do let bds' = map (apply subs) bds
                            vs' = map (\ a -> case a of
-                                         Left (x, t) -> Left (apply subs (Var x) , t)
-                                         Right (x, t) -> Right (apply subs (Var x) , t)
+                                               (Just x, t) ->
+                                                 (apply subs (Var x) , t)
                                        ) vs
                            e = makeApp (Const k) vs'
                        ns <- mapM (\ x -> newName "newGoal") bds'
@@ -82,9 +83,8 @@ rewrite goal localEnv globalEnv =
                            e' = foldl AppDict e (map Var ns)
                        return (e', newGoals)
                     else tryGlobal goal xs
-             makeApp h (Right (t, ty):res) | isKind ty = makeApp (AppType h t) res
-             makeApp h (Right (t, ty):res) | otherwise = makeApp (AppTm h t) res
-             makeApp h (Left (t, ty):res) = makeApp (AppImp h t) res
+             makeApp h ((t, ty):res) | isKind ty = makeApp (AppType h t) res
+             makeApp h ((t, ty):res) | otherwise = makeApp (AppTm h t) res
              makeApp h [] = h
              newName :: String -> TCMonad Variable
              newName s =
