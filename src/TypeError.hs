@@ -2,6 +2,7 @@ module TypeError where
 
 import Utils
 import Syntax
+import SyntacticOperations
 import qualified ConcreteSyntax as C
 
 
@@ -36,7 +37,8 @@ data TypeError = Unhandle Exp
                | Vacuous Position [Variable] Exp Exp
                | NotParam Exp Exp
                | EvalErr EvalError
-
+               | Originated Exp TypeError
+               | ResolveErr Exp
 
 data EvalError = MissBranch Id Exp
                | UndefinedId Id 
@@ -231,3 +233,13 @@ instance Disp TypeError where
     text "evaluation error:" $$ display flag e
 
 
+  display flag (Originated o e) =
+    let p = obtainPos o
+    in case p of
+         Nothing ->  display flag e $$ text "from a use of" $$ nest 2 (display flag o)
+         Just p ->  display flag e $$ text "from a use of" $$ nest 2 (display flag o) $$ text "at" <+> display flag p
+
+
+  display flag (ResolveErr e) =
+    text "can't resolve the constraint: " $$
+    (nest 2 $ display flag e)

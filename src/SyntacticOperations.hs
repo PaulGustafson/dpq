@@ -620,3 +620,6 @@ unwindHelper a t1 t2 =
    in (h, args++[t2])
       
 
+obtainPos :: Exp -> Maybe Position
+obtainPos (Pos p e) = Just p
+obtainPos _ = Nothing
