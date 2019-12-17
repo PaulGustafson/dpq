@@ -37,11 +37,13 @@ data TypeError = Unhandle Exp
                | NotParam Exp Exp
                | EvalErr EvalError
 
+
 data EvalError = MissBranch Id Exp
                | UndefinedId Id 
                | PatternMismatch Pattern Exp
                | TupleMismatch [Variable] Exp
-
+               | ErrWrapper TypeError
+               
 instance Disp EvalError where
   display flag (MissBranch id e) =
     text "missing branch for:" <+> display flag id $$
@@ -65,6 +67,8 @@ instance Disp EvalError where
   display flag (UndefinedId id) =
     text "nontermination detected when evaluating:" <+> display flag id
 
+  -- A wrapper due to tcToEval
+  display flag (ErrWrapper e) = display flag e
 
 -- | Add a position to an error message if the message does not already contain
 addErrPos p a@(ErrPos _ _) = a
@@ -225,3 +229,5 @@ instance Disp TypeError where
 
   display flag (EvalErr e) =
     text "evaluation error:" $$ display flag e
+
+

@@ -589,3 +589,34 @@ unEigenBound vars a@(Case e (B br)) =
 unEigenBound vars a@(Wired _) = a 
 unEigenBound vars a = error $ "from unEigenBound" ++ (show $ disp a)
 
+
+data UnwindFlag = AppFlag | App'Flag | AppDep'Flag
+                | AppDepFlag | AppDictFlag 
+  deriving (Show, Eq)
+
+
+-- | unwind an applicative depending on app.
+unwind a (Pos _ e) = unwind a e
+
+unwind a@(AppFlag) (App t1 t2) =
+  unwindHelper a t1 t2
+
+unwind a@(App'Flag) (App' t1 t2) =
+  unwindHelper a t1 t2
+
+unwind a@(AppDep'Flag) (AppDep' t1 t2) =
+  unwindHelper a t1 t2
+
+unwind a@(AppDepFlag) (AppDep t1 t2) =
+  unwindHelper a t1 t2
+
+unwind a@(AppDictFlag) (AppDict t1 t2) =
+  unwindHelper a t1 t2
+
+unwinde _ b = (b, [])
+
+unwindHelper a t1 t2 =
+  let (h, args) = unwind a t1
+   in (h, args++[t2])
+      
+
