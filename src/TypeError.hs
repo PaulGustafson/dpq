@@ -34,7 +34,7 @@ data TypeError = Unhandle Exp
                | BangValue Exp Exp
                | MissBrErr Exp Exp
                | Vacuous Position [Variable] Exp Exp
-               
+               | NotParam Exp Exp
 -- | Add a position to an error message if the message does not already contain
 addErrPos p a@(ErrPos _ _) = a
 addErrPos p a = ErrPos p a
@@ -185,3 +185,10 @@ instance Disp TypeError where
     nest 2 (display flag m) $$
     text "note that the variables in the type constraints does not count toward their occurrences "
     
+  display flag (NotParam m a) =
+    text "expecting a parameter type for" $$
+    nest 2 (display flag m) $$
+    text "but the actual type is:" $$
+    nest 2 (display flag a) $$
+    text "suggestion: use ! on the type to indicate reusability"
+

@@ -6,6 +6,8 @@ import SyntacticOperations
 import Utils
 import TypeError
 import Typechecking
+import Evaluation
+import Erasure
 
 import Nominal
 
@@ -65,10 +67,28 @@ process (Class pos d kd dict dictType mths) =
                   (_, ty'') <- typeCheck True ty' Set
                   (_, tyy') <- typeCheck True tyy Set 
                   (_, a) <- typeCheck False (Pos pos mth) ty'' 
-                  let fp = Info{classifier = tyy',
-                               identification = DefinedMethod a
+                  let fp = Info{ classifier = tyy',
+                                 identification = DefinedMethod a
                               } 
                   addNewId mname fp
+
+process (Def pos f' ty' def') =
+  do checkVacuous pos ty'
+     (_, ty) <- typeCheck True ty' Set 
+     let ty1 = erasePos $ removeVacuousPi ty
+     p <- isParam ty1
+     when (not p) $
+       throwError $ ErrPos pos (NotParam (Const f') ty')
+     let info1 = Info { classifier = ty1,
+                        identification = DefinedFunction Nothing}
+     addNewId f' info1
+     (ty2, ann) <- typeCheck True (Pos pos def') ty1 
+     a <- erasure ann
+     v <- eval a
+     (ty2, annV) <- typeCheck True v ty1
+     let info2 = Info { classifier = ty1,
+                        identification = DefinedFunction (Just (ann, v, annV))}
+     addNewId f' info2
 
 
 
