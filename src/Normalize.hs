@@ -258,8 +258,8 @@ normalize a@(Const k) =
      case f of
        DataConstr _ -> return a
        DefinedFunction (Just (_, _, e)) -> return e
-       DefinedMethod e -> return e
-       DefinedInstFunction e -> return e
+       DefinedMethod e _ -> return e
+       DefinedInstFunction e _ -> return e
 
        
 normalize a@(LBase k) = return a

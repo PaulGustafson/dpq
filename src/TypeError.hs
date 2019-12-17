@@ -35,6 +35,37 @@ data TypeError = Unhandle Exp
                | MissBrErr Exp Exp
                | Vacuous Position [Variable] Exp Exp
                | NotParam Exp Exp
+               | EvalErr EvalError
+
+data EvalError = MissBranch Id Exp
+               | UndefinedId Id 
+               | PatternMismatch Pattern Exp
+               | TupleMismatch [Variable] Exp
+
+instance Disp EvalError where
+  display flag (MissBranch id e) =
+    text "missing branch for:" <+> display flag id $$
+    text "when evaluating" $$
+    nest 2 (display flag e)
+
+  display flag (PatternMismatch p e) =
+    text "Single pattern matching failure:" $$
+    text "when matching:" $$
+    nest 2 (display flag e) $$
+    text "against:" $$
+    nest 2 (display flag p)
+
+  display flag (TupleMismatch xs e) =
+    text "pattern matching on tuple fails:" $$
+    text "when matching:" $$
+    nest 2 (display flag e) $$
+    text "against the tuple:" $$
+    nest 2 (hsep $ punctuate comma $ map (display flag) xs)     
+
+  display flag (UndefinedId id) =
+    text "nontermination detected when evaluating:" <+> display flag id
+
+
 -- | Add a position to an error message if the message does not already contain
 addErrPos p a@(ErrPos _ _) = a
 addErrPos p a = ErrPos p a
@@ -192,3 +223,5 @@ instance Disp TypeError where
     nest 2 (display flag a) $$
     text "suggestion: use ! on the type to indicate reusability"
 
+  display flag (EvalErr e) =
+    text "evaluation error:" $$ display flag e

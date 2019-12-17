@@ -68,7 +68,7 @@ process (Class pos d kd dict dictType mths) =
                   (_, tyy') <- typeCheck True tyy Set 
                   (_, a) <- typeCheck False (Pos pos mth) ty'' 
                   let fp = Info{ classifier = tyy',
-                                 identification = DefinedMethod a
+                                 identification = DefinedMethod a mth 
                               } 
                   addNewId mname fp
 
@@ -84,7 +84,7 @@ process (Def pos f' ty' def') =
      addNewId f' info1
      (ty2, ann) <- typeCheck True (Pos pos def') ty1 
      a <- erasure ann
-     v <- eval a
+     v <- evaluation a
      (ty2, annV) <- typeCheck True v ty1
      let info2 = Info { classifier = ty1,
                         identification = DefinedFunction (Just (ann, v, annV))}
