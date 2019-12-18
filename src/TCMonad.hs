@@ -668,7 +668,7 @@ updateCountWith update =
               in lpkg{varIdentification = TermVar n' d}
 
 
--- | Add a variable into the typing context
+-- | Add a new Id into the typing context
 addNewId :: Id -> Info -> TCMonad ()
 addNewId x t =
   do ts <- get

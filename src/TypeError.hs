@@ -39,6 +39,10 @@ data TypeError = Unhandle Exp
                | EvalErr EvalError
                | Originated Exp TypeError
                | ResolveErr Exp
+               | ErrDoc Doc
+               | TypeClassNotValid Exp
+               | MethodsErr [Id] [Id]
+
 
 data EvalError = MissBranch Id Exp
                | UndefinedId Id 
@@ -243,3 +247,24 @@ instance Disp TypeError where
   display flag (ResolveErr e) =
     text "can't resolve the constraint: " $$
     (nest 2 $ display flag e)
+
+  display flag (ErrDoc e) = e
+
+  display flag (TypeClassNotValid h) =
+    text "the type class constraint" $$
+    (nest 2 $ display flag h) $$
+    text "is not a valid type class constraint."
+
+  display flag (MethodsErr [] act) =
+    text "does not expect to implement any method, " $$
+    text "but methods implemented: " $$
+    nest 2 (hsep $ punctuate comma (map (display flag) act))
+  display flag (MethodsErr exp []) =
+    text "expected to implement all of the following methods in the exact order: " $$
+    nest 2 (hsep $ punctuate comma (map (display flag) exp)) $$
+    text "but no method is implemented"
+  display flag (MethodsErr exp act) =
+    text "expected to implement all of the following methods in the exact order: " $$
+    nest 2 (hsep $ punctuate comma (map (display flag) exp)) $$
+    text "actual methods implemented: " $$
+    nest 2 (hsep $ punctuate comma (map (display flag) act)) 

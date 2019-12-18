@@ -66,7 +66,7 @@ eval lenv a@(Const k) =
          case identification e of
            DataConstr _ -> return a
            DefinedGate e -> return e
-           DefinedFunction Nothing -> throwError $ UndefinedId k
+           -- DefinedFunction Nothing -> throwError $ UndefinedId k
            DefinedFunction (Just (_, v, _)) -> return v
            DefinedMethod _ e -> return e
            DefinedInstFunction _ e -> return e
