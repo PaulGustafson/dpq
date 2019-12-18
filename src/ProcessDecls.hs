@@ -194,39 +194,41 @@ process (SimpData pos d n k0 eqs) = -- [instSimp, instParam, instPS]
      indx <- checkIndices n d inds `catchError`
              \ e -> throwError $ collapsePos pos e
      
-     info <- mapM (\ (i, t) -> (preTypeToType n k0' i t) `catchError`
+     info <- mapM (\ (i, t) -> (preTypeToType n k2 i t) `catchError`
                                         \ e -> throwError $ collapsePos pos e)
              (zip inds pretypes)
      let (cs, tys) = unzip info
-     defaultToElab $ checkCoverage d cs `catchError` \ e -> throwError $ collapsePos pos e
-     let tp1 = Info {classifier = erasePos k,
-                   identification = DataType (SemiSimple indx) constructors Nothing
+     checkCoverage d cs `catchError` \ e -> throwError $ collapsePos pos e
+     let tp1 = Info { classifier = erasePos k,
+                      identification = DataType (SemiSimple indx) constructors Nothing
                    }
      addNewId d tp1     
-     tys' <- mapM (\ ty -> (kindChecking ty Set True) >>= \ x -> return x) tys
+     tys' <- mapM (\ ty -> (typeCheck True ty Set) >>= \ (_, x) -> return x) tys
 
-     let funcs = map (\ t -> Pkg {classifier = erasePos t,
+     let funcs = map (\ t -> Info {classifier = erasePos $ unEigen t,
                                   identification = DataConstr d
                                  }
                      ) tys'
-     zipWithM_ insertNewConst constructors funcs
-     s <- getSimple
-     s1 <- getParam
-     sp <- getSimpParam
-     tvars <- defaultToElab $ newNames $ take n (repeat "a")
-     tvars' <- defaultToElab $ newNames $ take n (repeat "b")
-     let (bds, _) = deCompose k0'
-     tmvars <- defaultToElab $ newNames $ take (length bds) (repeat "x")
-     let insTy = with_fresh_namedS tvars $ \ tvs ->
-                    with_fresh_namedS tmvars $ \ tmvs ->
+     zipWithM_ addNewId constructors funcs
+
+     let s = Base $ Id "Simple"
+         s1 = Base $ Id "Param"
+         sp = Base $ Id "SimpParam"
+     tvars <- newNames $ take n (repeat "a")
+     tvars' <- newNames $ take n (repeat "b")
+     let (bds1, _) = flattenArrows k2
+         bds = map snd bds1
+     tmvars <- newNames $ take (length bds) (repeat "x")
+     let insTy = freshNames tvars $ \ tvs ->
+                    freshNames tmvars $ \ tmvs ->
            let env = map (\ t -> (t, Set)) tvs  ++ (zip tmvs bds)
                pre = map (\ x -> App s (Var x)) tvs
                hd = App s $ foldl App (foldl App (LBase d) (map Var tvs))
                     (map Var tmvs)
                ty = foldr (\ (x, t) y -> Forall (abst [x] y) t) (Imply pre hd) env
            in ty
-     let insTy' = with_fresh_namedS tvars $ \ tvs ->
-                    with_fresh_namedS tmvars $ \ tmvs ->
+     let insTy' = freshNames tvars $ \ tvs ->
+                    freshNames tmvars $ \ tmvs ->
            let env = map (\ t -> (t, Set)) tvs  ++ (zip tmvs bds)
                pre = map (\ x -> App s1 (Var x)) tvs
                hd = App s1 $ foldl App (foldl App (LBase d) (map Var tvs))
@@ -234,9 +236,9 @@ process (SimpData pos d n k0 eqs) = -- [instSimp, instParam, instPS]
                ty = foldr (\ (x, t) y -> Forall (abst [x] y) t) (Imply pre hd) env
            in ty
      let insTy'' =
-           with_fresh_namedS tvars $ \ tvs ->
-           with_fresh_namedS tvars' $ \ tvs' ->
-           with_fresh_namedS tmvars $ \ tmvs ->
+           freshNames tvars $ \ tvs ->
+           freshNames tvars' $ \ tvs' ->
+           freshNames tmvars $ \ tmvs ->
            let env = map (\ t -> (t, Set)) tvs ++ map (\ t -> (t, Set)) tvs'  ++ (zip tmvs bds)
                pre = map (\ (x, y) -> App (App sp (Var x)) (Var y)) $ zip tvs tvs'
                hd = App (App sp (foldl App (foldl App (LBase d) (map Var tvs))
@@ -244,35 +246,18 @@ process (SimpData pos d n k0 eqs) = -- [instSimp, instParam, instPS]
                     (foldl App (foldl App (LBase d) (map Var tvs'))
                       (map Var tmvs))
                ty = foldr (\ (x, t) y -> Forall (abst [x] y) t) (Imply pre hd) env
-           in ty           
-     res <- elaborateInstance pos instSimp insTy []
-     res' <- elaborateInstance pos instParam insTy' []
-     res'' <- elaborateInstance pos instPS insTy'' []
-     tfunc <- defaultToElab $ makeTypeFun n k0' (zip constructors (zip inds tys))
-     let tp = Pkg {classifier = erasePos k,
+           in ty
+     let instSimp = Id $ "instAt" ++ hashPos pos ++"Simp"
+         instParam = Id $ "instAt" ++ hashPos pos ++"Param"
+         instPS = Id $ "instAt" ++ hashPos pos ++"SimpParam"
+     elaborateInstance pos instSimp insTy []
+     elaborateInstance pos instParam insTy' []
+     elaborateInstance pos instPS insTy'' []
+     tfunc <- makeTypeFun n k2 (zip constructors (zip inds tys))
+     let tp = Info {classifier = erasePos k,
                    identification = DataType (SemiSimple indx) constructors (Just tfunc)
                    }
-     insertNewConst d tp
-     return $ (d, Just tfunc) : res : res':res'' : map (\ c -> (c, Nothing)) constructors
-       where
-        ensureArrowKind k =
-          do let p = obtainPos k
-                 e = case p of
-                       Nothing -> SimpCheck (NotArrow k)
-                       Just p' -> ErrPos p' $ SimpCheck (NotArrow k)
-             when (not $ isArrow k) $ throwError e
-
-        checkRegular (Pos p e) =
-          checkRegular e `catchError` \ e -> throwError $ collapsePos p e
-        checkRegular x =
-          do let (bds, h) = deCompose x
-             helper bds
-               where helper (b:bds) =
-                       do p <- isRegular b
-                          when (not p) $ throwSimple $ NotRegular b
-                          helper bds
-                     helper [] = return ()
-
+     addNewId d tp
 
 
 checkOverlap h =
@@ -430,5 +415,47 @@ makeGate id ps t =
           let xs' = map Var xs
               pairs = foldl Pair (head xs') (tail xs')
           in Lam $ abst xs (App e pairs)
+
+
+-- | Make a type function for runtime wires generation.
+makeTypeFun n k0 ((c, (Nothing, ty)):[]) =
+     let (env, m) = removePrefixes False ty
+         vars = map (\ (Just x , _) -> x) env
+         (bds, h) = flattenArrows m
+         bds' = map snd bds
+         exp = foldl App (Const c) bds'
+         t = if null vars then exp else Lam (abst vars exp) 
+     in return t
+
+
+makeTypeFun n k0 xs@((_, (Just i, _)):_) =
+  do tyvars <- newNames $ take n (repeat "a")
+     let (bds, _) = flattenArrows k0
+     tmvars <- newNames $ take (length bds) (repeat "x")
+     freshNames tyvars $ \ tvars ->
+       freshNames tmvars $ \ mvars ->
+       let (tmv1, cv:tmv2) = splitAt i mvars
+           bindings = map (helper $ tvars ++ tmv1 ++ tmv2) xs
+           vs = tvars++tmv1++(cv:tmv2)
+           exp = Lam (abst vs $ Case (Var cv) (B bindings)) 
+       in return exp
+       where helper vss (c, (Just i, ty)) =
+               let (env, m) = removePrefixes False ty
+                   (bds, h) = flattenArrows m
+               in case flatten h of
+                   Just (Right w, args) ->
+                     let (ttvars, pat:mmvars) = splitAt (n + i) args
+                         renamings = zip (map getVar ttvars ++ map getVar mmvars) (map Var vss)
+                         rhs = apply renamings $ foldl App (Const c) (map snd bds)
+                         r = abst (toPat pat) rhs
+                     in r 
+                   Nothing -> error $ show (text "from makeTypeFun helper:" <+> disp h)
+                
+             getVar (Var x) = x
+             getVar (Pos p e) = getVar e
+             getConst (Const x) = x
+             getConst (Pos p e) = getConst e
+             toPat p = let (h, as) = unwind AppFlag p
+                       in PApp (getConst h) (map (\ a -> Right (getVar a)) as)
 
 
