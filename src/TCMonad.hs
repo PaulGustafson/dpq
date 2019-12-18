@@ -235,6 +235,54 @@ isParam (Exists (Abst x t) ty) =
      return $ x && y
 isParam a | otherwise = return False
 
+
+isSemiParam :: Exp -> TCMonad Bool
+isSemiParam a | isKind a = return True
+isSemiParam (Unit) = return True
+isSemiParam (LBase id) = return False
+isSemiParam (Base id) = return False
+isSemiParam (Var _) = return True
+isSemiParam (EigenVar _) = return True
+isSemiParam t@(App _ _) =
+  case flatten t of
+    Nothing -> return False
+    Just (Right id, args) ->
+      do tyinfo <- lookupId id
+         case identification tyinfo of
+           DataType Param _ _ -> return True
+           DataType Simple _ _-> return False
+           DataType Unknown _ _-> return False
+           DataType (SemiSimple _) _ _ -> helper tyinfo args
+           DataType SemiParam _ _-> helper tyinfo args
+           DictionaryType _ _ -> return True
+
+  where helper tyinfo args =
+          do let k = classifier tyinfo
+                 (inds,h) = flattenArrows k
+                 m = zip (map snd inds) args
+             s <- mapM (\ (i, a) ->
+                         if i == Set then isSemiParam a
+                         else if isKind i then return False else return True) m
+             return $ and s
+
+isSemiParam (Tensor t t') =
+  do r1 <- isSemiParam t     
+     r2 <- isSemiParam t'
+     return $ r1 && r2     
+
+isSemiParam (Bang q) = return True
+
+isSemiParam (Circ t1 t2) = return True
+
+isSemiParam (Exists (Abst x t) ty) =
+  do r1 <- isSemiParam t     
+     r2 <- isSemiParam ty
+     return $ r1 && r2     
+  
+isSemiParam (Pos _ e) = isSemiParam e
+
+isSemiParam a = return False
+
 -- | Increment the count of a variable by one.
 updateCount :: Variable -> TCMonad ()
 updateCount x = 
@@ -634,6 +682,7 @@ withPosition (Pos p e) er@(ErrPos _ _) = er
 withPosition (Pos p e) er = ErrPos p er
 withPosition _ er = er
 
+
 removeInst :: Variable -> TCMonad ()
 removeInst x =
   do ts <- get
@@ -688,3 +737,14 @@ checkVacuous pos ty =
        Just (Nothing, vs, ty, m) -> throwError (Vacuous pos vs ty m)
        Just (Just p, vs, ty, m) -> throwError (Vacuous p vs ty m)
 
+
+addGlobalInst :: Id -> Exp -> TCMonad ()
+addGlobalInst x t =
+  do ts <- get
+     let env = instanceContext ts
+         gamma' =  (x, t) : globalInstance env
+         env' = env{globalInstance = gamma'}
+     put ts{instanceContext = env'}
+
+collapsePos p a@(ErrPos _ _) = a
+collapsePos p a = ErrPos p a

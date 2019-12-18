@@ -42,8 +42,10 @@ data TypeError = Unhandle Exp
                | ErrDoc Doc
                | TypeClassNotValid Exp
                | MethodsErr [Id] [Id]
-
-
+               | InstanceOverlap Exp Id Exp
+               | NotAParam Exp
+               | NotStrictSimple Exp
+               | GateErr Position Id               
 data EvalError = MissBranch Id Exp
                | UndefinedId Id 
                | PatternMismatch Pattern Exp
@@ -268,3 +270,23 @@ instance Disp TypeError where
     nest 2 (hsep $ punctuate comma (map (display flag) exp)) $$
     text "actual methods implemented: " $$
     nest 2 (hsep $ punctuate comma (map (display flag) act)) 
+
+  display flag (InstanceOverlap h id exp) =
+    text "instance head:" <+> display flag h $$
+    text "is overlapped with existing instance:" $$
+    nest 2 (display flag exp) $$
+    text "instance info:" <+> disp id
+
+  display flag (NotAParam exp) =
+    text "the expression:" <+> display flag exp $$
+    text "is not a parameter type"
+
+  display flag (NotStrictSimple e) =
+    text "the type expression:" <+> display flag e $$
+    text "is not a strictly simple type" $$
+    text "i.e. composed only from object types and tensor"
+    
+  display flag (GateErr p g) =
+    display flag p $$ text "the gate:" <+> display flag g $$
+    text "must have at least one wired input"
+
