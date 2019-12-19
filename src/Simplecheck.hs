@@ -1,6 +1,18 @@
 module Simplecheck where
 
 
+import TCMonad
+import Syntax
+import SyntacticOperations
+import Utils
+import TypeError
+import TypeClass
+import Substitution
+
+import Nominal
+
+import Data.List
+import Control.Monad.Except
 
 -- | Make sure the pattern matching is on the same argument in the simple type declaration.
 -- The first argument is the length of the type arguments.  
@@ -8,34 +20,38 @@ checkIndices :: Int -> Id -> [Maybe Int] -> TCMonad (Maybe Int)
 checkIndices n d ls =
   case sequence ls of
     Nothing -> 
-      do when (length ls > 1) $ throwSimple $ Ambiguous d
+      do when (length ls > 1) $ throwError $ Ambiguous d
          return Nothing
     Just (i:inds) -> helper i inds >> return (Just (n+i))
   where helper :: Int -> [Int] -> TCMonad ()       
         helper i (j:res) =
-          if j /= i then throwSimple $ IndexInconsistent (n+i) (n+j) d
+          if j /= i then throwError $ IndexInconsistent (n+i) (n+j) d
           else helper i res
         helper i [] = return ()
+
 
 -- | Check the coverage of the pattern matching in the simple declaration.
 checkCoverage :: Id -> [Maybe Id] -> TCMonad ()
 checkCoverage d' cons =
   case sequence cons of
     Nothing ->
-      do when (length cons > 1) $ throwSimple $ Ambiguous d'
+      do when (length cons > 1) $ throwError $ Ambiguous d'
          return ()
     Just css@(c:cs) ->
-      do funPac <- lookupConst c
+      do funPac <- lookupId c
          let (DataConstr d) = identification funPac
-         typePac <- lookupConst d
+         typePac <- lookupId d
          let DataType _ cons _ = identification typePac
-         when (length css /= length cons) $ throwSimple $ CoverErr css cons d'
-         when (not $ null (css \\ cons)) $ throwSimple (CoverErr css cons d')
+         when (length css /= length cons) $ throwError $ CoverErr css cons d'
+         when (not $ null (css \\ cons)) $ throwError (CoverErr css cons d')
 
+-- | n is the number of type variables, k is the kind specified in the simple
+-- declaration, i is the index, e is the pretype. preTypeToType will return
+-- (<matched-constructor>, <type>)
 preTypeToType :: Int -> Exp -> Maybe Int -> Exp -> TCMonad (Maybe Id, Exp)
 preTypeToType n k i (Pos p e) =
   preTypeToType n k i e `catchError` \ e -> throwError $ collapsePos p e
-preTypeToType n k i (Lam (Abst vs m) _) =
+preTypeToType n k i (Lam (Abst vs m)) =
   handleBody n k i m 
 preTypeToType n k i (Forall (Abst vs m) ty) =
   do (c, t) <- preTypeToType n k i m
@@ -44,21 +60,21 @@ preTypeToType n k i a = handleBody n k i a
 
 -- | The helper function for preTypeToType that does the real work of the conversion.
 handleBody n k i m =
-  do let (bds, h) = deCompose m
-         Just (Right hid, args) = getId h
-         (argTypes, _) = deCompose k
-     mapM_ (checkBody h hid) bds
+  do let (bds, h) = flattenArrows m
+         Just (Right hid, args) = flatten h
+         (argTypes1, _) = flattenArrows k
+         argTypes = map snd argTypes1
+     mapM_ (checkBody h hid) (map snd bds)
      case i of
        Just j -> 
          let (vsTy, pT:resTy) = splitAt j argTypes
              (vs, p:res) = splitAt j (drop n args)
-             Just (id, pargs) = getId p in
+             Just (id, pargs) = flatten p in
            case id of
              Left pid ->
                do (vs', pargs', res') <- checkVars vs pargs res
-                  pidTy <- lookupConst pid >>= \ x -> return $ classifier x
+                  pidTy <- lookupId pid >>= \ x -> return $ classifier x
                   let pargTys = instantiation pT pidTy
-                        -- deCompose pidTy'
                       pPair = zip pargs' pargTys
                       vsPair = zip vs' vsTy
                       resPair = zip res' resTy
@@ -66,7 +82,7 @@ handleBody n k i m =
                       finalType = foldr (\ (x, t) y -> Forall (abst [x] y) t) m finalArgs 
                   return (Just pid, finalType)
              Right pid ->
-               throwError $ withPosition p (SimpCheck (TConstrErr pid)) 
+               throwError $ withPosition p (TConstrErr pid)
        Nothing ->
          do (_, args',_) <- checkVars [] (drop n args) []
             let finalArgs = zip args' argTypes
@@ -75,37 +91,39 @@ handleBody n k i m =
        where getVar :: Exp -> TCMonad Variable
              getVar (Var x) = return x
              getVar (Pos p e) = getVar e `catchError` \ e -> throwError $ collapsePos p e
-             getVar a = throwError $ SimpCheck (NonSimplePatErr a)
+             getVar a = throwError (NonSimplePatErr a)
+             -- make sure the arguments are all variable
              checkVars vs pargs res =
                do vs' <- mapM getVar vs
                   pargs' <- mapM getVar pargs
                   res' <- mapM getVar res
                   return (vs', pargs', res')
+             -- 
              instantiation head ty =
-               let (env, t) = decomposeForall ty
-                   (argTs, h') = deCompose t
+               let (env, t) = removePrefixes False ty
+                   (argTs, h') = flattenArrows t
                    (r, s) = runMatch h' head
                in if r then
-                    let argTs' = map (apply s) argTs
+                    let argTs' = map (apply s) (map snd argTs)
                     in argTs'
                     else error $ "can't match " ++ (show $ disp h') ++ "against " ++ (show $ disp head)
 
--- | check the right hand side of the simple declaration is well-defined.
+-- | check the right hand side of the simple declaration is well-defined, i.e., they
+-- for a well-defined primitive recursive definition.
 checkBody h id (Pos p e) = checkBody h id e `catchError` \ e -> throwError $ collapsePos p e
 checkBody h id (Var x) = return ()
-checkBody h id b | Nothing <- getId b = error $ "from checkBody:" ++ (show (disp b))
-checkBody h id b | Just (Right kid, args) <- getId b =
+
+checkBody h id b | Just (Right kid, args) <- flatten b =
   if kid == id then 
     let b' = erasePos b
         h' = erasePos h
         s1 = b' `isSubterm` h'
         s2 = b' /= h'
     in if s1 && s2 then return ()
-       else throwSimple $ SubtermErr b h
-  else do x <- semiSimple b
-          when (not x) $ throwSimple (NotSimple b)
-checkBody h id b | Just (Left kid, args) <- getId b =
-  throwSimple (ConstrErr kid)
+       else throwError $ SubtermErr b h
+  else do (x, _) <- isSemiSimple kid
+          when (not x) $ throwError (NotSimple b)
+checkBody h id b | otherwise = error $ "from checkBody:" ++ (show (disp b))
 
 -- | First order subterm relation.
 isSubterm (App t1 t2) (App t3 t4) =
@@ -115,13 +133,12 @@ isSubterm (Const x) (Const y) | x == y = True
 isSubterm (Base x) (Base y) | x == y = True 
 isSubterm (LBase x) (LBase y) | x == y = True 
 isSubterm (Var x) t =
-  let fv = free_vars NoEigen t
+  let fv = getVars AllowEigen t
   in x `elem` fv
 isSubterm u v = False
 
--- checkIndices = undefined
-
--- preTypeToType = undefined
 
 
--- checkCoverage = undefined
+
+
+

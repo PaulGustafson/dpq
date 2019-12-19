@@ -45,7 +45,16 @@ data TypeError = Unhandle Exp
                | InstanceOverlap Exp Id Exp
                | NotAParam Exp
                | NotStrictSimple Exp
-               | GateErr Position Id               
+               | GateErr Position Id
+               | Ambiguous Id
+               | IndexInconsistent Int Int Id
+               | CoverErr [Id] [Id] Id
+               | NonSimplePatErr Exp
+               | SubtermErr Exp Exp
+               | NotSimple Exp
+               | TConstrErr Id
+
+               
 data EvalError = MissBranch Id Exp
                | UndefinedId Id 
                | PatternMismatch Pattern Exp
@@ -289,4 +298,41 @@ instance Disp TypeError where
   display flag (GateErr p g) =
     display flag p $$ text "the gate:" <+> display flag g $$
     text "must have at least one wired input"
+
+  display flag (Ambiguous id) =
+    text "ambiguous declarations" $$
+    (text "in the simple type declaration for:" <+> display flag id)
+
+  display flag (IndexInconsistent i j d) =
+    (text ("expected pattern matching on the "++show (i+1)++"th argument")) $$
+    (text ("but there is also pattern matching on the "++show (j+1)++"th argument")) $$
+    text "in the definition for:" <+> display flag d $$
+    --  $$ text "---------------------------" $$
+    text "Note that in the Simple type declaration" $$
+    text "we can only pattern match on a fixed argument"
+
+
+  display flag (CoverErr actual expect d) =
+    text "coverage error during the simple check"$$
+    text "need to cover exactly the following constructors:" $$
+    nest 2 (hsep $ punctuate comma (map (display flag) expect)) $$
+    text "the actual covering is the following:" $$
+    nest 2 (hsep $ punctuate comma (map (display flag) actual)) $$
+    text "in the definition for:" <+> display flag d
+
+
+  display flag (NonSimplePatErr b) =
+    text "expecting a variable in the pattern, but get:" <+> display flag b
+
+  display flag (SubtermErr b h) =
+    text "the expression:" <+> display flag b $$
+    text "is not structurally smaller than:" <+> display flag h
+
+  display flag (NotSimple e) =
+    text "the type expression:" <+> display flag e $$
+    text "is not a simple type"
+
+  display flag (TConstrErr id) =
+    text "unexpected type constructor:" <+> display flag id $$
+    text "during the simplicity checking"
 
