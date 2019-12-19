@@ -260,6 +260,10 @@ process (SimpData pos d n k0 eqs) = -- [instSimp, instParam, instPS]
      addNewId d tp
 
 
+process (OperatorDecl pos op level fixity) = return ()
+process (ImportDecl p mod) = return ()
+
+
 checkOverlap h =
   do es <- get
      let gs = globalInstance $ instanceContext es

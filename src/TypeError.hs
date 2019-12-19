@@ -53,7 +53,7 @@ data TypeError = Unhandle Exp
                | SubtermErr Exp Exp
                | NotSimple Exp
                | TConstrErr Id
-
+               | TyAmbiguous (Maybe Id) Exp               
                
 data EvalError = MissBranch Id Exp
                | UndefinedId Id 
@@ -335,4 +335,8 @@ instance Disp TypeError where
   display flag (TConstrErr id) =
     text "unexpected type constructor:" <+> display flag id $$
     text "during the simplicity checking"
+
+  display flag (TyAmbiguous Nothing ty) =
+    text "infer a type that contains free variables:" $$
+    nest 2 (display flag ty) 
 
