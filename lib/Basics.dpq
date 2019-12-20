@@ -10,6 +10,7 @@ object Bit
 id :: ! forall a . a -> a
 id x = x
 
+
 swap :: ! forall a b . a * b -> b * a
 swap u = let (x, y) = u in (y, x)
 
@@ -45,13 +46,15 @@ snd :: ! forall a b . (Parameter a) => a * b -> b
 snd x =
   let (x1, x2) = x in x2
 
-
+test1 :: Bool
+test1 = fst (True, False)
 
 -- eliminating the need to do pattern matching on
 -- multi-tensor, well, sort of.
-
+{-
 simple Pair a :: Type where
   Pair a = P a a
+
 
 simple Triple a b c :: Type where
   Triple a b c = T a b c
@@ -104,3 +107,4 @@ not b =
   False -> b
 
 
+-}

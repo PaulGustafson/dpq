@@ -67,7 +67,7 @@ eval lenv a@(Const k) =
            DataConstr _ -> return a
            DefinedGate e -> return e
            -- DefinedFunction Nothing -> throwError $ UndefinedId k
-           DefinedFunction (Just (_, v, _)) -> return v
+           DefinedFunction (Just (_, v)) -> return v
            DefinedMethod _ e -> return e
            DefinedInstFunction _ e -> return e
 
@@ -96,6 +96,9 @@ eval lenv (Force' m) =
        _ -> error "from force'"
 
 eval lenv a@(Lam body) = 
+  if Map.null lenv then return a else return $ instantiate lenv a
+
+eval lenv a@(Lift body) = 
   if Map.null lenv then return a else return $ instantiate lenv a
 
 eval lenv a@(Lam' body) = 

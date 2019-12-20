@@ -89,10 +89,10 @@ process (Def pos f' ty' def') =
      (ty2, ann) <- typeCheck False (Pos pos def') ty1 
      a <- erasure $ unEigen ann
      v <- evaluation a
-     (ty2, annV) <- typeCheck False v ty1
-     let annV' = unEigen annV
+     -- (ty2, annV) <- typeCheck False v ty1
+     -- let annV' = unEigen annV
      let info2 = Info { classifier = ty1,
-                        identification = DefinedFunction (Just (ann, v, annV'))}
+                        identification = DefinedFunction (Just (ann, v))}
      addNewId f' info2
 
 process (Data pos d kd cons) =
@@ -125,13 +125,13 @@ process (Data pos d kd cons) =
                    env = genEnv 0 bds
                    ns = map fst env
                    head = foldl App d (map Var ns)
-                   s = Base (Id "Param")
+                   s = Base (Id "Parameter")
                    ty1 = foldr (\ (x, t) y -> Forall (abst [x] y) t) (App s head) env
-               in  do let instId = Id $ "instAt"++ hashPos pos ++ "Param"
+               in  do let instId = Id $ "instAt"++ hashPos pos ++ "Parameter"
                       elaborateInstance pos instId ty1 []
              generateParamInstance pos SemiParam d kd' =
                let (bds, _) = flattenArrows kd'
-                   s = Base (Id "Param")
+                   s = Base (Id "Parameter")
                    env = genEnv 0 bds
                    env' = filter (\ (x, t) -> isKind t) env
                    ns = map fst env

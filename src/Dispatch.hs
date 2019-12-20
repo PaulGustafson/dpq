@@ -105,7 +105,7 @@ dispatch (Annotation e) =
          -- error "from dispatch annotation"
        Just p ->
          case identification p of
-           DefinedFunction (Just (a, _, _)) ->
+           DefinedFunction (Just (a, _)) ->
              do liftIO $ putStrLn ("it has annotation \n" ++ (show $ dispRaw a))
                 return True
            DefinedMethod a _ ->

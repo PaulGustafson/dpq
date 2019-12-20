@@ -6,6 +6,7 @@ import Syntax as A
 import ConcreteSyntax as C
 import Parser
 import TCMonad
+import TypeClass
 import ProcessDecls
 import Typechecking
 import Resolve
@@ -48,7 +49,7 @@ instance Disp Error where
                                   (vcat $ map text sources)
   display flag (ParseErr e) = display flag e
   display flag (ScopeErr e) = display flag e
-  display flag (CompileErr e) = text "Type checking error:" $$ display flag e
+  display flag (CompileErr e) = display flag e
     
 
 -- | A toplevel monad
@@ -136,15 +137,33 @@ tcTop m =
      case res of
        Left e -> throwError $ CompileErr e
        Right e ->
-         do let cxt = globalCxt $ lcontext s
-                inst = globalInstance $ instanceContext s
-            putCxt cxt
-            putInstCxt inst
+         do let cxt' = globalCxt $ lcontext s
+                inst' = globalInstance $ instanceContext s
+            putCxt cxt'
+            putInstCxt inst'
             return e
 
     
 topTypeInfer :: A.Exp -> Top (A.Exp, A.Exp)
-topTypeInfer e = tcTop $ typeInfer (isKind e) e 
+topTypeInfer def = tcTop $
+  do (ty, tm) <- typeInfer (isKind def) def
+     ty' <- updateWithSubst ty
+     tm' <- updateWithSubst ty
+     (ann1, rt) <- elimConstraint def tm' ty'
+     let ann' = unEigen ann1
+     rt' <- resolveGoals rt `catchError` \ e -> throwError $ withPosition def e
+     ann'' <- resolveGoals ann' `catchError` \ e -> throwError $ withPosition def e
+     return $ (rt', ann'')     
+       where elimConstraint e a (A.Imply (b:bds) ty) = 
+                 do ns <- newNames ["#outtergoalinst"]
+                    freshNames ns $ \ [n] ->
+                      do addGoalInst n b e
+                         let a' = A.AppDict a (GoalVar n)
+                         elimConstraint e a' (A.Imply bds ty)
+             elimConstraint e a (A.Imply [] ty) = elimConstraint e a ty
+             elimConstraint e a (A.Pos _ ty) = elimConstraint e a ty    
+             elimConstraint e a t = return (a, t)
+
 
 getCxt = do
   s <- getInterpreterState

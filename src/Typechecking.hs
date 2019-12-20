@@ -129,6 +129,8 @@ typeInfer flag a@(Pair t1 t2) =
      return (Tensor ty1 ty2, Pair ann1 ann2)
 
 
+typeInfer flag e = throwError $ Unhandle e
+
 
 
 typeCheck flag (Pos p e) ty =
