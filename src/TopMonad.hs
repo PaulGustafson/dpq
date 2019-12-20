@@ -6,6 +6,7 @@ import Syntax as A
 import ConcreteSyntax as C
 import Parser
 import TCMonad
+import ProcessDecls
 import Typechecking
 import Resolve
 import TypeError
@@ -13,7 +14,7 @@ import Utils
 import SyntacticOperations
 
 
-
+import Nominal
 
 import Control.Monad.Except
 import Control.Monad.Identity
@@ -34,8 +35,21 @@ data Error =
   | ParseErr ParseError -- ^ A wrapper for parse error.
   | CompileErr TypeError -- ^ A wrapper for typing error.
 
+
 instance Disp Error where
-  display a e = text ""
+  display flag (IOError e) = text $ show e
+
+  display flag NoReloadError = text "There is no file to reload"
+  display flag (Mess p s) = display flag p $$ display flag s
+  display flag (Cyclic p sources target) = display flag p $$
+                                  text "cyclic importing detected" $$
+                                  text "when importing:" <+> text target $$
+                                  text "current importation chain:" $$
+                                  (vcat $ map text sources)
+  display flag (ParseErr e) = display flag e
+  display flag (ScopeErr e) = display flag e
+  display flag (CompileErr e) = text "Type checking error:" $$ display flag e
+    
 
 -- | A toplevel monad
 newtype Top a = T {runT :: ExceptT Error (StateT TopState IO) a }
@@ -112,16 +126,21 @@ scopeTop x = case runResolve x of
                  Left e -> throwError (ScopeErr e)
                  Right a -> return a
 
--- | perform an TCMonad without changing Top
+-- | perform an TCMonad action, will update Top 
 tcTop :: TCMonad a -> Top a
 tcTop m =
   do st <- getInterpreterState
      let cxt = context st
          inst = instCxt st
-         (res, _) = runIdentity $ runTCMonadT cxt inst m
+         (res, s) = runIdentity $ runTCMonadT cxt inst m
      case res of
        Left e -> throwError $ CompileErr e
-       Right e -> return e
+       Right e ->
+         do let cxt = globalCxt $ lcontext s
+                inst = globalInstance $ instanceContext s
+            putCxt cxt
+            putInstCxt inst
+            return e
 
     
 topTypeInfer :: A.Exp -> Top (A.Exp, A.Exp)
@@ -203,4 +222,64 @@ putPState x = do
   s <- getInterpreterState
   let s' = s { parserState = x }
   putInterpreterState s'
+
+-- | Update the typing context.
+putCxt cxt = do
+  s <- getInterpreterState
+  let s' = s { context = cxt }
+  putInterpreterState s'
+
+-- | Update the instance context.
+putInstCxt cxt = do
+  s <- getInterpreterState
+  let s' = s { instCxt = cxt }
+  putInterpreterState s'
+
+
+-- | Make a buildin class of the form c x1 ... xn, where c is the class name.
+makeBuildinClass d c n | n > 0 =
+  do i <- getCounter
+     dict <- addBuildin (BuildIn (i+1)) (c++"Dict") A.Const
+     putCounter (i+3)
+     let names = map (\ i -> "x"++ show i) $ take n [0 .. ]
+         dictType = freshNames names $
+                    \ ns -> A.Forall (abst ns $ foldl A.App (A.Base d) (map A.Var ns)) A.Set
+         kd = foldr (\ x y -> A.Arrow A.Set y) A.Set names
+     tcTop $ process (A.Class (BuildIn (i+2)) d kd dict dictType [])
+
+parserTop :: Either ParseError a -> Top a
+parserTop (Left e) = throwError (ParseErr e)
+parserTop (Right a) = return a
+
+-- | Remember an imported file.
+addImported :: String -> Top ()
+addImported x = do
+  s <- get
+  let inS = interpreterstate s
+      inS' = inS{importedFiles = x:(importedFiles inS)}
+      s' = s{interpreterstate = inS'}
+  put s'
+
+-- | Remember an parent file.
+addParentFile :: String -> Top ()
+addParentFile x = do
+  s <- get
+  let inS = interpreterstate s
+      inS' = inS{parentFiles = x:(parentFiles inS)}
+      s' = s{interpreterstate = inS'}
+  put s'
+
+-- | Retrieve the parent files.
+getParentFiles :: Top [String]
+getParentFiles =
+  do s <- get
+     let intp = interpreterstate s
+     return (parentFiles intp)
+
+-- | Retrieve current imported files.
+getCurrentImported :: Top [String]
+getCurrentImported =
+  do s <- get
+     let intp = interpreterstate s
+     return (importedFiles intp)
 

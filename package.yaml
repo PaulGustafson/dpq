@@ -1,4 +1,4 @@
-name:                dpq-remake
+name:                dpq
 version:             0.1.0.0
 github:              "githubuser/dpq-remake"
 license:             BSD3
@@ -38,7 +38,7 @@ library:
   source-dirs: src
 
 executables:
-  dpq-remake-exe:
+  dpqi:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -46,10 +46,10 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - dpq-remake
+    - dpq
 
 tests:
-  dpq-remake-test:
+  dpq-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -57,4 +57,4 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - dpq-remake
+    - dpq

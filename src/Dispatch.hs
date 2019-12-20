@@ -9,8 +9,13 @@ import Utils
 import Erasure
 import Evaluation
 import Normalize
+import Parser
 import SyntacticOperations
 import TypeError
+import Resolve
+import ProcessDecls
+
+import Nominal
 
 import System.Directory
 import System.FilePath
@@ -113,7 +118,7 @@ dispatch (Annotation e) =
              do liftIO $ putStrLn ("there is nothing to show \n")
                 return True
 
-{-
+
 -- A load command will first initialize the Simple and Parameter class instances,
 -- then proceed to load file. 
 dispatch (Load verbose file) =
@@ -129,24 +134,32 @@ dispatch (Load verbose file) =
      putFilename file
      h <- ioTop $ openFile file ReadMode
      str <- ioTop $ hGetContents h
-     imports <- parserToTop $ parseImports file str
-     top_imports imports
+     imports <- parserTop $ parseImports file str
+     processImports imports
      pst <- getPState
-     (decls, pst') <- parserToTop $ parseModule file str pst
+     (decls, pst') <- parserTop $ parseModule file str pst
      putPState pst'
-     processDecls decls
+     decls' <- resolution decls
+     tcTop $ mapM process decls'
      ioTop $ hClose h
      when verbose $ liftIO $ putStrLn ("loaded: "++ takeFileName file)
      return True
        where
+         resolution [] = return []
+         resolution (d:ds) =
+           do sc <- getScope
+              (d', sc') <- scopeTop $ resolveDecl sc d
+              putScope sc'
+              ds' <- resolution ds
+              return (d':ds')
+     
          -- | A helper function that is responsible for
          -- importing the files from the import declarations.
-         top_imports :: [C.Decl] -> Top ()
-         top_imports imps = mapM_ handleImport imps
-           where handleImport (ImportGlobal p mod) =
+         processImports :: [C.Decl] -> Top ()
+         processImports imps = mapM_ helper imps
+           where helper (ImportGlobal p file) =
                    do fs <- getParentFiles
                       imps <- getCurrentImported
-                      let file = mod
                       when ((file `elem` fs) && not (file `elem` imps)) $
                         throwError (Cyclic p fs file)
                       if file `elem` imps then
@@ -156,16 +169,79 @@ dispatch (Load verbose file) =
                            path <- getPath
                            h <- ioTop $ openFile (path </> file) ReadMode
                            str <- ioTop $ hGetContents h
-                           imports <- parserToTop $ parseImports file str 
-                           top_imports imports
+                           imports <- parserTop $ parseImports file str 
+                           processImports imports
                            pst <- getPState
-                           (decls, pst') <- parserToTop $ parseModule file str pst
+                           (decls, pst') <- parserTop $ parseModule file str pst
                            putPState pst'
-                           processDecls decls
+                           --processDecls decls
+                           decls' <- resolution decls
+                           tcTop $ mapM process decls'
                            addImported file
                            ioTop $ hClose h
                            return ()
 
 
 
--}
+
+initializeSimpleClass d = 
+  do vpairs1 <- makeBuildinClass d "Simple" 1
+     s <- topResolve (C.Base "Simple")
+     i <- getCounter
+     scope <- getScope
+     putCounter (i+2)
+     let inst1 = "instAt" ++ hashPos (BuildIn i) ++ "Simple"
+         inst2 = "instAt" ++ hashPos (BuildIn (i+1)) ++ "Simple"
+     (instSimp, scope') <- scopeTop $ addConst (BuildIn i) inst1 Const scope
+     (instSimp2, scope'') <- scopeTop $ addConst (BuildIn (i+1)) inst2 Const scope'
+     putScope scope''
+     vpair <- tcTop $ elaborateInstance (BuildIn i) instSimp (A.App s A.Unit) []
+     let pt = freshNames ["a", "b"] $ \ [a, b] ->
+           A.Forall (abst [a, b] $ A.Imply [A.App s (A.Var a), A.App s (A.Var b)]
+                     (A.App s $ A.Tensor (A.Var a) (A.Var b))) A.Set
+     tcTop $ elaborateInstance (BuildIn (i+1)) instSimp2 pt []
+
+
+initializeSimpParam d = 
+  do vpairs1 <- makeBuildinClass d "SimpParam" 2
+     s <- topResolve (C.Base "SimpParam")
+     i <- getCounter
+     scope <- getScope
+     putCounter (i+2)
+     let inst1 = "instAt" ++ hashPos (BuildIn i) ++ "SimpParam"
+         inst2 = "instAt" ++ hashPos (BuildIn (i+1)) ++ "SimpParam"
+     (instSimp, scope') <- scopeTop $ addConst (BuildIn i) inst1 Const scope
+     (instSimp2, scope'') <- scopeTop $ addConst (BuildIn (i+1)) inst2 Const scope'
+     putScope scope''
+     tcTop $ elaborateInstance (BuildIn i) instSimp (A.App (A.App s A.Unit) A.Unit) []
+                           
+     let pt = freshNames ["a", "b", "c", "d"] $ \ [a, b, c, d] ->
+           A.Forall (abst [a, b, c, d] $ A.Imply [A.App (A.App s (A.Var a)) (A.Var c),
+                                                  A.App (A.App s (A.Var b)) (A.Var d)]
+                     (A.App (A.App s $ A.Tensor (A.Var a) (A.Var b)) (A.Tensor (A.Var c) (A.Var d)))) A.Set
+     tcTop $ elaborateInstance (BuildIn (i+1)) instSimp2 pt []
+
+-- | Initialze the 'Parameter' class and its three build-in instances,
+-- i.e. unit, bang and tensor.
+initializeParameterClass d = 
+  do vpairs1 <- makeBuildinClass d "Parameter" 1
+     s <- topResolve (C.Base "Parameter")
+     i <- getCounter
+     putCounter (i+4)
+     scope <- getScope
+     let inst1 = "instAt" ++ hashPos (BuildIn i) ++ "Parameter"
+         inst2 = "instAt" ++ hashPos (BuildIn (i+1)) ++ "Parameter"
+         inst3 = "instAt" ++ hashPos (BuildIn (i+2)) ++ "Parameter"
+         inst4 = "instAt" ++ hashPos (BuildIn (i+3)) ++ "Parameter"
+     (instP, scope') <- scopeTop $ addConst (BuildIn i) inst1 Const scope
+     (instP2, scope'') <- scopeTop $ addConst (BuildIn (i+1)) inst2 Const scope'
+     (instP3, scope''') <- scopeTop $ addConst (BuildIn (i+2)) inst3 Const scope''
+     putScope scope'''
+     tcTop $ elaborateInstance (BuildIn i) instP (A.App s A.Unit) []
+     let pt = freshNames ["a", "b"] $ \ [a, b] ->
+           A.Forall (abst [a, b] $ A.Imply [A.App s (A.Var a), A.App s (A.Var b)]
+                     (A.App s $ A.Tensor (A.Var a) (A.Var b))) A.Set
+     tcTop $ elaborateInstance (BuildIn (i+1)) instP2 pt []
+     let pt2 = freshNames ["a"] $ \ [a] ->
+           A.Forall (abst [a] (A.App s $ A.Bang (A.Var a))) A.Set
+     tcTop $ elaborateInstance (BuildIn (i+2)) instP3 pt2 []
