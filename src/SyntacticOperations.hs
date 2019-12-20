@@ -613,7 +613,7 @@ unwind a@(AppDepFlag) (AppDep t1 t2) =
 unwind a@(AppDictFlag) (AppDict t1 t2) =
   unwindHelper a t1 t2
 
-unwinde _ b = (b, [])
+unwind _ b = (b, [])
 
 unwindHelper a t1 t2 =
   let (h, args) = unwind a t1

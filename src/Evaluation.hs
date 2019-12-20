@@ -47,7 +47,10 @@ evaluation e =
        Left e -> throwError $ EvalErr e
        Right r -> return r
 
-lookupLEnv = undefined
+lookupLEnv x lenv =
+  case Map.lookup x lenv of
+    Nothing -> error "from lookupLEnv"
+    Just v -> v
 
 eval :: Map Variable Exp -> Exp -> Eval Exp
 eval lenv (Var x) =
@@ -144,6 +147,11 @@ eval lenv (AppDict m n) =
   do v <- eval lenv m
      w <- eval lenv n
      evalAppDict lenv v w
+
+eval lenv (Pair m n) = 
+  do v <- eval lenv m
+     w <- eval lenv n
+     return (Pair v w)
 
 eval lenv (Let m bd) =
   do m' <- eval lenv m

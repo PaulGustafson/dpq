@@ -86,13 +86,14 @@ process (Def pos f' ty' def') =
      let info1 = Info { classifier = ty1,
                         identification = DefinedFunction Nothing}
      addNewId f' info1
-     (ty2, ann) <- typeCheck False (Pos pos def') ty1 
-     a <- erasure $ unEigen ann
+     (ty2, ann) <- typeCheck False (Pos pos def') ty1
+     ann' <- resolveGoals ann
+     a <- erasure $ unEigen ann'
      v <- evaluation a
      -- (ty2, annV) <- typeCheck False v ty1
      -- let annV' = unEigen annV
      let info2 = Info { classifier = ty1,
-                        identification = DefinedFunction (Just (ann, v))}
+                        identification = DefinedFunction (Just (ann', v))}
      addNewId f' info2
 
 process (Data pos d kd cons) =
