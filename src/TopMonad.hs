@@ -148,7 +148,7 @@ topTypeInfer :: A.Exp -> Top (A.Exp, A.Exp)
 topTypeInfer def = tcTop $
   do (ty, tm) <- typeInfer (isKind def) def
      ty' <- updateWithSubst ty
-     tm' <- updateWithSubst ty
+     tm' <- updateWithSubst tm
      (ann1, rt) <- elimConstraint def tm' ty'
      let ann' = unEigen ann1
      rt' <- resolveGoals rt `catchError` \ e -> throwError $ withPosition def e

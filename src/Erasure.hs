@@ -12,11 +12,12 @@ import Control.Monad.State
 import Debug.Trace
 import Text.PrettyPrint
 import qualified Data.Set as S
-
+import Debug.Trace
 -- | The 'erasure' function erases all the type annotations from the annotated term.
 
 
 erasure :: Exp -> TCMonad Exp
+-- erasure a | trace ("erasing:" ++ (show $ disp a)) $ False = undefined
 erasure (Pos p a) = erasure a
 erasure Star = return Star
 erasure Set = return Set

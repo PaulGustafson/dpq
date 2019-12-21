@@ -46,12 +46,12 @@ snd :: ! forall a b . (Parameter a) => a * b -> b
 snd x =
   let (x1, x2) = x in x2
 
-test1 :: Bool
-test1 = fst (True, False)
+-- test1 :: Bool
+-- test1 = fst (True, False)
 
 -- eliminating the need to do pattern matching on
 -- multi-tensor, well, sort of.
-{-
+
 simple Pair a :: Type where
   Pair a = P a a
 
@@ -93,7 +93,7 @@ not b =
   case b of
     True -> False
     False -> True
-    
+
 (&&) :: ! (Bool -> Bool -> Bool)
 (&&) a b =
  case a of
@@ -107,4 +107,3 @@ not b =
   False -> b
 
 
--}

@@ -31,8 +31,8 @@ process (Class pos d kd dict dictType mths) =
                    }
      addNewId d tp
      checkVacuous pos dictType
-     (_, dictTypeAnn) <- typeCheck True dictType Set 
-     let fp = Info{ classifier = erasePos $ removeVacuousPi (unEigen dictTypeAnn),
+     dictTypeAnn <- typeChecking True dictType Set 
+     let fp = Info{ classifier = erasePos $ removeVacuousPi dictTypeAnn,
                     identification = DataConstr d
                  }
      addNewId dict fp              
@@ -47,11 +47,11 @@ process (Class pos d kd dict dictType mths) =
                       ty' = erasePos $ removeVacuousPi mty'
                       tyy = erasePos $ removeVacuousPi mty
                   checkVacuous pos ty'
-                  (_, ty'') <- typeCheck True ty' Set
-                  (_, tyy') <- typeCheck True tyy Set 
-                  (_, a) <- typeCheck False (Pos pos mth) (unEigen ty'')
-                  let fp = Info{ classifier = unEigen tyy',
-                                 identification = DefinedMethod (unEigen a) mth 
+                  ty'' <- typeChecking True ty' Set
+                  tyy' <- typeChecking True tyy Set 
+                  a <- typeChecking False (Pos pos mth) (unEigen ty'')
+                  let fp = Info{ classifier = tyy',
+                                 identification = DefinedMethod a mth 
                               } 
                   addNewId mname fp
 
@@ -78,35 +78,33 @@ process (Instance pos f ty mths) =
 
 process (Def pos f' ty' def') =
   do checkVacuous pos ty'
-     (_, ty) <- typeCheck True ty' Set 
-     let ty1 = erasePos $ removeVacuousPi $ unEigen ty
+     ty <- typeChecking True ty' Set 
+     let ty1 = erasePos $ removeVacuousPi ty
      p <- isParam ty1
      when (not p) $
        throwError $ ErrPos pos (NotParam (Const f') ty')
      let info1 = Info { classifier = ty1,
                         identification = DefinedFunction Nothing}
      addNewId f' info1
-     (ty2, ann) <- typeCheck False (Pos pos def') ty1
-     ann' <- resolveGoals ann
-     a <- erasure $ unEigen ann'
+     ann <- typeChecking False (Pos pos def') ty1
+     a <- erasure ann
      v <- evaluation a
      -- (ty2, annV) <- typeCheck False v ty1
      -- let annV' = unEigen annV
      let info2 = Info { classifier = ty1,
-                        identification = DefinedFunction (Just (ann', v))}
+                        identification = DefinedFunction (Just (ann, v))}
      addNewId f' info2
 
 process (Data pos d kd cons) =
   do let constructors = map (\ (_, id, _) -> id) cons
          types = map (\ (_, _, t) -> t) cons
-     (_, kd') <- typeCheck True kd Sort 
+     kd' <- typeChecking True kd Sort 
      dc <- determineClassifier d kd' constructors types
      let tp = Info { classifier = kd',
                      identification = DataType dc constructors Nothing
                    }
      addNewId d tp
-     res <- mapM (\ t -> typeCheck True (Pos pos t) Set) types
-     let types' = map (unEigen . snd) res
+     types' <- mapM (\ t -> typeChecking True (Pos pos t) Set) types
      let funcs = map (\ t -> Info{ classifier = erasePos $ removeVacuousPi t,
                                    identification = DataConstr d
                                 }) types'
@@ -164,7 +162,7 @@ process (GateDecl pos id params t) =
      mapM_ (\ x -> checkStrictSimple x) (h:(map snd bds))
      when (null bds) $ throwError (GateErr pos id)
      let ty = Bang $ foldr Arrow t params
-     (_, tk) <- typeCheck True ty Set
+     tk <- typeChecking True ty Set
      let gate = makeGate id (map erasePos params) (erasePos t)
      let fp = Info {classifier = erasePos tk,
                    identification = DefinedGate gate
@@ -186,8 +184,7 @@ process (GateDecl pos id params t) =
 process (SimpData pos d n k0 eqs) = -- [instSimp, instParam, instPS]
   do -- defaultToElab $ ensureArrowKind k0
      -- defaultToElab $ checkRegular k0
-     (_, k1) <- typeCheck True k0 Sort
-     let k2 = unEigen k1
+     k2 <- typeChecking True k0 Sort
      let k = foldr (\ x y -> Arrow Set y) k2 (take n [0 .. ])
      let constructors = map (\ (_, _, c, _) -> c) eqs
          pretypes = map (\ (_, _,_, t) -> t) eqs
@@ -204,7 +201,7 @@ process (SimpData pos d n k0 eqs) = -- [instSimp, instParam, instPS]
                       identification = DataType (SemiSimple indx) constructors Nothing
                    }
      addNewId d tp1     
-     tys' <- mapM (\ ty -> (typeCheck True ty Set) >>= \ (_, x) -> return x) tys
+     tys' <- mapM (\ ty -> typeChecking True ty Set) tys
 
      let funcs = map (\ t -> Info {classifier = erasePos $ unEigen t,
                                   identification = DataConstr d
@@ -213,7 +210,7 @@ process (SimpData pos d n k0 eqs) = -- [instSimp, instParam, instPS]
      zipWithM_ addNewId constructors funcs
 
      let s = Base $ Id "Simple"
-         s1 = Base $ Id "Param"
+         s1 = Base $ Id "Parameter"
          sp = Base $ Id "SimpParam"
      tvars <- newNames $ take n (repeat "a")
      tvars' <- newNames $ take n (repeat "b")
@@ -249,7 +246,7 @@ process (SimpData pos d n k0 eqs) = -- [instSimp, instParam, instPS]
                ty = foldr (\ (x, t) y -> Forall (abst [x] y) t) (Imply pre hd) env
            in ty
      let instSimp = Id $ "instAt" ++ hashPos pos ++"Simp"
-         instParam = Id $ "instAt" ++ hashPos pos ++"Param"
+         instParam = Id $ "instAt" ++ hashPos pos ++"Parameter"
          instPS = Id $ "instAt" ++ hashPos pos ++"SimpParam"
      elaborateInstance pos instSimp insTy []
      elaborateInstance pos instParam insTy' []
@@ -277,7 +274,7 @@ checkOverlap h =
              else return ()
 
 elaborateInstance pos f' ty mths =
-  do (_, annTy) <- typeCheck True ty Set 
+  do annTy <- typeChecking True ty Set
      let (env, ty') = removePrefixes False annTy
          vars = map (\ x -> case x of
                         (Just y, _) -> y
@@ -329,11 +326,11 @@ elaborateInstance pos f' ty mths =
                  do mapM_ (\ (x, t) -> addVar x t) env'
                     mapM_ (\ (x, t) -> insertLocalInst x t) instEnv
                     updateParamInfo (map snd instEnv)
-                    (ty', a) <- typeCheck False (Pos p m) (erasePos t)
-                    a' <- resolveGoals a
+                    a <- typeChecking False (Pos p m) (erasePos t)
+                    -- a' <- resolveGoals a
                     mapM_ (\ (x, t) -> removeVar x) env'
                     mapM_ (\ (x, t) -> removeLocalInst x) instEnv
-                    return $ unEigen a'
+                    return $ a -- unEigen a'
                     
 
              rebind [] t = t
@@ -464,3 +461,9 @@ makeTypeFun n k0 xs@((_, (Just i, _)):_) =
                        in PApp (getConst h) (map (\ a -> Right (getVar a)) as)
 
 
+typeChecking b exp ty =
+  do (ty', exp') <- typeCheck b exp ty
+     exp'' <- updateWithSubst exp'
+     r <- resolveGoals exp''
+     return $ unEigen r
+     

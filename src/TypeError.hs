@@ -19,7 +19,7 @@ data TypeError = Unhandle Exp
                | KAppErr Exp Exp Exp
                | ArrowErr Exp Exp
                | NotAValidClass Exp
-               | ForallLinearErr [Variable] Exp
+               | ForallLinearErr [Variable] Exp Exp
                | KArrowErr Exp Exp
                | LiftErrVar Variable Exp Exp
                | LVarErr Variable Exp ZipCount Exp
@@ -127,11 +127,12 @@ instance Disp TypeError where
     text "is not a valid type class constraint."
 
 
-  display flag (ForallLinearErr xs ty) =
+  display flag (ForallLinearErr xs ty exp) =
     text "irrelavent quantification on linear resource:"$$
     nest 2 (hsep $ map (display flag) xs) $$
     text "have a linear type:" $$
-    nest 2 (display flag ty)
+    nest 2 (display flag ty) $$
+    text "when kinding:" $$ display flag exp
 
 
   display flag (KArrowErr ty a) =

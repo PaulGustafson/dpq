@@ -216,9 +216,9 @@ typeCheck True (Forall (Abst xs m) ty) a@(Set) | isKind ty =
      mapM_ (\ x -> removeVar x) xs
      return (a, res)
 
-typeCheck True (Forall (Abst xs m) ty) a@(Set) | otherwise = 
+typeCheck True exp@(Forall (Abst xs m) ty) a@(Set) | otherwise = 
   do p <- isParam ty
-     when (not p) $ throwError (ForallLinearErr xs ty)
+     when (not p) $ throwError (ForallLinearErr xs ty exp)
      (_, tyAnn) <- typeCheck True ty a
      mapM_ (\ x -> addVar x (erasePos tyAnn)) xs
      let sub = zip xs (map EigenVar xs)
@@ -629,9 +629,10 @@ equality flag tm ty =
 
 -- | normalized and unify two expression
 patternUnif m isSemi matchEigen index head t =
-  case (isSemi, matchEigen) of
-    (True, False) ->
-      case index of
+--  case (isSemi, matchEigen) of
+--    (True, False) ->
+  if isSemi || matchEigen then
+    case index of
         Nothing -> normalizeUnif head t
         Just i ->
           case flatten t of
@@ -640,8 +641,9 @@ patternUnif m isSemi matchEigen index head t =
                   a' = unEigen a
                   t' = foldl App' (LBase h) (bs++(a':as))
               in normalizeUnif head t
-            _ -> throwError $ withPosition m (UnifErr head t) 
-    (False, True) -> normalizeUnif head t
+            _ -> throwError $ withPosition m (UnifErr head t)
+  else normalizeUnif head t
+--    (False, True) -> normalizeUnif head t
       
 
 normalizeUnif t1 t2 =

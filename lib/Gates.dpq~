@@ -1,0 +1,138 @@
+module Gates where
+
+import "li/Basics.dpq"
+-- import "Nat.dpq"
+
+-- All gates must have at least one input.
+gate Init0 :: Unit -> Qubit
+gate Init1 :: Unit -> Qubit
+{-
+gate Term0 :: Qubit -> Unit
+gate Term1 :: Qubit -> Unit
+
+gate WGate :: Qubit -> Qubit -> Qubit * Qubit
+
+gate WGateInverse :: Qubit -> Qubit -> Qubit * Qubit
+
+gate H :: Qubit -> Qubit
+
+gate TGate :: Qubit -> Qubit
+
+gate C_H :: Qubit -> Qubit -> Qubit * Qubit
+
+
+-- The second qubit is the control bit
+gate CNot :: Qubit -> Qubit -> Qubit * Qubit
+
+-- convention: to support circuit printing,
+-- any nontrivial binary control gate have to be prefixed with `C_`, e.g.
+-- the following C_X, C_Z.
+gate C_X :: Qubit -> Bit -> Qubit * Bit
+
+gate C_Z :: Qubit -> Bit -> Qubit * Bit
+
+
+
+
+-- Rotatation gate, its parameter must be a monomoprhic type
+gate R Nat :: Qubit -> Qubit -> Qubit * Qubit
+
+-- gate RZ {n :: Nat} . (Real n) :: Qubit -> Qubit
+-- gate RZ' { n:: Nat} {m :: Nat}. (Real n) (Real m) :: Qubit -> Qubit
+
+-- gate C_RZ {n :: Nat} . (Real n) :: Qubit -> Qubit -> Qubit * Qubit
+
+gate Discard :: Bit -> Unit
+
+-- Measurement gate
+gate Mea :: Qubit -> Bit
+
+
+withComputed :: ! forall a b . Circ(a, b) -> Circ(b, b) -> (a -> a)
+withComputed circ c arg =
+  let circ_rev = unbox (revert circ)
+      c' = unbox c
+      circ' = unbox circ
+  in circ_rev (c' (circ' arg))
+-- appCirc (appCirc circ c) circ'
+
+
+
+-- A Toffoli gate specialized to one positive and one negative
+-- control. The second argument is the positive control and the third
+-- argument is the negative one.
+gate ToffoliGate_10 :: Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit
+
+-- A Toffoli gate specialized to one positive and one negative
+-- control. The second argument is the negative control and the third
+-- argument is the positive one.
+gate ToffoliGate_01 :: Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit
+
+-- A Toffoli gate with signed controls. A sign of 'True' means the
+-- control fires when the qubit is 1; a sign of 'False' means the
+-- control fires when the qubit is 0.
+-- The first parameter controls the second qubit, the second parameter
+-- controls the third qubit
+gate ToffoliGate Bool Bool :: Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit
+
+
+-- A controlled-not gate with a signed control, the second qubit is the controlling qubit
+gate CNotGate Bool :: Qubit -> Qubit -> Qubit * Qubit
+
+-- A not gate
+gate QNot :: Qubit -> Qubit
+
+
+gate ControlledExpGate Bool :: Qubit -> Qubit -> Qubit * Qubit
+
+-- A wrapper on ControlledExpGate
+controlledExpGate :: ! (Qubit -> Qubit * Bool -> Qubit * Qubit)
+controlledExpGate q t =
+  let (y, sign) = t
+  in ControlledExpGate sign q y
+
+qterm :: ! (Bool -> Qubit -> Unit)
+qterm b q =
+  case b of
+   True -> Term1 q
+   False -> Term0 q
+
+qterm' :: ! (Bool * Qubit -> Unit)
+qterm' bq =
+ let (b, q) = bq in qterm b q
+ 
+
+
+controlled H_g :: Qubit -> Qubit
+
+controlled ZGate :: Qubit -> Qubit
+
+controlled SGate :: Qubit -> Qubit
+
+controlled Not_g :: Qubit -> Qubit
+
+
+cnot :: ! forall s . (Simple s) => Qubit -> Qubit -> s -> (Qubit * Qubit) * s
+cnot a b s = 
+   let (a, bs) = Not_g
+                  a
+   		  (b, s)
+       (b, s) = bs
+   in ((a, b), s)
+
+
+
+initQubit :: ! (Bool -> Qubit)
+initQubit b = case b of
+                True -> Init1 ()
+		False -> Init0 ()
+-}
+{-
+-- boxHard :: Circ(Triple Qubit Qubit Qubit , Qubit * (Qubit * Qubit))
+-- boxHard = box (Triple Qubit Qubit Qubit) $ \ x . let T a b c = x in Hard a (b, c)
+
+
+-}
+
+
+
