@@ -218,7 +218,8 @@ typeCheck True (Forall (Abst xs m) ty) a@(Set) | isKind ty =
 
 typeCheck True exp@(Forall (Abst xs m) ty) a@(Set) | otherwise = 
   do p <- isParam ty
-     when (not p) $ throwError (ForallLinearErr xs ty exp)
+     b <- getCheckBound
+     when (not p && b) $ throwError (ForallLinearErr xs ty exp)
      (_, tyAnn) <- typeCheck True ty a
      mapM_ (\ x -> addVar x (erasePos tyAnn)) xs
      let sub = zip xs (map EigenVar xs)

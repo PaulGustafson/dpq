@@ -65,6 +65,11 @@ erasure (Pack e1 e2) =
      e2' <- erasure e2
      return $ Pair e1' e2'
 
+erasure (Arrow e1 e2) =
+  do e1' <- erasure e1
+     e2' <- erasure e2
+     return $ Arrow e1' e2'
+
 erasure (AppType e1 e2) = erasure e1
 
 erasure (AppTm e1 e2) = erasure e1
@@ -221,6 +226,6 @@ erasure l@(Case e (B br)) =
              helper2 flag a b _ = error $ "from helper2 flag-erasure-case" ++ (show $ disp a)
 
 erasure a@(Wired _) = return a
-erasure a = error $ "from erasure" ++ (show $ disp a)
+erasure a = error $ "from erasure: " ++ (show $ disp a)
 
 

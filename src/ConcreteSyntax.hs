@@ -56,7 +56,8 @@ data Decl =
   | Data
     Position {-Position for the type constructor-}
     String {- Type constructor name -}
-    [Either Exp ([String], Exp)] 
+    [Exp] {- Type constraints -}
+    [([String], Exp)]  {- args -}
     [(Position, {- Position for the constructor -}
       String, {- Constructor name -}
       [Either ([String], Exp) Exp] {- Constructor arguments:

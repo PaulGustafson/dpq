@@ -269,25 +269,30 @@ controlDecl =
 dataDecl :: Parser Decl
 dataDecl = 
   do reserved "data"
+     tc <- option [] $ do{
+             tyClass <- parens (sepBy1 typeExp comma);
+             reserved "=>";
+             return tyClass
+             }
      (p, head, vs) <- manyLines
                       (do{p <- getPosition;
                           c <- const;
                           return $ \ ps -> (p, c, ps)})
-                      prefix
+                      annotation
      constrs <- option [] $
                 reservedOp "=" >>
                 (sepBy1 br (reservedOp "|"))
-     return $ Data (P p) head vs constrs
+     return $ Data (P p) head tc vs constrs
      where br = manyLines (do{p <- getPosition;
                               c <- const;
                               return $ \ ps -> (P p, c, ps)}) arg
            arg = try (singleExp >>= \ x -> return $ Right x) <|>
                      (ann >>= \ x -> return $ Left x)
-           prefix = try annotation <|> classExp
-           annotation =
-             do x <- try ann <|> impAnn
-                return $ Right x
-           classExp = parens typeExp >>= \ x -> return $ Left x
+           -- prefix = try annotation <|> classExp
+           annotation = try ann <|> impAnn
+             -- do x <- 
+             --    return $ x
+           --classExp = parens typeExp -- >>= \ x -> return $ Left x
              
 -- | A parser for simple data type declaration.                
 simpleDecl :: Parser Decl

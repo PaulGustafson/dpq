@@ -109,7 +109,7 @@ process (Data pos d kd cons) =
                                    identification = DataConstr d
                                 }) types'
      zipWithM_ addNewId constructors funcs
-     generateParamInstance pos dc (Base d) kd'
+     generateParamInstance pos dc (Base d) kd' 
        where genEnv :: Int -> [(Maybe Variable, Exp)] -> [(Variable, Exp)]
              genEnv n ((Nothing, e):res) =
                let env = genEnv (n+1) res
@@ -184,7 +184,7 @@ process (GateDecl pos id params t) =
 process (SimpData pos d n k0 eqs) = -- [instSimp, instParam, instPS]
   do -- defaultToElab $ ensureArrowKind k0
      -- defaultToElab $ checkRegular k0
-     k2 <- typeChecking True k0 Sort
+     k2 <- typeChecking True k0 Sort 
      let k = foldr (\ x y -> Arrow Set y) k2 (take n [0 .. ])
      let constructors = map (\ (_, _, c, _) -> c) eqs
          pretypes = map (\ (_, _,_, t) -> t) eqs
@@ -274,7 +274,7 @@ checkOverlap h =
              else return ()
 
 elaborateInstance pos f' ty mths =
-  do annTy <- typeChecking True ty Set
+  do annTy <- typeChecking' True ty Set
      let (env, ty') = removePrefixes False annTy
          vars = map (\ x -> case x of
                         (Just y, _) -> y
@@ -466,4 +466,13 @@ typeChecking b exp ty =
      exp'' <- updateWithSubst exp'
      r <- resolveGoals exp''
      return $ unEigen r
-     
+
+-- | a version of type checking for elaborateInstance
+typeChecking' b exp ty =
+  do setCheckBound False
+     (ty', exp') <- typeCheck b exp ty
+     setCheckBound True
+     exp'' <- updateWithSubst exp'
+     r <- resolveGoals exp''
+     return $ unEigen r
+

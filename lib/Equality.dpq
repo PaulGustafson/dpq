@@ -1,10 +1,13 @@
 module Equality where
 
-data Ph a (Simple a) (Parameter a) = Ha (Parameter a)
--- data Eq (a :: Type) (Parameter a) (x :: a) (y :: a) =
---      E (! (p :: a -> Type) -> p x -> p y)
+--data (Parameter a) => Ph a = Ha a (Ph a) | N
 
-{-
+-- f :: ! forall a . (Parameter a) => Ph a -> Unit
+-- f x = ()
+data (Parameter a) => Eq a (x :: a) (y :: a) =
+      E (! (p :: a -> Type) -> p x -> p y)
+
+
 refl :: ! forall a . (Parameter a) => forall (x :: a) . Eq a x x
 refl = E (\ p l . l)
 
@@ -50,4 +53,3 @@ cong f pf =
 subst :: ! forall a . (Parameter a) =>
              forall (n m :: a) . (p :: a -> Type) -> Eq a n m -> p n -> p m
 subst p eq = let E eq = eq in eq p 
--}

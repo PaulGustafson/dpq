@@ -343,40 +343,51 @@ resolveDecl scope (C.Def p f ty args def) =
           let res = if null xs then def' else Lam (abst xs def') 
           return (Def p id ty' res, scope')
 
-resolveDecl scope (C.Data p d vs constrs) =
+resolveDecl scope (C.Data p d ts vs constrs) =
   do (id, scope') <- addConst p d Base scope
-     let tyArgs = map C.Var $ concat $ map (\ x ->
-                                              case x of
-                                                Left _ -> []
-                                                Right (xs, ty) -> xs
-                                           ) vs
+     let tyArgs = map C.Var $ concat $ map fst vs
          head = foldl C.App (C.Base d) tyArgs
-         kd1 = foldr (\ v y ->
-                        case v of
-                          Right (x, ty) -> C.Pi x ty y
-                          Left p -> y
-                     ) C.Set vs
+         kd1 = foldr (\ (x, ty) y -> C.Pi x ty y) C.Set vs
          lscope' = toLScope scope'
      kd <- resolve lscope' kd1
      let dKind = removeVacuousPi kd
-     (constrs', scope'') <- resolveConstrs scope' head vs constrs
+     (constrs', scope'') <- resolveConstrs scope' head ts vs constrs
      return (Data p id dKind constrs', scope'')
-       where resolveConstrs sc hd env [] = return ([], sc)
-             resolveConstrs sc hd env ((p1, c1, cArgs1):cs) =
+       where resolveConstrs sc hd ts env [] = return ([], sc)
+             resolveConstrs sc hd ts env ((p1, c1, cArgs1):cs) =
                do (c1', sc') <- addConst p1 c1 Const sc 
                   let lsc' = toLScope sc'
                   let ty = foldr (\ x z -> case x of
                                         Left (y, e) -> C.Pi y e z
                                         Right e -> C.Arrow e z
                                  ) hd cArgs1
-                      t = foldr (\ x y -> case x of
-                                            Left p -> C.Imply [p] y
-                                            Right (xs, t) -> C.Forall [(xs, t)] y
-                                ) ty vs
+                      -- t = foldr (\ (xs, t) y -> C.Forall [(xs, t)] y) (C.Imply ts ty) vs
+                      t = floatingParam ts vs ty []
                   t' <- resolve lsc' t
-                  (cs', sc'') <- resolveConstrs sc' hd env cs
+                  (cs', sc'') <- resolveConstrs sc' hd ts env cs
                   return ((p1, c1', t'):cs' , sc'')
-
+             removePos (C.Pos _ e) = removePos e
+             removePos (C.App e1 e2) = C.App (removePos e1) (removePos e2)
+             removePos a@(C.Base x) = a
+             removePos a@(C.Var x) = a     
+             -- A helper function to move parameter constraint into the correct place
+             floatingParam [] vs ty [] =
+               foldr (\ (xs, t) y -> C.Forall [(xs, t)] y) ty vs
+             floatingParam [] vs ty acc =
+               foldr (\ (xs, t) y -> C.Forall [(xs, t)] y) (C.Imply acc ty) vs
+             floatingParam ts [] ty acc = C.Imply (acc++ts) ty
+             floatingParam (t:ts) ((vars, tyy):vs) ty acc | tyy == C.Set =
+               case removePos t of
+                 (C.App (C.Base "Parameter") (C.Var x)) ->
+                   case elemIndex x vars of
+                     Nothing ->
+                       C.Forall [(vars, tyy)] (floatingParam (t:ts) vs ty acc)
+                     Just i -> C.Forall [(vars, tyy)] $ C.Imply [t] (floatingParam ts vs ty acc)
+                 _ -> floatingParam ts ((vars, tyy):vs) ty (t:acc)
+             floatingParam (t:ts) ((vars, tyy):vs) ty acc | otherwise =
+               C.Forall [(vars, tyy)] $ floatingParam (t:ts) vs ty acc
+               
+               
 resolveDecl scope (C.Class pos c vs mths) =
     do (d, scope1) <- addConst pos c Base scope
        (dict, scope') <- addConst pos (c++"Dict") Const scope1

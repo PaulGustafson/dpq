@@ -86,13 +86,16 @@ data TypeState = TS {
                      lcontext :: LContext,
                      subst :: Subst, -- ^ Substitution generated during the type checking.
                      clock :: Int, -- ^ A counter 
-                     instanceContext :: InstanceContext
+                     instanceContext :: InstanceContext,
+                     checkForallBound :: Bool -- ^ whether or not to check Forall variable
+                                              -- is well-quantified. It is uncheck when the
+                                              -- type is intended to be used as instance type
                     }
 
 -- | Initial type state from a global typing context and a
 -- global type class instance context.
 initTS :: Map Id Info -> GlobalInstanceCxt -> TypeState
-initTS gl inst = TS (fromGlobal gl) Map.empty 0 (makeInstanceCxt inst) 
+initTS gl inst = TS (fromGlobal gl) Map.empty 0 (makeInstanceCxt inst) True
 
 -- * The type checking monad tranformer
 
@@ -106,6 +109,14 @@ runTCMonadT :: Context -> GlobalInstanceCxt ->
 runTCMonadT env inst m =
   runStateT (runExceptT $ runTC m) (initTS env inst) 
 
+setCheckBound x =
+  do st <- get
+     put st{checkForallBound = x}
+     
+getCheckBound :: TCMonad Bool
+getCheckBound =
+  get >>= \ x -> return $ checkForallBound x
+                 
 lookupId :: Id -> TCMonad Info
 lookupId x =
   do ts <- get
