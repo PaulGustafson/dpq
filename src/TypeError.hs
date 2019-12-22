@@ -54,7 +54,9 @@ data TypeError = Unhandle Exp
                | NotSimple Exp
                | TConstrErr Id
                | TyAmbiguous (Maybe Id) Exp               
-               
+               | BangErr Exp Exp
+               | ProofCheckErr TypeError
+                 
 data EvalError = MissBranch Id Exp
                | UndefinedId Id 
                | PatternMismatch Pattern Exp
@@ -341,3 +343,15 @@ instance Disp TypeError where
     text "infer a type that contains free variables:" $$
     nest 2 (display flag ty) 
 
+
+  display flag (BangErr t b) =
+    text "the term:" $$
+    nest 2 (display flag t) $$
+    text "is expected to have a bang type, but it has type:" $$
+    nest 2 (display flag b)
+
+  display flag (ProofCheckErr e) =
+    text "proof checking error:" $$
+    display flag e $$
+    text "**********************************" $$
+    text "this is a bug, please send bug report. Thanks!"

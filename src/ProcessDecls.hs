@@ -89,8 +89,7 @@ process (Def pos f' ty' def') =
      ann <- typeChecking False (Pos pos def') ty1
      a <- erasure ann
      v <- evaluation a
-     -- (ty2, annV) <- typeCheck False v ty1
-     -- let annV' = unEigen annV
+     -- annV <- typeChecking False v ty1
      let info2 = Info { classifier = ty1,
                         identification = DefinedFunction (Just (ann, v))}
      addNewId f' info2

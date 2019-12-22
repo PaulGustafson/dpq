@@ -758,4 +758,5 @@ addGlobalInst x t =
      put ts{instanceContext = env'}
 
 collapsePos p a@(ErrPos _ _) = a
+collapsePos p a@(ProofCheckErr (ErrPos _ _)) = a
 collapsePos p a = ErrPos p a

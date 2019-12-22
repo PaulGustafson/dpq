@@ -128,7 +128,6 @@ typeInfer flag a@(Pair t1 t2) =
      (ty2, ann2) <- typeInfer flag t2
      return (Tensor ty1 ty2, Pair ann1 ann2)
 
-
 typeInfer flag e = throwError $ Unhandle e
 
 
@@ -630,8 +629,6 @@ equality flag tm ty =
 
 -- | normalized and unify two expression
 patternUnif m isSemi matchEigen index head t =
---  case (isSemi, matchEigen) of
---    (True, False) ->
   if isSemi || matchEigen then
     case index of
         Nothing -> normalizeUnif head t
