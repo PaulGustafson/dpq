@@ -394,9 +394,7 @@ typeCheck flag a@(Pack t1 t2) (Exists p ty)=
           -- Exists (abst x p') ty'
           return (Exists p ty', Pack ann1 ann2)
 
-
-
-typeCheck flag (Let m bd) goal =
+typeCheck flag (Let m bd) goal | not flag =
   do (t', ann) <- typeInfer flag m
      open bd $ \ x t ->
            do let vs = S.toList $ getVars NoEigen ann
@@ -410,7 +408,7 @@ typeCheck flag (Let m bd) goal =
               let res = Let ann (abst x ann2') 
               return (goal', res)
 
-typeCheck flag (LetEx m bd) goal =
+typeCheck flag (LetEx m bd) goal | not flag =
   do (t', ann) <- typeInfer flag m
      at <- updateWithSubst t'
      case at of
@@ -430,7 +428,7 @@ typeCheck flag (LetEx m bd) goal =
               return (goal', res)
        a -> throwError $ ExistsErr m a
 
-typeCheck flag (LetPair m (Abst xs n)) goal =
+typeCheck flag (LetPair m (Abst xs n)) goal | not flag =
   do (t', ann) <- typeInfer flag m
      at <- updateWithSubst t'
      case unTensor (length xs) at of
@@ -465,7 +463,7 @@ typeCheck flag (LetPair m (Abst xs n)) goal =
                             let res = LetPair ann (abst xs ann2') 
                             return (goal', res)
 
-typeCheck flag (LetPat m bd) goal =
+typeCheck flag (LetPat m bd) goal | not flag =
   do (tt, ann) <- typeInfer flag m
      ss <- getSubst
      let t' = substitute ss tt
@@ -519,7 +517,7 @@ typeCheck flag (LetPat m bd) goal =
                 else Right x
 
 
-typeCheck flag a@(Case tm (B brs)) goal =
+typeCheck flag a@(Case tm (B brs)) goal | not flag =
   do (t, ann) <- typeInfer flag tm
      at <- updateWithSubst t
      let t' = flatten at

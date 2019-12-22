@@ -15,6 +15,8 @@ import Utils
 import Nominal
 import Control.Monad.Except
 import qualified Data.Set as S
+import qualified Data.Map as Map
+import Data.Map (Map)
 
 
 
@@ -381,6 +383,7 @@ proofCheck flag (LetEx m bd) goal = open bd $ \ (x, y) t ->
             removeVar y
        b -> throwPfError $ ExistsErr m b
 
+{-
 proofCheck flag (LetPat m bd) goal  = open bd $ \ (PApp kid args) n ->
   do tt <- proofInfer flag m
      funPac <- lookupId kid
@@ -390,42 +393,38 @@ proofCheck flag (LetPat m bd) goal  = open bd $ \ (PApp kid args) n ->
      tt' <- normalize tt
      let matchEigen = isEigenVar m
          isDpm = isSemi || matchEigen
-         unifRes = runUnify mode head tt'
+         unifRes = patternUnify head tt'
      ss <- getSubst
      when isDpm $ checkRetro m ss         
      case unifRes of
-       Nothing -> throwError $ (UnifErr head tt)
+       Nothing -> throwPfError $ (UnifErr head tt)
        Just sub' -> do
-            -- let r = isEigenVar m 
             sub1 <- if matchEigen then
                       makeSub m sub' $ foldl (\ x y ->
                                            case y of
-                                             Right (u, _) -> App x (EigenVar u)
+                                             Right u -> App x (EigenVar u)
                                              Left (NoBind u) -> App x u
                                          ) kid' vs
                          
                     else return sub'
             let sub'' = sub1 `mergeSub` ss
-                  -- sub' `mergeSub` (sub1 `mergeSubL` ss)
             updateSubst sub''
             let goal' = substitute sub'' goal
             proofCheck flag n goal'
             mapM_ (\ v ->
                     case v of
-                      Right (x, _) ->
-                        do when (not flag) $ checkUsage x n >> return ()
+                      Right x ->
+                        do when (not flag) $ checkUsage x n 
                            removeVar x
                       _ -> return ()
                   ) vs
-            -- updateSubst ss
-       where -- makeSub (Var x) u = [(x, u)]
-             makeSub (EigenVar x) s u =
-               do u' <- shapeTC $ substitute s u
+       where makeSub (EigenVar x) s u =
+               do u' <- shape $ substitute s u
                   return $ s `Map.union` Map.fromList [(x, u')]
              makeSub (Pos p x) s u = makeSub x s u
              makeSub a s u = return s
 
-
+-}
 
 proofCheck flag a goal =
   do t <- proofInfer flag a
@@ -436,6 +435,7 @@ proofCheck flag a goal =
      when ((erasePos goal') /= (erasePos t')) $ throwPfError (NotEq a goal' t')
 
 
+patternUnify = undefined
 
 handleForallApp flag t' t1 t2 = 
      case erasePos t' of
@@ -519,20 +519,20 @@ inst False (Forall bd ty) xs kid = open bd $ \ ys t' ->
      return (h, xs', kid'')
 
 
-inst True (Forall bd t) (Right (x, c):xs) kid = open bd $ \ ys t' ->
+inst True (Forall bd t) (Right x:xs) kid = open bd $ \ ys t' ->
   do let y = head ys
          t'' = apply [(y, EigenVar x)] t'
      if null (tail ys)
-       then do insertVar x t
+       then do addVar x t
                (h, xs', kid') <- inst True t'' xs kid
-               return (h, Right (x, c):xs', kid')
-       else do insertVar x t
+               return (h, Right x:xs', kid')
+       else do addVar x t
                (h, xs', kid') <- inst True (Forall (abst (tail ys) t'') t) xs kid
-               return (h, Right (x, c):xs', kid')
+               return (h, Right x:xs', kid')
 
 inst flag (Forall bd t) (Left (NoBind x):xs) kid = open bd $ \ ys t' ->
   do let y = head ys
-         fvs = S.toList $ free_vars NoEigen x
+         fvs = S.toList $ getVars NoEigen x
          fvs' = map EigenVar fvs
          sub = zip fvs fvs'
          x' = apply sub x
@@ -544,4 +544,4 @@ inst flag (Forall bd t) (Left (NoBind x):xs) kid = open bd $ \ ys t' ->
                return (h, Left (NoBind x'):xs', kid')
 
 inst flag t [] kid = return (t, [], kid)            
-inst flag a b kid = throwError $ InstEnvErr a b
+-- inst flag a b kid = throwError $ InstEnvErr a b
