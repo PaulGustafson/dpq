@@ -26,31 +26,32 @@ import Text.PrettyPrint
 
 process :: Decl -> TCMonad ()
 process (Class pos d kd dict dictType mths) = 
-  do let methodNames = map (\(_, s, _, _) -> s) mths
+  do let methodNames = map (\(_, s, _) -> s) mths
          tp = Info { classifier = erasePos kd,
                      identification = DictionaryType dict methodNames
                    }
      addNewId d tp
      checkVacuous pos dictType
-     dictTypeAnn <- typeChecking True dictType Set 
+     (_, dictTypeAnn) <- typeChecking True dictType Set 
      let fp = Info{ classifier = erasePos $ removeVacuousPi dictTypeAnn,
                     identification = DataConstr d
                  }
      addNewId dict fp              
      mapM_ (makeMethod dict methodNames) mths
-       where makeMethod constr methodNames (pos, mname, mty, mty') =
+       where makeMethod constr methodNames (pos, mname, mty) =
                do let names = map getName methodNames
                       Just i = elemIndex (getName mname) names
                       mth = freshNames ("x":names) $ \ (x:mVars) ->
                         LamDict (abst [x] $ LetPat (Var x)
                                   (abst (PApp constr (map Right mVars))
                                    (Var $ mVars !! i)))
-                      ty' = erasePos $ removeVacuousPi mty'
+                      --ty' = erasePos $ removeVacuousPi mty'
                       tyy = erasePos $ removeVacuousPi mty
-                  checkVacuous pos ty'
-                  ty'' <- typeChecking True ty' Set
-                  tyy' <- typeChecking True tyy Set 
-                  a <- typeChecking False (Pos pos mth) (unEigen ty'')
+                  checkVacuous pos tyy
+                  -- (_, ty'') <- typeChecking True ty' Set
+                  (_, tyy') <- typeChecking True tyy Set 
+                  (tyy'', a) <- typeChecking False (Pos pos mth) tyy'
+                  proofCheck False a tyy''
                   let fp = Info{ classifier = tyy',
                                  identification = DefinedMethod a mth 
                               } 
@@ -79,7 +80,7 @@ process (Instance pos f ty mths) =
 
 process (Def pos f' ty' def') =
   do checkVacuous pos ty'
-     ty <- typeChecking True ty' Set 
+     (_, ty) <- typeChecking True ty' Set 
      let ty1 = erasePos $ removeVacuousPi ty
      p <- isParam ty1
      when (not p) $
@@ -87,7 +88,8 @@ process (Def pos f' ty' def') =
      let info1 = Info { classifier = ty1,
                         identification = DefinedFunction Nothing}
      addNewId f' info1
-     ann <- typeChecking False (Pos pos def') ty1
+     (ty1', ann) <- typeChecking False (Pos pos def') ty1
+     proofCheck False ann ty1'
      a <- erasure ann
      v <- evaluation a
      -- annV <- typeChecking False v ty1
@@ -98,13 +100,14 @@ process (Def pos f' ty' def') =
 process (Data pos d kd cons) =
   do let constructors = map (\ (_, id, _) -> id) cons
          types = map (\ (_, _, t) -> t) cons
-     kd' <- typeChecking True kd Sort 
+     (_, kd') <- typeChecking True kd Sort 
      dc <- determineClassifier d kd' constructors types
      let tp = Info { classifier = kd',
                      identification = DataType dc constructors Nothing
                    }
      addNewId d tp
-     types' <- mapM (\ t -> typeChecking True (Pos pos t) Set) types
+     res <- mapM (\ t -> typeChecking True (Pos pos t) Set) types
+     let types' = map snd res
      let funcs = map (\ t -> Info{ classifier = erasePos $ removeVacuousPi t,
                                    identification = DataConstr d
                                 }) types'
@@ -162,7 +165,7 @@ process (GateDecl pos id params t) =
      mapM_ (\ x -> checkStrictSimple x) (h:(map snd bds))
      when (null bds) $ throwError (GateErr pos id)
      let ty = Bang $ foldr Arrow t params
-     tk <- typeChecking True ty Set
+     (_, tk) <- typeChecking True ty Set
      let gate = makeGate id (map erasePos params) (erasePos t)
      let fp = Info {classifier = erasePos tk,
                    identification = DefinedGate gate
@@ -184,7 +187,7 @@ process (GateDecl pos id params t) =
 process (SimpData pos d n k0 eqs) = -- [instSimp, instParam, instPS]
   do -- defaultToElab $ ensureArrowKind k0
      -- defaultToElab $ checkRegular k0
-     k2 <- typeChecking True k0 Sort 
+     (_, k2) <- typeChecking True k0 Sort 
      let k = foldr (\ x y -> Arrow Set y) k2 (take n [0 .. ])
      let constructors = map (\ (_, _, c, _) -> c) eqs
          pretypes = map (\ (_, _,_, t) -> t) eqs
@@ -201,8 +204,8 @@ process (SimpData pos d n k0 eqs) = -- [instSimp, instParam, instPS]
                       identification = DataType (SemiSimple indx) constructors Nothing
                    }
      addNewId d tp1     
-     tys' <- mapM (\ ty -> typeChecking True ty Set) tys
-
+     p <- mapM (\ ty -> typeChecking True ty Set) tys
+     let tys' = map snd p
      let funcs = map (\ t -> Info {classifier = erasePos $ unEigen t,
                                   identification = DataConstr d
                                  }
@@ -326,7 +329,8 @@ elaborateInstance pos f' ty mths =
                  do mapM_ (\ (x, t) -> addVar x t) env'
                     mapM_ (\ (x, t) -> insertLocalInst x t) instEnv
                     updateParamInfo (map snd instEnv)
-                    a <- typeChecking False (Pos p m) (erasePos t)
+                    (t', a) <- typeChecking False (Pos p m) (erasePos t)
+                    proofCheck False a t'
                     -- a' <- resolveGoals a
                     mapM_ (\ (x, t) -> removeVar x) env'
                     mapM_ (\ (x, t) -> removeLocalInst x) instEnv
@@ -465,7 +469,8 @@ typeChecking b exp ty =
   do (ty', exp') <- typeCheck b exp ty
      exp'' <- updateWithSubst exp'
      r <- resolveGoals exp''
-     return $ unEigen r
+     ty'' <- updateWithSubst ty' >>= resolveGoals 
+     return (unEigen ty'', unEigen r)
 
 -- | a version of type checking for elaborateInstance
 typeChecking' b exp ty =
@@ -474,5 +479,5 @@ typeChecking' b exp ty =
      setCheckBound True
      exp'' <- updateWithSubst exp'
      r <- resolveGoals exp''
-     return $ unEigen r
+     return (unEigen r)
 

@@ -619,6 +619,7 @@ equality flag tm ty =
                  do tyN1 <- normalize tym'
                     tyN2 <- normalize ty1
                     throwError $ NotEq tm tyN2 tyN1
+                    -- throwError $ NotEq tm ty1 tym'
                Just s ->
                  do ss <- getSubst
                     let sub' = s `mergeSub` ss

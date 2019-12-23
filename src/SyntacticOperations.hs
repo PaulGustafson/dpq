@@ -88,6 +88,7 @@ getVars b (LBase _) = S.empty
 getVars b (Const _) = S.empty
 getVars b (Unit) = S.empty
 getVars b (Star) = S.empty
+getVars b (Sort) = S.empty
 getVars b (Set) = S.empty
 getVars b (UnBox) = S.empty
 getVars b (Revert) = S.empty

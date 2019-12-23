@@ -270,7 +270,7 @@ normalize a@(Base k) = return a
 
 normalize (Force' m) =
   do m' <- normalize m 
-     case m' of
+     case erasePos m' of
        Lift n ->
          shape n >>= normalize
        n -> return (Force' n)

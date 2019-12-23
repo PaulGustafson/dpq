@@ -306,7 +306,7 @@ instance Disp (Either (NoBind Exp) Variable) where
 data Decl = Object Position Id
           | Data Position Id Exp [(Position, Id, Exp)] 
           | SimpData Position Id Int Exp [(Position, Maybe Int, Id, Exp)] 
-          | Class Position Id Exp Id Exp [(Position, Id, Exp, Exp)]
+          | Class Position Id Exp Id Exp [(Position, Id, Exp)]
           | Instance Position Id Exp [(Position, Id, Exp)]
           | Def Position Id Exp Exp
           | GateDecl Position Id [Exp] Exp

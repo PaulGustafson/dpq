@@ -408,11 +408,11 @@ resolveDecl scope (C.Class pos c vs mths) =
                  do (d, scope'') <- addConst p mname Const scope'
                     let lscope' = toLScope scope''
                         ty = C.Bang $ C.Forall vs (C.Imply [head] mty)
-                        ty1 = C.Bang $ C.Forall vs (C.Arrow head mty) 
+                        -- ty1 = C.Bang $ C.Forall vs (C.Arrow head mty) 
                     ty' <- resolve lscope' ty
-                    ty'' <- resolve lscope' ty1
+                    -- ty'' <- resolve lscope' ty1
                     (res, scope''') <- makeMethods scope'' head vs cs
-                    return ((p, d, ty', ty''):res, scope''')
+                    return ((p, d, ty'):res, scope''')
 
 resolveDecl scope (C.Instance pos t mths) =
   do let lscope = toLScope scope

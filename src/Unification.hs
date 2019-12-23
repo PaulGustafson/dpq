@@ -82,8 +82,8 @@ unify (Exists (Abst x m) ty1) (Exists (Abst y n) ty2) =
        else return False
 
 -- We also allow unifying two case expression
--- unify f (Case e1 (B br1)) (Case e2 (B br2)) | br1 == br2 =
---   unify f e1 e2
+unify (Case e1 (B br1)) (Case e2 (B br2)) | br1 == br2 =
+  unify e1 e2
      
      
 unify (Arrow t1 t2) (Arrow t3 t4) =
