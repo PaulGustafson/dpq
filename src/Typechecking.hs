@@ -759,8 +759,9 @@ handleTermApp flag ann pos t' t1 t2 =
                 let vs = S.toList $ getVars NoEigen kann
                     su = zip vs (map EigenVar vs)
                     t2' = erasePos $ apply su kann
-                m' <- betaNormalize (apply [(head xs, t2')] m)
-                m'' <- if flag then shape m' else return m'
+                t2'' <- if not flag' then shape t2' else return t2'
+                m' <- betaNormalize (apply [(head xs, t2'')] m)
+                m'' <- if flag && flag' then shape m' else return m'
                 let res = if flag then AppDep' a1' kann
                           else AppDep a1' kann
                 if null (tail xs)

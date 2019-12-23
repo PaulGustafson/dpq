@@ -275,6 +275,13 @@ normalize (Force' m) =
          shape n >>= normalize
        n -> return (Force' n)
 
+-- normalize (Force m) =
+--   do m' <- normalize m 
+--      case erasePos m' of
+--        Lift n ->
+--          normalize n
+--        n -> return (Force n)
+
 normalize (App' m n) =
   do m' <- normalize m
      n' <- normalize n

@@ -51,7 +51,7 @@ process (Class pos d kd dict dictType mths) =
                   -- (_, ty'') <- typeChecking True ty' Set
                   (_, tyy') <- typeChecking True tyy Set 
                   (tyy'', a) <- typeChecking False (Pos pos mth) tyy'
-                  proofCheck False a tyy''
+                  proofChecking False a tyy''
                   let fp = Info{ classifier = tyy',
                                  identification = DefinedMethod a mth 
                               } 
@@ -89,7 +89,7 @@ process (Def pos f' ty' def') =
                         identification = DefinedFunction Nothing}
      addNewId f' info1
      (ty1', ann) <- typeChecking False (Pos pos def') ty1
-     proofCheck False ann ty1'
+     proofChecking False ann ty1'
      a <- erasure ann
      v <- evaluation a
      -- annV <- typeChecking False v ty1
@@ -330,7 +330,7 @@ elaborateInstance pos f' ty mths =
                     mapM_ (\ (x, t) -> insertLocalInst x t) instEnv
                     updateParamInfo (map snd instEnv)
                     (t', a) <- typeChecking False (Pos p m) (erasePos t)
-                    proofCheck False a t'
+                    proofChecking False a t'
                     -- a' <- resolveGoals a
                     mapM_ (\ (x, t) -> removeVar x) env'
                     mapM_ (\ (x, t) -> removeLocalInst x) instEnv
@@ -481,3 +481,5 @@ typeChecking' b exp ty =
      r <- resolveGoals exp''
      return (unEigen r)
 
+proofChecking b exp ty =
+  proofCheck b exp ty `catchError` \ e -> throwError $ PfErrWrapper exp e

@@ -49,7 +49,7 @@ proofInfer flag ty@(Arrow t1 t2) =
        (Set, Set) -> return Set
        (Set, Sort) -> return Sort
        (Sort, Sort) -> return Sort
-       (b1, b2) -> throwPfError (NotEq ty Set (Arrow b1 b2))
+       (b1, b2) -> throwError (NotEq ty Set (Arrow b1 b2))
 
 
 proofInfer flag ty@(Circ t1 t2) =
@@ -57,20 +57,20 @@ proofInfer flag ty@(Circ t1 t2) =
      a2 <- proofInfer True t2
      case (a1, a2) of
        (Set, Set) -> return Set
-       (b1, b2) -> throwPfError (NotEq ty Set (Circ b1 b2))
+       (b1, b2) -> throwError (NotEq ty Set (Circ b1 b2))
 
 proofInfer flag a@(Imply [] t) =
   do ty <- proofInfer True t
      case ty of
        Set -> return Set
-       _ -> throwPfError (NotEq t Set ty)
+       _ -> throwError (NotEq t Set ty)
        
 proofInfer flag a@(Imply (x:xs) t) =
   do ty <- proofInfer True x
      updateParamInfo [x]
      case ty of
        Set -> proofInfer True (Imply xs t)
-       _ -> throwPfError (NotEq x Set ty)
+       _ -> throwError (NotEq x Set ty)
 
 
 proofInfer flag ty@(Tensor t1 t2) =
@@ -78,7 +78,7 @@ proofInfer flag ty@(Tensor t1 t2) =
      a2 <- proofInfer True t2
      case (a1, a2) of
        (Set, Set) -> return Set
-       (b1, b2) -> throwPfError (NotEq ty Set (Tensor b1 b2))
+       (b1, b2) -> throwError (NotEq ty Set (Tensor b1 b2))
 
 proofInfer flag ty@(Exists bd t) =
   do a <- proofInfer True t
@@ -90,8 +90,8 @@ proofInfer flag ty@(Exists bd t) =
             removeVar x
             case tm of
               Set -> return Set
-              _ -> throwPfError (NotEq m Set tm)
-       _ -> throwPfError (NotEq t Set a)
+              _ -> throwError (NotEq m Set tm)
+       _ -> throwError (NotEq t Set a)
        
 proofInfer flag ty@(Pi bd t) =
   do a <- proofInfer True t
@@ -103,7 +103,7 @@ proofInfer flag ty@(Pi bd t) =
             mapM_ removeVar xs
             case tm of
               Set -> return Set
-              _ -> throwPfError (NotEq m Set tm)
+              _ -> throwError (NotEq m Set tm)
        Sort ->
          open bd $ \ xs m ->
          do mapM_ (\ x -> addVar x t) xs
@@ -111,8 +111,8 @@ proofInfer flag ty@(Pi bd t) =
             mapM_ removeVar xs
             case tm of
               Set -> return Set
-              _ -> throwPfError (NotEq m Set tm)
-       _ -> throwPfError (NotEq t Set a)
+              _ -> throwError (NotEq m Set tm)
+       _ -> throwError (NotEq t Set a)
 
 proofInfer flag ty@(Forall bd t) =
   do a <- proofInfer True t
@@ -124,8 +124,8 @@ proofInfer flag ty@(Forall bd t) =
             mapM_ removeVar xs
             case tm of
               Set -> return Set
-              _ -> throwPfError (NotEq m Set tm)
-       _ -> throwPfError (NotEq t Set a)
+              _ -> throwError (NotEq m Set tm)
+       _ -> throwError (NotEq t Set a)
 
 proofInfer flag a@(Var x) =
   do (t, _) <- lookupVar x
@@ -145,7 +145,8 @@ proofInfer flag a@(EigenVar x) =
 proofInfer flag a@(Const kid) =
   do funPac <- lookupId kid
      let cl = classifier funPac
-     return cl
+     if flag then shape cl else return cl
+
 
 proofInfer False a@(AppDep t1 t2) =
   do t' <- proofInfer False t1
@@ -161,7 +162,7 @@ proofInfer False a@(AppDep t1 t2) =
             if null (tail xs)
               then return m'
               else return $ Pi (abst (tail xs) m') ty  
-       b -> throwPfError $ ArrowErr t1 b
+       b -> throwError $ ArrowErr t1 b
 
 proofInfer True a@(AppDep' t1 t2) =
   do t' <- proofInfer True t1
@@ -175,13 +176,13 @@ proofInfer True a@(AppDep' t1 t2) =
             if null (tail xs)
               then return m'
               else return $ Pi' (abst (tail xs) m') ty  
-       b -> throwPfError $ ArrowErr t1 b
+       b -> throwError $ ArrowErr t1 b
 
 proofInfer flag a@(App t1 t2) =
   do t' <- proofInfer flag t1
      case t' of
        Arrow ty m -> proofCheck flag t2 ty >> return m
-       b -> throwPfError $ ArrowErr t1 b
+       b -> throwError $ ArrowErr t1 b
 
 
 proofInfer flag a@(App' t1 t2) =
@@ -199,14 +200,14 @@ proofInfer flag a@(App' t1 t2) =
             if null (tail xs)
               then return m'
               else return $ Pi (abst (tail xs) m') ty  
-       b -> throwPfError $ ArrowErr t1 b
+       b -> throwError $ ArrowErr t1 b
 
 proofInfer flag a@(AppDict t1 t2) =
   do t' <- proofInfer flag t1
      case t' of
        Imply (ty:[]) m -> proofCheck True t2 ty >> return m
        Imply (ty:res) m -> proofCheck True t2 ty >> return (Imply res m)
-       b -> throwPfError $ ArrowErr t1 b
+       b -> throwError $ ArrowErr t1 b
 
 proofInfer flag a@(AppType t1 t2) =
   proofInfer flag t1 >>= \ t' -> handleForallApp flag t' t1 t2
@@ -276,13 +277,13 @@ proofInfer False a@(Force t) =
   do ty <- proofInfer False t
      case ty of
        Bang ty' -> return ty'
-       b -> throwPfError $ BangErr t b 
+       b -> throwError $ BangErr t b 
 
 proofInfer True a@(Force' t) =
   do ty <- proofInfer True t
      case ty of
        Bang ty' -> shape ty'
-       b -> throwPfError $ BangErr t b 
+       b -> throwError $ BangErr t b 
 
 proofInfer flag a@(Pair t1 t2) =
   do ty1 <- proofInfer flag t1 
@@ -290,12 +291,12 @@ proofInfer flag a@(Pair t1 t2) =
      return $ (Tensor ty1 ty2)
 
 proofInfer flag (Pos p e) = 
-  proofInfer flag e `catchError` \ e -> throwPfError $ collapsePos p e
+  proofInfer flag e `catchError` \ e -> throwError $ collapsePos p e
 
-proofInfer flag e = throwPfError $ Unhandle e
+proofInfer flag e = throwError $ Unhandle e
 
 proofCheck flag (Pos p e) t = 
-  proofCheck flag e t `catchError` \ e -> throwPfError $ collapsePos p e
+  proofCheck flag e t `catchError` \ e -> throwError $ collapsePos p e
 
 proofCheck False a@(Lam bd) (Arrow t1 t2) = open bd $ \ xs m ->
   do addVar (head xs) t1
@@ -368,7 +369,7 @@ proofCheck flag (LetPair m bd) goal = open bd $ \ xs t ->
             when (not flag) $ mapM_ (\x -> checkUsage x t) xs
             mapM removeVar xs
             return res
-       Nothing -> throwPfError $ TensorErr (length xs) m t'
+       Nothing -> throwError $ TensorErr (length xs) m t'
 
 proofCheck flag (LetEx m bd) goal = open bd $ \ (x, y) t ->
   do t' <- proofInfer flag m
@@ -382,7 +383,7 @@ proofCheck flag (LetEx m bd) goal = open bd $ \ (x, y) t ->
             when (not flag) $ checkUsage x t >> checkUsage y t 
             removeVar x
             removeVar y
-       b -> throwPfError $ ExistsErr m b
+       b -> throwError $ ExistsErr m b
 
 
 proofCheck flag (LetPat m bd) goal  = open bd $ \ (PApp kid args) n ->
@@ -398,7 +399,7 @@ proofCheck flag (LetPat m bd) goal  = open bd $ \ (PApp kid args) n ->
      ss <- getSubst
      when isDpm $ checkRetro m ss         
      case unifRes of
-       Nothing -> throwPfError $ (UnifErr head tt)
+       Nothing -> throwError $ (UnifErr head tt)
        Just sub' -> do
             sub1 <- if matchEigen then
                       makeSub m sub' $ foldl (\ x y ->
@@ -429,7 +430,7 @@ proofCheck flag (LetPat m bd) goal  = open bd $ \ (PApp kid args) n ->
 proofCheck flag a@(Case tm (B brs)) goal =
   do t <- proofInfer flag tm
      let t' = flatten t 
-     when (t' == Nothing) $ throwPfError (DataErr t tm)
+     when (t' == Nothing) $ throwError (DataErr t tm)
      let Just (Left id, _) = t'
      updateCountWith (\ x -> enterCase x id)
      checkBrs t brs goal
@@ -457,7 +458,7 @@ proofCheck flag a@(Case tm (B brs)) goal =
              t' <- normalize t
              unifRes <- dependentUnif index isDpm head t'
              case unifRes of
-               Nothing -> throwPfError $ (UnifErr head t')
+               Nothing -> throwError $ (UnifErr head t')
                Just sub' -> do
                  sub1 <-
                    if matchEigen then
@@ -487,7 +488,7 @@ proofCheck flag a goal =
      goal1 <- updateWithSubst goal
      goal' <- normalize goal1
      t' <- normalize t1
-     when ((erasePos goal') /= (erasePos t')) $ throwPfError (NotEq a goal' t')
+     when ((erasePos goal') /= (erasePos t')) $ throwError (NotEq a goal' t')
 
 
 dependentUnif index isDpm head t =
@@ -501,13 +502,13 @@ dependentUnif index isDpm head t =
                   a' = unEigen a
                   t' = foldl App' (LBase h) (bs++(a':as))
               in return $ runUnify head t'
-            _ -> throwPfError $ UnifErr head t
+            _ -> throwError $ UnifErr head t
 
 
 handleForallApp flag t' t1 t2 = 
      case erasePos t' of
        b@(Forall bd kd) -> helper bd kd
-       b -> throwPfError $ ArrowErr t1 b
+       b -> throwError $ ArrowErr t1 b
      where helper bd kd =
              open bd $ \ xs m ->
               do let vs = S.toList $ getVars NoEigen t2
@@ -520,7 +521,7 @@ handleForallApp flag t' t1 t2 =
                    then return m''
                    else return $ Forall (abst (tail xs) m'') kd
 
-throwPfError e = throwError $ ProofCheckErr e
+-- throwError e = throwError $ ProofCheckErr e
 
 handleAbs flag lam prefix bd1 bd2 ty fl =
   open bd1 $ \ xs m -> open bd2 $ \ ys b ->

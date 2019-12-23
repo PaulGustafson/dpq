@@ -179,8 +179,9 @@ addS n m =
              Z -> refl 
              S n' -> cong S (addS n' m)
 
+
 addS' :: ! (n m :: Nat) -> Eq Nat (S (add n m)) (add n (S m))
-addS' n m = sym (add n (S m)) (addS n m)
+addS' n m =  sym (add n (S m)) (addS n m)
 -- sym (add n (S m)) (addS n m)
 
 addSS :: ! (n m :: Nat) -> Eq Nat (add n (S (S m))) (add (S (S n)) m) 
@@ -269,6 +270,7 @@ nine = S eight
 
 smallNum :: Nat
 smallNum = four
+
 
 -- largeNum :: Nat
 -- largeNum = iterN (add smallNum smallNum) (add smallNum) smallNum
