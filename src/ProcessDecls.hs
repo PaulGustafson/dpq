@@ -7,6 +7,7 @@ import SyntacticOperations
 import Utils
 import TypeError
 import Typechecking
+import Proofchecking
 import Evaluation
 import Erasure
 import Substitution

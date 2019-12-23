@@ -9,6 +9,7 @@ import SyntacticOperations
 import TCMonad
 import Normalize
 import TypeError
+import Unification
 import Substitution
 import Utils
 
@@ -383,7 +384,7 @@ proofCheck flag (LetEx m bd) goal = open bd $ \ (x, y) t ->
             removeVar y
        b -> throwPfError $ ExistsErr m b
 
-{-
+
 proofCheck flag (LetPat m bd) goal  = open bd $ \ (PApp kid args) n ->
   do tt <- proofInfer flag m
      funPac <- lookupId kid
@@ -393,7 +394,7 @@ proofCheck flag (LetPat m bd) goal  = open bd $ \ (PApp kid args) n ->
      tt' <- normalize tt
      let matchEigen = isEigenVar m
          isDpm = isSemi || matchEigen
-         unifRes = patternUnify head tt'
+     unifRes <- dependentUnif index isDpm head tt'
      ss <- getSubst
      when isDpm $ checkRetro m ss         
      case unifRes of
@@ -424,7 +425,61 @@ proofCheck flag (LetPat m bd) goal  = open bd $ \ (PApp kid args) n ->
              makeSub (Pos p x) s u = makeSub x s u
              makeSub a s u = return s
 
--}
+
+proofCheck flag a@(Case tm (B brs)) goal =
+  do t <- proofInfer flag tm
+     let t' = flatten t 
+     when (t' == Nothing) $ throwPfError (DataErr t tm)
+     let Just (Left id, _) = t'
+     updateCountWith (\ x -> enterCase x id)
+     checkBrs t brs goal
+     updateCountWith exitCase
+  where 
+        makeSub (EigenVar x) s u =
+          do u' <- shape $ substitute s u
+             return $ s `Map.union` Map.fromList [(x, u')]
+        makeSub (Pos p x) s u = makeSub x s u
+        makeSub a s u = return s
+
+        checkBrs t pbs goal = 
+          mapM (checkBr t goal) pbs
+
+        checkBr t goal pb = open pb $ \ (PApp kid args) m ->
+          do funPac <- lookupId kid
+             let dt = classifier funPac
+             updateCountWith (\ x -> nextCase x kid)
+             (isSemi, index) <- isSemiSimple kid
+             (head, vs, kid') <- inst isSemi dt args (Const kid)
+             let matchEigen = isEigenVar tm
+                 isDpm = isSemi || matchEigen
+             ss <- getSubst
+             when isDpm $ checkRetro tm ss             
+             t' <- normalize t
+             unifRes <- dependentUnif index isDpm head t'
+             case unifRes of
+               Nothing -> throwPfError $ (UnifErr head t')
+               Just sub' -> do
+                 sub1 <-
+                   if matchEigen then
+                     makeSub tm sub' $ foldl (\ x y ->
+                                               case y of
+                                                 Right u -> App x (EigenVar u)
+                                                 Left (NoBind u) -> App x u
+                                             ) kid' vs
+                     
+                   else return sub'
+                 let sub'' = sub1 `mergeSub` ss
+                 updateSubst sub''
+                 let goal' = substitute sub'' goal
+                 proofCheck flag m goal'
+                 mapM_ (\ v ->
+                         case v of
+                           Right x ->
+                             do when (not flag) $ checkUsage x m 
+                                removeVar x
+                           _ -> return ()
+                       ) vs
+                 updateSubst ss
 
 proofCheck flag a goal =
   do t <- proofInfer flag a
@@ -435,7 +490,19 @@ proofCheck flag a goal =
      when ((erasePos goal') /= (erasePos t')) $ throwPfError (NotEq a goal' t')
 
 
-patternUnify = undefined
+dependentUnif index isDpm head t =
+  if not isDpm then return $ runUnify head t
+  else case index of
+         Nothing -> return $ runUnify head t
+         Just i ->
+           case flatten t of
+            Just (Right h, args) -> 
+              let (bs, a:as) = splitAt i args
+                  a' = unEigen a
+                  t' = foldl App' (LBase h) (bs++(a':as))
+              in return $ runUnify head t'
+            _ -> throwPfError $ UnifErr head t
+
 
 handleForallApp flag t' t1 t2 = 
      case erasePos t' of
@@ -480,38 +547,39 @@ handleAbs flag lam prefix bd1 bd2 ty fl =
        mapM_ removeVar vs
 
 
-inst flag (Arrow t1 t2) (Right x : xs) kid =
+inst isSemi (Arrow t1 t2) (Right x : xs) kid =
   do addVar x t1
-     (h, vs, kid') <- inst flag t2 xs kid
+     (h, vs, kid') <- inst isSemi t2 xs kid
      return (h, Right x : vs, kid')
 
-inst flag (Imply [t1] t2) (Right x : xs) kid =
+inst isSemi (Imply [t1] t2) (Right x : xs) kid =
   do addVar x t1
-     (h, vs, kid') <- inst flag t2 xs kid
+     (h, vs, kid') <- inst isSemi t2 xs kid
      return (h, Right x : vs, kid')
 
-inst flag (Imply (t1:ts) t2) (Right x : xs) kid =
+inst isSemi (Imply (t1:ts) t2) (Right x : xs) kid =
   do addVar x t1
-     (h, vs, kid') <- inst flag (Imply ts t2) xs kid
+     (h, vs, kid') <- inst isSemi (Imply ts t2) xs kid
      return (h, Right x : vs, kid')
 
-inst flag (Pi bd t) (Right x:xs) kid | not (isKind t) = open bd $ \ ys t' ->
+inst isSemi (Pi bd t) (Right x:xs) kid | not (isKind t) = open bd $ \ ys t' ->
   do let y = head ys
          t'' = apply [(y, EigenVar x)] t' 
      if null (tail ys)
        then do addVar x t
-               (h, xs', kid') <- inst flag t'' xs kid 
+               (h, xs', kid') <- inst isSemi t'' xs kid 
                return (h, Right x:xs', kid')
        else do addVar x t
-               (h, xs', kid') <- inst flag (Pi (abst (tail ys) t'') t) xs kid
+               (h, xs', kid') <- inst isSemi (Pi (abst (tail ys) t'') t) xs kid
                return (h, Right x:xs', kid')
 
-inst flag (Forall bd ty) xs kid | isKind ty = open bd $ \ ys t' -> 
+inst isSemi (Forall bd ty) xs kid | isKind ty = open bd $ \ ys t' -> 
   do mapM_ (\ x -> addVar x ty) ys
      let kid' = foldl AppType kid (map Var ys)
-     (h, xs', kid'') <- inst flag t' xs kid'
+     (h, xs', kid'') <- inst isSemi t' xs kid'
      return (h, xs', kid'')
 
+-- not in dependent pattern matching mode
 inst False (Forall bd ty) xs kid = open bd $ \ ys t' -> 
   do mapM_ (\ x -> addVar x ty) ys
      let kid' = foldl AppTm kid (map Var ys)
@@ -530,7 +598,7 @@ inst True (Forall bd t) (Right x:xs) kid = open bd $ \ ys t' ->
                (h, xs', kid') <- inst True (Forall (abst (tail ys) t'') t) xs kid
                return (h, Right x:xs', kid')
 
-inst flag (Forall bd t) (Left (NoBind x):xs) kid = open bd $ \ ys t' ->
+inst isSemi (Forall bd t) (Left (NoBind x):xs) kid = open bd $ \ ys t' ->
   do let y = head ys
          fvs = S.toList $ getVars NoEigen x
          fvs' = map EigenVar fvs
@@ -538,10 +606,10 @@ inst flag (Forall bd t) (Left (NoBind x):xs) kid = open bd $ \ ys t' ->
          x' = apply sub x
          t'' = apply [(y, x')] t' 
      if null (tail ys)
-       then do (h, xs', kid') <- inst flag t'' xs kid
+       then do (h, xs', kid') <- inst isSemi t'' xs kid
                return (h, Left (NoBind x'):xs', kid')
-       else do (h, xs', kid') <- inst flag (Forall (abst (tail ys) t'') t) xs kid
+       else do (h, xs', kid') <- inst isSemi (Forall (abst (tail ys) t'') t) xs kid
                return (h, Left (NoBind x'):xs', kid')
 
-inst flag t [] kid = return (t, [], kid)            
+inst isSemi t [] kid = return (t, [], kid)            
 -- inst flag a b kid = throwError $ InstEnvErr a b

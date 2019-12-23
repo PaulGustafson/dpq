@@ -381,7 +381,7 @@ typeCheck False c@(Lam bind) t =
                         return (Pi (abst vs t') ty, res)
          b -> throwError $ LamErr c b
 
-typeCheck flag a@(Pack t1 t2) (Exists p ty)=
+typeCheck flag a@(Pack t1 t2) (Exists p ty) =
   do (ty', ann1) <- typeCheck flag t1 ty
      open p $ \ x t ->
        do let vars = S.toList $ getVars NoEigen t1
@@ -394,7 +394,7 @@ typeCheck flag a@(Pack t1 t2) (Exists p ty)=
           -- Exists (abst x p') ty'
           return (Exists p ty', Pack ann1 ann2)
 
-typeCheck flag (Let m bd) goal | not flag =
+typeCheck flag (Let m bd) goal =
   do (t', ann) <- typeInfer flag m
      open bd $ \ x t ->
            do let vs = S.toList $ getVars NoEigen ann
@@ -408,7 +408,7 @@ typeCheck flag (Let m bd) goal | not flag =
               let res = Let ann (abst x ann2') 
               return (goal', res)
 
-typeCheck flag (LetEx m bd) goal | not flag =
+typeCheck flag (LetEx m bd) goal =
   do (t', ann) <- typeInfer flag m
      at <- updateWithSubst t'
      case at of
@@ -428,7 +428,7 @@ typeCheck flag (LetEx m bd) goal | not flag =
               return (goal', res)
        a -> throwError $ ExistsErr m a
 
-typeCheck flag (LetPair m (Abst xs n)) goal | not flag =
+typeCheck flag (LetPair m (Abst xs n)) goal =
   do (t', ann) <- typeInfer flag m
      at <- updateWithSubst t'
      case unTensor (length xs) at of
@@ -463,7 +463,7 @@ typeCheck flag (LetPair m (Abst xs n)) goal | not flag =
                             let res = LetPair ann (abst xs ann2') 
                             return (goal', res)
 
-typeCheck flag (LetPat m bd) goal | not flag =
+typeCheck flag (LetPat m bd) goal =
   do (tt, ann) <- typeInfer flag m
      ss <- getSubst
      let t' = substitute ss tt
@@ -473,10 +473,11 @@ typeCheck flag (LetPat m bd) goal | not flag =
           (isSemi, index) <- isSemiSimple kid
           (head, axs, ins, kid') <- extendEnv isSemi vs dt (Const kid)
           let matchEigen = isEigenVar m
+              isDpm = isSemi || matchEigen
           when (isSemi && matchEigen) $
             error "matchEigen and matchEigen cannot be true at the same time."
-          when (isSemi || matchEigen) $ checkRetro m ss
-          unifRes <- patternUnif m isSemi matchEigen index head t'
+          when isDpm $ checkRetro m ss
+          unifRes <- patternUnif m isDpm index head t'
           case unifRes of
             Nothing ->
               throwError $ withPosition m (UnifErr head t') 
@@ -499,7 +500,7 @@ typeCheck flag (LetPat m bd) goal | not flag =
                  -- !!!! Note that let pat is ok to leak local substitution,
                  -- as the branch is really global!. 
                  mapM removeInst ins
-                 let axs' = if isSemi || matchEigen then map (substVar subb) axs else axs
+                 let axs' = if isDpm then map (substVar subb) axs else axs
                      goal''' = substitute subb goal''
                      res = LetPat ann (abst (PApp kid axs') ann2')
                  return (goal''', res)
@@ -517,7 +518,7 @@ typeCheck flag (LetPat m bd) goal | not flag =
                 else Right x
 
 
-typeCheck flag a@(Case tm (B brs)) goal | not flag =
+typeCheck flag a@(Case tm (B brs)) goal =
   do (t, ann) <- typeInfer flag tm
      at <- updateWithSubst t
      let t' = flatten at
@@ -549,15 +550,16 @@ typeCheck flag a@(Case tm (B brs)) goal | not flag =
              PApp kid vs ->
                do funPac <- lookupId kid
                   let dt = classifier funPac
-                  updateCountWith (\ c -> enterCase c kid)
+                  updateCountWith (\ c -> nextCase c kid)
                   (isSemi, index) <- isSemiSimple kid
                   (head, axs, ins, kid') <- extendEnv isSemi vs dt (Const kid)
                   let matchEigen = isEigenVar tm
+                      isDpm = isSemi || matchEigen
                   ss <- getSubst
                   when (isSemi && matchEigen) $
                     error "matchEigen and matchEigen cannot be true at the same time."
-                  when (isSemi || matchEigen) $ checkRetro tm ss
-                  unifRes <- patternUnif tm isSemi matchEigen index head t
+                  when isDpm $ checkRetro tm ss
+                  unifRes <- patternUnif tm isDpm index head t
                   case unifRes of
                     Nothing -> throwError $ withPosition tm (UnifErr head t) 
                     Just sub' -> do
@@ -581,8 +583,8 @@ typeCheck flag a@(Case tm (B brs)) goal | not flag =
                          let goal''' = substitute subb goal''
                          ann2' <- resolveGoals (substitute subb ann2)
                                   
-                         when (isSemi || matchEigen) $ updateSubst ss
-                         when (not (isSemi || matchEigen)) $ updateSubst subb
+                         when isDpm $ updateSubst ss
+                         when (not isDpm) $ updateSubst subb
                          
                          -- because the variable axs may be in the domain
                          -- of the substitution, hence it is necessary to update
@@ -626,8 +628,8 @@ equality flag tm ty =
 
 
 -- | normalized and unify two expression
-patternUnif m isSemi matchEigen index head t =
-  if isSemi || matchEigen then
+patternUnif m isDpm index head t =
+  if isDpm then
     case index of
         Nothing -> normalizeUnif head t
         Just i ->
@@ -636,7 +638,7 @@ patternUnif m isSemi matchEigen index head t =
               let (bs, a:as) = splitAt i args
                   a' = unEigen a
                   t' = foldl App' (LBase h) (bs++(a':as))
-              in normalizeUnif head t
+              in normalizeUnif head t'
             _ -> throwError $ withPosition m (UnifErr head t)
   else normalizeUnif head t
 --    (False, True) -> normalizeUnif head t
@@ -666,52 +668,52 @@ normalizeUnif t1 t2 =
             return $ runUnify t1'' t2''
 
 
-extendEnv flag xs (Forall bind ty) kid | isKind ty =
+extendEnv isSemi xs (Forall bind ty) kid | isKind ty =
   open bind $
       \ ys t' ->
       do mapM_ (\ x -> addVar x ty) ys
          let kid' = foldl AppType kid (map Var ys)
-         extendEnv flag xs t' kid'
+         extendEnv isSemi xs t' kid'
 
-extendEnv flag xs (Forall bind ty) kid | otherwise =
+extendEnv isSemi xs (Forall bind ty) kid | otherwise =
   open bind $
       \ ys t' ->
       do mapM_ (\ x -> addVar x ty) ys
          let kid' = foldl AppTm kid (map Var ys)
-         (h, vs, ins, kid'') <- extendEnv flag xs t' kid'
-         let vs' = if flag then (map Right ys)++vs else vs
+         (h, vs, ins, kid'') <- extendEnv isSemi xs t' kid'
+         let vs' = if isSemi then (map Right ys)++vs else vs
          return (h, vs', ins, kid'')
 
-extendEnv flag xs (Imply bds ty) kid =
+extendEnv isSemi xs (Imply bds ty) kid =
   do let ns1 = take (length bds) (repeat "#inst")
      ns <- newNames ns1
      freshNames ns $ \ ns ->
        do mapM_ (\ (x, y) -> insertLocalInst x y) (zip ns bds)
           let kid' = foldl AppDict kid (map Var ns)
-          (h, vs, ins, kid'') <- extendEnv flag xs ty kid'
+          (h, vs, ins, kid'') <- extendEnv isSemi xs ty kid'
           return (h, (map Right ns)++vs, ns++ins, kid'')
 
-extendEnv flag [] t kid = return (t, [], [], kid)
+extendEnv isSemi [] t kid = return (t, [], [], kid)
 
-extendEnv flag (Right x:xs) (Arrow t1 t2) kid =
+extendEnv isSemi (Right x:xs) (Arrow t1 t2) kid =
   do addVar x t1
-     (h, ys, ins, kid') <- extendEnv flag xs t2 kid
+     (h, ys, ins, kid') <- extendEnv isSemi xs t2 kid
      return (h,  Right x : ys, ins, kid')
 
-extendEnv flag (Right x : xs) (Pi bind ty) kid
+extendEnv isSemi (Right x : xs) (Pi bind ty) kid
   | not (isKind ty) =
     open bind $ \ ys t' ->
     do let y = head ys
            t'' = apply [(y , EigenVar x)] t'  -- note that Pi is existential
        addVar x ty
        if null (tail ys)
-         then do (h, ys, ins, kid') <- extendEnv flag xs t'' kid
+         then do (h, ys, ins, kid') <- extendEnv isSemi xs t'' kid
                  return (h, (Right x : ys), ins, kid')
-         else do (h, ys, ins, kid') <- extendEnv flag xs (Pi (abst (tail ys) t'') ty) kid
+         else do (h, ys, ins, kid') <- extendEnv isSemi xs (Pi (abst (tail ys) t'') ty) kid
                  return (h, (Right x : ys), ins, kid')
 
      
-extendEnv flag a b kid = throwError $ ExtendEnvErr a b
+extendEnv isSemi a b kid = throwError $ ExtendEnvErr a b
 
 
 

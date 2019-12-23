@@ -600,36 +600,53 @@ isValue (Force' (App' UnBox t)) = isValue t
 isValue a@(App UnBox t) = isValue t
 isValue a@(App' UnBox t) = isValue t
 
-isValue a@(App t t') = checkApp a
-isValue a@(App' t t') = checkApp a
-isValue a@(AppDep t t') = checkApp a
-isValue a@(AppDep' t t') = checkApp a
-isValue a@(AppDict t t') = checkApp a
+isValue a@(App t t') = checkApp isValue a
+isValue a@(App' t t') = checkApp isValue a
+isValue a@(AppDep t t') = checkApp isValue a
+isValue a@(AppDep' t t') = checkApp isValue a
+isValue a@(AppDict t t') = checkApp isValue a
 isValue a@(AppType t t') = isValue t
 isValue a@(AppTm t t') = isValue t
 isValue a@(Wired _) = return True
 isValue a@(RunCirc) = return True
 isValue _ = return False
 
-checkApp a = 
+checkApp f a = 
   case flatten a of
     Just (h, args) -> 
         do pc <- lookupId (fromEither h)
            case identification pc of
              DataConstr _ ->
-               do rs <- mapM isValue args
+               do rs <- mapM f args
                   return $ and rs
              DataType _ _ _ ->
-               do rs <- mapM isValue args
+               do rs <- mapM f args
                   return $ and rs
              DictionaryType _ _ ->
-               do rs <- mapM isValue args
+               do rs <- mapM f args
                   return $ and rs
              _ -> return False
              where fromEither (Left x) = x
                    fromEither (Right x) = x
     _ -> return False
 
+-- | Check if the expression is a basic value (i.e., things that can be displayed in an interpretor), note that function is not a basic value.
+isBasicValue :: Exp -> TCMonad Bool
+isBasicValue (Wired _) = return True
+isBasicValue (Pos _ e) = isBasicValue e
+isBasicValue (Const k) =
+  do pac <- lookupId k
+     case identification pac of
+       DataConstr _ -> return True
+       _ -> return False
+isBasicValue a@(App t t') = checkApp isBasicValue a
+isBasicValue a@(App' t t') = checkApp isBasicValue a
+isBasicValue a@(AppDep t t') = checkApp isBasicValue a
+isBasicValue a@(AppDep' t t') = checkApp isBasicValue a
+isBasicValue a@(AppDict t t') = checkApp isBasicValue a
+isBasicValue a@(AppType t t') = isBasicValue t
+isBasicValue a@(AppTm t t') = isBasicValue t
+isBasicValue _ = return False       
 
 checkParamCxt :: Exp -> TCMonad ()
 checkParamCxt t =
@@ -760,3 +777,4 @@ addGlobalInst x t =
 collapsePos p a@(ErrPos _ _) = a
 collapsePos p a@(ProofCheckErr (ErrPos _ _)) = a
 collapsePos p a = ErrPos p a
+
