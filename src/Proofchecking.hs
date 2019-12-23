@@ -499,7 +499,7 @@ dependentUnif index isDpm head t =
            case flatten t of
             Just (Right h, args) -> 
               let (bs, a:as) = splitAt i args
-                  a' = unEigen a
+                  a' = unEigenBound (S.toList $ getVars OnlyEigen a) a
                   t' = foldl App' (LBase h) (bs++(a':as))
               in return $ runUnify head t'
             _ -> throwError $ UnifErr head t

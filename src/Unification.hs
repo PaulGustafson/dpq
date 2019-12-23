@@ -9,8 +9,11 @@ import SyntacticOperations
 import qualified Data.Set as S
 import qualified Data.Map as Map
 import Control.Monad.State
+import Debug.Trace
 
+  
 runUnify :: Exp -> Exp -> Maybe Subst
+-- runUnify t1 t2 | trace ((show $ disp t1) ++ ":" ++ (show $ disp t2)) $ False = undefined
 runUnify t1 t2 =
   let t1' = erasePos t1
       t2' = erasePos t2
@@ -35,6 +38,7 @@ unify (EigenVar x) (EigenVar y) | x == y = return True
 
 unify (Var x) t
   | Var x == t = return True
+  | (EigenVar y) <- t, x == y = return True
   | x `S.member` getVars AllowEigen t = return False
   | otherwise = 
     do sub <- get
@@ -44,6 +48,7 @@ unify (Var x) t
 
 unify t (Var x)
   | Var x == t = return True
+  | (EigenVar y) <- t, x == y = return True  
   | x `S.member` getVars AllowEigen t = return False
   | otherwise =
     do sub <- get
@@ -81,10 +86,11 @@ unify (Exists (Abst x m) ty1) (Exists (Abst y n) ty2) =
           unify (substitute sub m') (substitute sub n')
        else return False
 
--- We also allow unifying two case expression
+-- We also allow unifying two case expression,
+-- but only a very simple kind of unification
 unify (Case e1 (B br1)) (Case e2 (B br2)) | br1 == br2 =
   unify e1 e2
-     
+
      
 unify (Arrow t1 t2) (Arrow t3 t4) =
   do a <- unify t1 t3

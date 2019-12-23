@@ -31,11 +31,6 @@ infixr 30 $
 ($) :: ! forall a b . (a -> b) -> a -> b
 ($) f x = f x
 
--- infixl 9 ;
-
--- (;) :: ! forall a b c . (a -> b) -> (b -> c) -> a -> c
--- (;) f g x = g (f x)
-
 
 
 fst :: ! forall a b . (Parameter b) => a * b -> a
@@ -46,11 +41,6 @@ snd :: ! forall a b . (Parameter a) => a * b -> b
 snd x =
   let (x1, x2) = x in x2
 
--- test1 :: Bool
--- test1 = fst (True, False)
-
--- eliminating the need to do pattern matching on
--- multi-tensor, well, sort of.
 
 simple Pair a :: Type where
   Pair a = P a a
@@ -72,10 +62,6 @@ simple Five a b c d e :: Type where
 
 toQ :: ! forall a b c d . a * b * c * d -> Quad a b c d
 toQ x = let (a, b, c, d) = x in Q a b c d
--- let (abc, d) = x
---             (ab, c) = abc
---             (a, b) = ab
---          in Q a b c d
 
 simple Six a b c d e f :: Type where
   Six a b c d e f = ST a b c d e f

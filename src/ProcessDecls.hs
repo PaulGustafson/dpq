@@ -194,12 +194,12 @@ process (SimpData pos d n k0 eqs) = -- [instSimp, instParam, instPS]
          inds = map (\ (_, i,_, _) -> i) eqs
      indx <- checkIndices n d inds `catchError`
              \ e -> throwError $ collapsePos pos e
-     
      info <- mapM (\ (i, t) -> (preTypeToType n k2 i t) `catchError`
                                         \ e -> throwError $ collapsePos pos e)
              (zip inds pretypes)
      let (cs, tys) = unzip info
      checkCoverage d cs `catchError` \ e -> throwError $ collapsePos pos e
+     
      let tp1 = Info { classifier = erasePos k,
                       identification = DataType (SemiSimple indx) constructors Nothing
                    }

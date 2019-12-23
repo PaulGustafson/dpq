@@ -15,7 +15,7 @@ import Nominal
 import qualified Data.Set as S
 import qualified Data.Map as Map
 import Data.Map (Map)
-
+import Debug.Trace
 import Control.Monad.Except
 import Control.Monad.State
 
@@ -394,6 +394,31 @@ typeCheck flag a@(Pack t1 t2) (Exists p ty) =
           -- Exists (abst x p') ty'
           return (Exists p ty', Pack ann1 ann2)
 
+
+typeCheck flag a@(Pair t1 t2) d =
+  do sd <- updateWithSubst d
+     ns <- newNames ["#unif", "#unif"]
+     case sd of
+       Tensor ty1 ty2 ->
+         do (ty1', t1') <- typeCheck flag t1 ty1
+            (ty2', t2') <- typeCheck flag t2 ty2
+            return (Tensor ty1' ty2', Pair t1' t2')
+       b -> freshNames ns $
+            \ (x1:x2:[]) ->
+              do let res = runUnify sd (Tensor (Var x1) (Var x2))
+                 case res of
+                   Just s ->
+                     do ss <- getSubst
+                        let sub' = s `mergeSub` ss
+                        updateSubst sub'
+                        let x1' = substitute sub' (Var x1)
+                            x2' = substitute sub' (Var x2)
+                        (x1'', t1') <- typeCheck flag t1 x1'
+                        (x2'', t2') <- typeCheck flag t2 x2'
+                        let res = Pair t1' t2'
+                        return (Tensor x1'' x2'', res)
+                   Nothing -> throwError (TensorExpErr a b)
+
 typeCheck flag (Let m bd) goal =
   do (t', ann) <- typeInfer flag m
      open bd $ \ x t ->
@@ -557,7 +582,7 @@ typeCheck flag a@(Case tm (B brs)) goal =
                       isDpm = isSemi || matchEigen
                   ss <- getSubst
                   when (isSemi && matchEigen) $
-                    error "matchEigen and matchEigen cannot be true at the same time."
+                    error "isSemi and matchEigen cannot be true at the same time."
                   when isDpm $ checkRetro tm ss
                   unifRes <- patternUnif tm isDpm index head t
                   case unifRes of
@@ -589,7 +614,7 @@ typeCheck flag a@(Case tm (B brs)) goal =
                          -- because the variable axs may be in the domain
                          -- of the substitution, hence it is necessary to update
                          -- axs as well before binding.
-                         let axs' = if isSemi || matchEigen then map (substVar subb) axs else axs
+                         let axs' = if isDpm then map (substVar subb) axs else axs
                          mapM_ (\ (Right v) -> removeVar v) vs
                          mapM removeInst ins
                          return (goal''', abst (PApp kid axs') ann2')
@@ -616,10 +641,10 @@ equality flag tm ty =
              unifRes <- normalizeUnif tym' ty1
              case unifRes of
                Nothing -> 
-                 do tyN1 <- normalize tym'
-                    tyN2 <- normalize ty1
-                    throwError $ NotEq tm tyN2 tyN1
-                    -- throwError $ NotEq tm ty1 tym'
+                 -- do tyN1 <- normalize tym'
+                 --    tyN2 <- normalize ty1
+                 --    throwError $ NotEq tm tyN2 tyN1
+                 throwError $ NotEq tm ty1 tym'
                Just s ->
                  do ss <- getSubst
                     let sub' = s `mergeSub` ss
@@ -629,6 +654,8 @@ equality flag tm ty =
 
 
 -- | normalized and unify two expression
+
+-- patternUnif m isDpm index head t | trace ("punif: " ++ show index) $ False = undefined
 patternUnif m isDpm index head t =
   if isDpm then
     case index of
@@ -637,21 +664,26 @@ patternUnif m isDpm index head t =
           case flatten t of
             Just (Right h, args) -> 
               let (bs, a:as) = splitAt i args
-                  a' = unEigen a
+                  a' = unEigenBound (S.toList $ getVars OnlyEigen a) a
                   t' = foldl App' (LBase h) (bs++(a':as))
-              in normalizeUnif head t'
+              in -- trace ("unifying:" ++ (show $ disp a') ++ " with " ++ (show $ disp t')) $
+                normalizeUnif head t'
             _ -> throwError $ withPosition m (UnifErr head t)
+              
   else normalizeUnif head t
---    (False, True) -> normalizeUnif head t
-      
 
+      
+-- | There is a degree of freedom in implementing normalizeUnif function.
 normalizeUnif t1 t2 =
  do t1' <- resolveGoals t1
     t2' <- resolveGoals t2
-    case (flatten t1', flatten t2') of
-       (Just (Right f1, args1), Just (Right f2, args2)) 
-         | (f1 == f2) && (length args1 == length args2) ->
-           foldM (\ s (x, y) ->
+    case runUnify t1' t2' of
+      Just s -> return $ Just s
+      Nothing -> 
+        case (flatten t1', flatten t2') of
+          (Just (Right f1, args1), Just (Right f2, args2)) 
+            | (f1 == f2) && (length args1 == length args2) ->
+              foldM (\ s (x, y) ->
                 case s of
                   Nothing -> return Nothing
                   Just s1 ->
@@ -660,13 +692,14 @@ normalizeUnif t1 t2 =
                     do r <- normalizeUnif x' y'
                        case r of
                          Nothing -> return Nothing
+                           -- error $ (show $ disp x') ++ ":" ++ (show $ disp y') -- 
                          Just s2 -> return $ Just (mergeSub s2 s1)
                 ) (Just Map.empty) (zip args1 args2)
-         | otherwise -> return Nothing
-       (_, _) -> 
-         do t1'' <- normalize t1'
-            t2'' <- normalize t2'
-            return $ runUnify t1'' t2''
+            | otherwise -> return Nothing
+          (_, _) -> 
+            do t1'' <- normalize t1'
+               t2'' <- normalize t2'
+               return $ runUnify t1'' t2''
 
 
 extendEnv isSemi xs (Forall bind ty) kid | isKind ty =

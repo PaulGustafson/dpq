@@ -1,12 +1,12 @@
 module Gates where
 
 import "lib/Basics.dpq"
--- import "Nat.dpq"
+import "lib/Nat.dpq"
 
 -- All gates must have at least one input.
 gate Init0 :: Unit -> Qubit
 gate Init1 :: Unit -> Qubit
-{-
+
 gate Term0 :: Qubit -> Unit
 gate Term1 :: Qubit -> Unit
 
@@ -103,22 +103,22 @@ qterm' bq =
  
 
 
-controlled H_g :: Qubit -> Qubit
+-- controlled H_g :: Qubit -> Qubit
 
-controlled ZGate :: Qubit -> Qubit
+-- controlled ZGate :: Qubit -> Qubit
 
-controlled SGate :: Qubit -> Qubit
+-- controlled SGate :: Qubit -> Qubit
 
-controlled Not_g :: Qubit -> Qubit
+-- controlled Not_g :: Qubit -> Qubit
 
 
-cnot :: ! forall s . (Simple s) => Qubit -> Qubit -> s -> (Qubit * Qubit) * s
-cnot a b s = 
-   let (a, bs) = Not_g
-                  a
-   		  (b, s)
-       (b, s) = bs
-   in ((a, b), s)
+-- cnot :: ! forall s . (Simple s) => Qubit -> Qubit -> s -> (Qubit * Qubit) * s
+-- cnot a b s = 
+--    let (a, bs) = Not_g
+--                   a
+--    		  (b, s)
+--        (b, s) = bs
+--    in ((a, b), s)
 
 
 
@@ -126,7 +126,7 @@ initQubit :: ! (Bool -> Qubit)
 initQubit b = case b of
                 True -> Init1 ()
 		False -> Init0 ()
--}
+
 {-
 -- boxHard :: Circ(Triple Qubit Qubit Qubit , Qubit * (Qubit * Qubit))
 -- boxHard = box (Triple Qubit Qubit Qubit) $ \ x . let T a b c = x in Hard a (b, c)

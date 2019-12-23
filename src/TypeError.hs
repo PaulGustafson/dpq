@@ -56,7 +56,10 @@ data TypeError = Unhandle Exp
                | TyAmbiguous (Maybe Id) Exp               
                | BangErr Exp Exp
                | PfErrWrapper Exp TypeError
-                 
+               | TensorExpErr Exp Exp
+
+
+               
 data EvalError = MissBranch Id Exp
                | UndefinedId Id 
                | PatternMismatch Pattern Exp
@@ -310,7 +313,6 @@ instance Disp TypeError where
     (text ("expected pattern matching on the "++show (i+1)++"th argument")) $$
     (text ("but there is also pattern matching on the "++show (j+1)++"th argument")) $$
     text "in the definition for:" <+> display flag d $$
-    --  $$ text "---------------------------" $$
     text "Note that in the Simple type declaration" $$
     text "we can only pattern match on a fixed argument"
 
@@ -350,8 +352,8 @@ instance Disp TypeError where
     text "is expected to have a bang type, but it has type:" $$
     nest 2 (display flag b)
 
-  -- display flag (ProofCheckErr e) =
-  --   text "proof checking error:" $$
-  --   display flag e $$
-  --   text "**********************************" $$
-  --   text "this is a bug, please send bug report. Thanks!"
+  display flag (TensorExpErr a t) =
+    text "the term:" <+> display flag a $$
+    text "has a tensor type, but it is expected to have type:" $$
+    nest 2 (display flag t)
+

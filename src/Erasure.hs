@@ -24,7 +24,10 @@ erasure Set = return Set
 erasure a@(Var x) = return a
 erasure a@(EigenVar x) = return a
 erasure a@(GoalVar x) = return a
-erasure a@(Const t) = return a 
+erasure a@(Const t) = return a
+erasure a@(Base t) = return a
+erasure a@(LBase t) = return a
+
 erasure (App e1 e2) =
   do e1' <- erasure e1
      e2' <- erasure e2
