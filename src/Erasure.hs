@@ -14,7 +14,7 @@ import Text.PrettyPrint
 import qualified Data.Set as S
 import Debug.Trace
 -- | The 'erasure' function erases all the type annotations from the annotated term.
-
+-- It also converts everything in to Lam and App.
 
 erasure :: Exp -> TCMonad Exp
 -- erasure a | trace ("erasing:" ++ (show $ disp a)) $ False = undefined
@@ -33,33 +33,26 @@ erasure (App e1 e2) =
      e2' <- erasure e2
      return $ App e1' e2'
 
+-- Convert app' to app
 erasure (App' e1 e2) =
   do e1' <- erasure e1
      e2' <- erasure e2
-     return $ App' e1' e2'
+     return $ App e1' e2'
 
 erasure (AppDict e1 e2) =
   do e1' <- erasure e1
      e2' <- erasure e2
-     return $ AppDict e1' e2'
+     return $ App e1' e2'
 
--- preparing the types of the box/existsBox for template generation. 
-erasure (AppDep e1 e2) | t <- erasePos e1, t == Box || t == ExBox  =
-  do e2' <- erasure e2
-     let e2'' = toApp e2'
-     return $ AppDep Box e2''
-  where toApp (App' e1 e2) = App (toApp e1) (toApp e2)
-        toApp a = a
-
-erasure (AppDep e1 e2) | otherwise =
+erasure (AppDep e1 e2) =
   do e1' <- erasure e1
      e2' <- erasure e2
-     return $ AppDep e1' e2'
+     return $ App e1' e2'
 
 erasure (AppDep' e1 e2) =
   do e1' <- erasure e1
      e2' <- erasure e2
-     return $ AppDep' e1' e2'
+     return $ App e1' e2'
 
 erasure (Pair e1 e2) =
   do e1' <- erasure e1
@@ -94,22 +87,23 @@ erasure a@(Lam (Abst xs m)) =
   do m' <- erasure m
      return $ Lam (abst xs m') 
 
+-- Convert lam' to lam
 erasure a@(Lam' (Abst xs m)) =
   do m' <- erasure m
      return $ Lam (abst xs m')
 
 erasure a@(LamDict (Abst xs m)) =
   do m' <- erasure m
-     return $ LamDict (abst xs m') 
+     return $ Lam (abst xs m') 
 
 erasure (LamDep (Abst ys m)) =
   do m' <- erasure m
-     return $ LamDep (abst ys m') 
+     return $ Lam (abst ys m') 
 
 
 erasure (LamDep' (Abst ys m)) =
   do m' <- erasure m
-     return $ LamDep' (abst ys m') 
+     return $ Lam (abst ys m') 
 
 erasure (LamTm bd) =
   open bd $ \ xs m -> erasure m
@@ -120,7 +114,7 @@ erasure (LamType bd) =
 erasure (Lift t) =  Lift <$> erasure t
 
 erasure (Force t) = Force <$> erasure t
-erasure (Force' t) = Force' <$> erasure t
+erasure (Force' t) = Force <$> erasure t
 
 erasure (UnBox) = return UnBox
 

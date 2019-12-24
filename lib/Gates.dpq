@@ -109,7 +109,7 @@ qterm' bq =
 
 -- controlled SGate :: Qubit -> Qubit
 
--- controlled Not_g :: Qubit -> Qubit
+controlled Not_g :: Qubit -> Qubit
 
 
 -- cnot :: ! forall s . (Simple s) => Qubit -> Qubit -> s -> (Qubit * Qubit) * s

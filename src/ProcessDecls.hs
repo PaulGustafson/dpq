@@ -52,9 +52,11 @@ process (Class pos d kd dict dictType mths) =
                   (_, tyy') <- typeChecking True tyy Set 
                   (tyy'', a) <- typeChecking False (Pos pos mth) tyy'
                   proofChecking False a tyy''
+                  a' <- erasure a 
                   let fp = Info{ classifier = tyy',
-                                 identification = DefinedMethod a mth 
-                              } 
+                                 identification = DefinedMethod a a'
+                               }
+                           
                   addNewId mname fp
 
 process (Instance pos f ty mths) =
@@ -162,7 +164,7 @@ process (Object pos id) =
 process (GateDecl pos id params t) =
   do mapM_ checkParam params
      let (bds, h) = flattenArrows t
-     mapM_ (\ x -> checkStrictSimple x) (h:(map snd bds))
+     mapM_ checkStrictSimple (h:(map snd bds))
      when (null bds) $ throwError (GateErr pos id)
      let ty = Bang $ foldr Arrow t params
      (_, tk) <- typeChecking True ty Set
@@ -182,6 +184,37 @@ process (GateDecl pos id params t) =
                do checkStrictSimple a
                   checkStrictSimple b
              checkStrictSimple a = throwError (NotStrictSimple a)
+
+process (ControlDecl pos id params t) =
+  do mapM_ checkParam params
+     let (bds, h) = flattenArrows t
+     mapM_ checkSimple (h:(map snd bds))
+     when (null bds) $ throwError (GateErr pos id)
+     let s = Base $ Id "Simple"
+     freshNames ["a"] $ \ (a:[]) ->
+       do let head = Tensor h (Var a)
+              bds' = (map snd bds)++[Var a]
+              t' = foldr Arrow head bds' 
+              ty = Bang $ Forall (abst [a] (Imply [App s (Var a)]
+                                           $ foldr Arrow t' params)) Set
+          (_, tk) <- typeChecking True ty Set 
+          let gate = makeControl id (map erasePos params) (erasePos t)
+          let fp = Info {classifier = erasePos tk,
+                        identification = DefinedGate gate
+                        }
+          addNewId id fp
+
+       where checkParam t =
+               do p <- isParam t
+                  when (not p) $ throwError $ ErrPos pos (NotAParam t)
+             checkSimple (Pos p e) =
+               checkSimple e `catchError` \ e -> throwError $ collapsePos p e
+             checkSimple (LBase x) = return ()
+             checkSimple (Unit) = throwError (NotUnit)
+             checkSimple (Tensor a b) =
+               do checkSimple a
+                  checkSimple b
+             checkSimple a = throwError (NotStrictSimple a)
 
 
 process (SimpData pos d n k0 eqs) = -- [instSimp, instParam, instPS]
@@ -421,6 +454,53 @@ makeGate id ps t =
           let xs' = map Var xs
               pairs = foldl Pair (head xs') (tail xs')
           in Lam $ abst xs (App e pairs)
+
+
+makeControl :: Id -> [Exp] -> Exp -> Exp
+makeControl id ps t =
+  let lp = length ps
+      ns = getName "x" lp
+      (inss, outExp) = makeInOut t
+      outNames = genNames outExp
+      inExp = if null inss then Unit
+                else foldl Tensor (head inss) (tail inss)
+      inNames = genNames inExp
+  in
+      freshNames ("ctrl":ns) $ \ (c:xs) ->
+      freshNames inNames $ \ ins ->
+      freshNames outNames $ \ outs ->
+      let params = map Var xs
+          inExp' = toVal inExp ins
+          outExp' = toVal outExp outs
+          g = Gate id params inExp' outExp' (Var c)
+          morph = Wired $ abst (ins ++ outs) (Morphism inExp' [g] outExp')
+          m = Force $ App UnBox
+              (Let morph (freshNames ["y"] $ \ (y:[]) -> abst y (Var y)))
+          unbox_morph = etaPair (length inss) m c
+          abstraction m = freshNames ["dict"] $ \ (d:[]) -> LamDict (abst [d] m) 
+          res = if null xs then Lift $ abstraction $ unbox_morph
+                else
+                  case unbox_morph of
+                       Lam bd ->
+                         open bd $ \ ys m -> Lift $ abstraction $ Lam (abst (xs++ys) m)
+                                             
+                       _ -> Lift $ abstraction $ Lam (abst xs unbox_morph) 
+      in res
+  where makeInOut (Arrow t t') =
+          let (ins, outs) = makeInOut t'
+          in (t:ins, outs)
+        makeInOut (Pos p e) = makeInOut e
+        makeInOut a = ([], a)
+        getName x lp =
+          let xs = x:xs
+          in zipWith (\ x y -> x ++ show y) (take lp xs) [0 .. ]
+          
+        etaPair n e c | n == 0 = Lam (abst [c] (Pair (App e Star) (Var c))) 
+        etaPair n e c =
+          freshNames (getName "y" n) $ \ xs ->
+          let xs' = map Var xs
+              pairs = foldl Pair (head xs') (tail xs')
+          in Lam (abst (xs++[c]) (Pair (App e pairs) (Var c))) 
 
 
 -- | Make a type function for runtime wires generation.

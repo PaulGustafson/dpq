@@ -57,7 +57,7 @@ data TypeError = Unhandle Exp
                | BangErr Exp Exp
                | PfErrWrapper Exp TypeError
                | TensorExpErr Exp Exp
-
+               | NotUnit
 
                
 data EvalError = MissBranch Id Exp
@@ -356,4 +356,7 @@ instance Disp TypeError where
     text "the term:" <+> display flag a $$
     text "has a tensor type, but it is expected to have type:" $$
     nest 2 (display flag t)
+
+  display flag (NotUnit) =
+    text "controlled gate's type can not contain unit" 
 

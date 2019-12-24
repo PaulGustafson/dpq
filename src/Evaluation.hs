@@ -77,8 +77,7 @@ lookupLEnv x lenv =
 eval :: Map Variable Exp -> Exp -> Eval Exp
 eval lenv (Var x) =
   return $ lookupLEnv x lenv 
--- eval lenv (EigenVar x) =
---   return $ lookupLEnv x lenv 
+
 eval lenv Star = return Star
 eval lenv (Label x) = return $ Label x
 eval lenv (Base k) = return (Base k)
@@ -116,11 +115,11 @@ eval lenv (Force m) =
        v@(App UnBox _) -> return $ Force v
        x -> error $ "from force" ++ (show $ disp x)
 
--- eval lenv (Force' m) =
---   do m' <- eval lenv m
---      case m' of
---        Lift n -> tcToEval (shape n) >>= eval lenv 
---        x -> error $ "from force':" ++ (show $ disp x)
+eval lenv Unit = return Unit
+eval lenv (Tensor e1 e2) =
+  do e1' <- eval lenv e1
+     e2' <- eval lenv e2
+     return $ Tensor e1' e2'
 
 eval lenv a@(Lam body) = 
   if Map.null lenv then return a else return $ instantiate lenv a
@@ -128,17 +127,7 @@ eval lenv a@(Lam body) =
 eval lenv a@(Lift body) = 
   if Map.null lenv then return a else return $ instantiate lenv a
 
-eval lenv a@(Lam' body) = 
-  if Map.null lenv then return a else return $ instantiate lenv a
 
-eval lenv a@(LamDep body) = 
-  if Map.null lenv then return a else return $ instantiate lenv a
-
-eval lenv a@(LamDep' body) = 
-  if Map.null lenv then return a else return $ instantiate lenv a
-
-eval lenv a@(LamDict body) = 
-  if Map.null lenv then return a else return $ instantiate lenv a
 
 eval lenv UnBox = return UnBox
 eval lenv Revert = return Revert
@@ -151,26 +140,6 @@ eval lenv (App m n) =
   do v <- eval lenv m
      w <- eval lenv n
      evalApp lenv v w
-
-eval lenv (AppDep m n) =
-  do v <- eval lenv m
-     w <- eval lenv n
-     evalAppDep lenv v w
-
-eval lenv (App' m n) =
-  do v <- eval lenv m
-     w <- eval lenv n
-     evalApp' lenv v w
-
-eval lenv (AppDep' m n) =
-  do v <- eval lenv m
-     w <- eval lenv n
-     evalAppDep' lenv v w
-
-eval lenv (AppDict m n) =
-  do v <- eval lenv m
-     w <- eval lenv n
-     evalAppDict lenv v w
 
 eval lenv (Pair m n) = 
   do v <- eval lenv m
@@ -244,14 +213,14 @@ evalApp lenv (Force (App UnBox v)) w =
           in appendMorph binding f
     a -> error $ "evalApp(Unbox ..) " ++ (show $ disp a)
 
-evalApp lenv (AppDict (AppDict (AppDep Box q) _) _) v =
+evalApp lenv (App (App (App Box q) _) _) v =
   do st <- get
      let genv = evalEnv st
      uv <- eval lenv q
      evalBox lenv v uv
 
 
-evalApp lenv (AppDict (AppDep (AppDict (AppDep ExBox q) _) _) _) v =  
+evalApp lenv (App (App (App (App ExBox q) _) _) _) v =  
   do st <- get
      let genv = evalEnv st
      uv <- eval lenv q
@@ -264,33 +233,16 @@ evalApp lenv Revert m' =
       let gs' = revGates gs in
         return $ Wired (abst ws (Morphism outs gs' ins))
 
-evalApp lenv a@(Wired _) (Const id) | getName id == "SimpleDict" =
+evalApp lenv a@(Wired _) w = 
   return a
 
-evalApp lenv v w = handleApplication AppFlag lenv v w
+evalApp lenv v w = handleApplication lenv v w
 
-evalApp' lenv v w = handleApplication App'Flag lenv v w
-
-
-evalAppDep lenv v w = handleApplication AppDepFlag lenv v w
-evalAppDep' lenv v w = handleApplication AppDep'Flag lenv v w
-evalAppDict lenv v w = handleApplication AppDictFlag lenv v w
-
-handleApplication appflag lenv v w = 
-  let (h, res) = unwind appflag v
+handleApplication lenv v w = 
+  let (h, res) = unwind AppFlag v
   in case h of
       Lam bd -> handleBody App res bd
-      Lam' bd -> handleBody App' res bd
-      LamDep' bd -> handleBody AppDep' res bd
-      LamDep bd -> handleBody AppDep res bd
-      LamDict bd -> handleBody AppDict res bd
-      _ ->
-        case appflag of
-          AppFlag -> return $ App v w
-          App'Flag -> return $ App' v w
-          AppDep'Flag -> return $ AppDep' v w
-          AppDepFlag -> return $ AppDep v w
-          AppDictFlag -> return $ AppDict v w
+      _ -> return $ App v w
           
      where handleBody app res bd = open bd $ \ vs m ->
              let args = res ++ [w]
@@ -353,7 +305,7 @@ instantiate lenv a@(Const x) = a
 instantiate lenv (App e1 e2) = App (instantiate lenv e1) (instantiate lenv e2)
 instantiate lenv (AppDep e1 e2) = AppDep (instantiate lenv e1) (instantiate lenv e2)
 instantiate lenv (AppDict e1 e2) = AppDict (instantiate lenv e1) (instantiate lenv e2)
-instantiate lenv (App' e1 e2) = App' (instantiate lenv e1) (instantiate lenv e2)
+-- instantiate lenv (App' e1 e2) = App' (instantiate lenv e1) (instantiate lenv e2)
 instantiate lenv (AppDep' e1 e2) = AppDep' (instantiate lenv e1) (instantiate lenv e2)
 
 instantiate lenv (Tensor e1 e2) = Tensor (instantiate lenv e1) (instantiate lenv e2)
@@ -374,7 +326,7 @@ instantiate lenv (Lam bd) = Lam (open bd $ \ vs b -> abst vs (instantiate lenv b
 instantiate lenv (LamDep bd) = LamDep (open bd $ \ vs b -> abst vs (instantiate lenv b))
 instantiate lenv (LamDep' bd) = LamDep' (open bd $ \ vs b -> abst vs (instantiate lenv b))
 instantiate lenv (LamDict bd) = LamDict (open bd $ \ vs b -> abst vs (instantiate lenv b))
-instantiate lenv (Lam' bd) = Lam' (open bd $ \ vs b -> abst vs (instantiate lenv b))
+-- instantiate lenv (Lam' bd) = Lam' (open bd $ \ vs b -> abst vs (instantiate lenv b))
 instantiate lenv (Let m bd) = Let (instantiate lenv m) (open bd $ \ vs b -> abst vs (instantiate lenv b))
 instantiate lenv (LetPair m bd) = LetPair (instantiate lenv m) (open bd $ \ xs b -> abst xs (instantiate lenv b))
 instantiate lenv (LetPat m bd) = LetPat (instantiate lenv m)
