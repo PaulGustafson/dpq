@@ -5,6 +5,7 @@ import Syntax
 import SyntacticOperations
 import Utils
 import Nominal
+import Simulation
 import TCMonad
 import TypeError
 
@@ -134,7 +135,7 @@ eval lenv Revert = return Revert
 eval lenv a@(Box) = return a
 eval lenv a@(ExBox) = return a
 eval lenv a@(Wired _) = return a
-
+eval lenv RunCirc = return RunCirc
 
 eval lenv (App m n) =
   do v <- eval lenv m
@@ -219,6 +220,10 @@ evalApp lenv (App (App (App Box q) _) _) v =
      uv <- eval lenv q
      evalBox lenv v uv
 
+evalApp lenv (App (App (App RunCirc  _) _) (Wired (Abst _ m))) input =
+  case runCircuit m input of
+    Left e -> throwError $ SimulationErr e
+    Right r -> return r
 
 evalApp lenv (App (App (App (App ExBox q) _) _) _) v =  
   do st <- get
@@ -303,11 +308,6 @@ instantiate lenv a@(Base x) = a
 instantiate lenv a@(LBase x) = a
 instantiate lenv a@(Const x) = a
 instantiate lenv (App e1 e2) = App (instantiate lenv e1) (instantiate lenv e2)
-instantiate lenv (AppDep e1 e2) = AppDep (instantiate lenv e1) (instantiate lenv e2)
-instantiate lenv (AppDict e1 e2) = AppDict (instantiate lenv e1) (instantiate lenv e2)
--- instantiate lenv (App' e1 e2) = App' (instantiate lenv e1) (instantiate lenv e2)
-instantiate lenv (AppDep' e1 e2) = AppDep' (instantiate lenv e1) (instantiate lenv e2)
-
 instantiate lenv (Tensor e1 e2) = Tensor (instantiate lenv e1) (instantiate lenv e2)
 instantiate lenv (Pair e1 e2) = Pair (instantiate lenv e1) (instantiate lenv e2)
 instantiate lenv (Arrow e1 e2) = Arrow (instantiate lenv e1) (instantiate lenv e2)
@@ -318,15 +318,10 @@ instantiate lenv a@(Box) = a
 instantiate lenv a@(ExBox) = a
 instantiate lenv (Lift e) = Lift $ instantiate lenv e
 instantiate lenv (Force e) = Force $ instantiate lenv e
-instantiate lenv (Force' e) = Force' $ instantiate lenv e
 instantiate lenv a@(Wired _) = a 
 instantiate lenv (Circ e1 e2) = Circ (instantiate lenv e1) (instantiate lenv e2)
 instantiate lenv a@(Pi bd e) = a
 instantiate lenv (Lam bd) = Lam (open bd $ \ vs b -> abst vs (instantiate lenv b))
-instantiate lenv (LamDep bd) = LamDep (open bd $ \ vs b -> abst vs (instantiate lenv b))
-instantiate lenv (LamDep' bd) = LamDep' (open bd $ \ vs b -> abst vs (instantiate lenv b))
-instantiate lenv (LamDict bd) = LamDict (open bd $ \ vs b -> abst vs (instantiate lenv b))
--- instantiate lenv (Lam' bd) = Lam' (open bd $ \ vs b -> abst vs (instantiate lenv b))
 instantiate lenv (Let m bd) = Let (instantiate lenv m) (open bd $ \ vs b -> abst vs (instantiate lenv b))
 instantiate lenv (LetPair m bd) = LetPair (instantiate lenv m) (open bd $ \ xs b -> abst xs (instantiate lenv b))
 instantiate lenv (LetPat m bd) = LetPat (instantiate lenv m)
@@ -334,7 +329,6 @@ instantiate lenv (LetPat m bd) = LetPat (instantiate lenv m)
 instantiate lenv (Case e (B br)) = Case (instantiate lenv e) (B (map helper br))
   where helper bd = open bd $ \ p m -> abst p (instantiate lenv m)
 instantiate lenv (Pos _ e) = error "position in instantiate"
-  -- instantiate lenv e         
 instantiate lenv a = error $ "from instantiate:" ++ (show $ disp a)
 
 -- | Append a circuit to the underline circuit state according to a Binding
@@ -376,13 +370,6 @@ renameGs gs m = map helper gs
 type Binding = Map Variable Variable
 
 
-getWires (Label x) = [x]
-getWires (Const _) = []
-getWires Star = []
-getWires (App e1 e2) = getWires e1 ++ getWires e2
--- getWires (AppDep e1 e2) = getWires e1 ++ getWires e2
-getWires (Pair e1 e2) = getWires e1 ++ getWires e2
-getWires a = error $ "applying getWires function to an ill-formed template:" ++ (show $ disp a)
 
 
 makeBinding :: Exp -> Exp -> Binding

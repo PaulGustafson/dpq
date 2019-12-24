@@ -2,6 +2,7 @@ module TypeError where
 
 import Utils
 import Syntax
+import Simulation
 import SyntacticOperations
 import qualified ConcreteSyntax as C
 
@@ -59,13 +60,15 @@ data TypeError = Unhandle Exp
                | TensorExpErr Exp Exp
                | NotUnit
 
+
                
 data EvalError = MissBranch Id Exp
                | UndefinedId Id 
                | PatternMismatch Pattern Exp
                | TupleMismatch [Variable] Exp
                | ErrWrapper TypeError
-               
+               | SimulationErr SimulateError
+                 
 instance Disp EvalError where
   display flag (MissBranch id e) =
     text "missing branch for:" <+> display flag id $$
@@ -88,6 +91,9 @@ instance Disp EvalError where
 
   display flag (UndefinedId id) =
     text "nontermination detected when evaluating:" <+> display flag id
+
+  display flag (SimulationErr a) =
+    display flag a
 
   -- A wrapper due to tcToEval
   display flag (ErrWrapper e) = display flag e
@@ -359,4 +365,5 @@ instance Disp TypeError where
 
   display flag (NotUnit) =
     text "controlled gate's type can not contain unit" 
+
 

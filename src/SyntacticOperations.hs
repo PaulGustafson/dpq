@@ -624,3 +624,11 @@ unwindHelper a t1 t2 =
 obtainPos :: Exp -> Maybe Position
 obtainPos (Pos p e) = Just p
 obtainPos _ = Nothing
+
+getWires (Label x) = [x]
+getWires (Const _) = []
+getWires Star = []
+getWires (App e1 e2) = getWires e1 ++ getWires e2
+-- getWires (AppDep e1 e2) = getWires e1 ++ getWires e2
+getWires (Pair e1 e2) = getWires e1 ++ getWires e2
+getWires a = error $ "applying getWires function to an ill-formed template:" ++ (show $ disp a)
