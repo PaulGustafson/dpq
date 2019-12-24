@@ -259,7 +259,7 @@ normalize a@(Const k) =
        DataConstr _ -> return a
        DefinedFunction (Just (a, e)) ->
          do b <- isBasicValue e
-            if b then return e else return a
+            if b then shape e else shape a
        DefinedMethod e _ -> return e
        DefinedInstFunction e _ -> return e
 

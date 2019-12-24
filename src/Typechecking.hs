@@ -658,10 +658,10 @@ equality flag tm ty =
              unifRes <- normalizeUnif tym' ty1
              case unifRes of
                Nothing -> 
-                 -- do tyN1 <- normalize tym'
-                 --    tyN2 <- normalize ty1
-                 --    throwError $ NotEq tm tyN2 tyN1
-                 throwError $ NotEq tm ty1 tym'
+                 do tyN1 <- normalize tym'
+                    tyN2 <- normalize ty1
+                    throwError $ NotEq tm tyN2 tyN1
+--                 throwError $ NotEq tm ty1 tym'
                Just s ->
                  do ss <- getSubst
                     let sub' = s `mergeSub` ss
