@@ -256,7 +256,8 @@ process (SimpData pos d n k0 eqs) = -- [instSimp, instParam, instPS]
      elaborateInstance pos instPS insTy'' []
      tfunc <- makeTypeFun n k2 (zip constructors (zip inds tys))
      let tp = Info {classifier = erasePos k,
-                   identification = DataType (SemiSimple indx) constructors (Just tfunc)
+                   identification = DataType (SemiSimple indx) constructors
+                                    (Just (erasePos tfunc))
                    }
      addNewId d tp
 
@@ -404,7 +405,7 @@ makeGate id ps t =
                        Lam bd ->
                          open bd $ \ ys m -> Lam (abst (xs++ys) m) 
                        _ -> Lam (abst xs unbox_morph) 
-      in res
+      in Lift res
   where makeInOut (Arrow t t') =
           let (ins, outs) = makeInOut t'
           in (t:ins, outs)

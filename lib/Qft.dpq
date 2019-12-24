@@ -53,7 +53,8 @@ qft4 :: Circ(Vec Qubit four, Vec Qubit four)
 qft4 = qftBox four
 
 
-{-
+
+
 -- little-headian QFT: the lowest-order bit is at the head of the list.
 qft_little_headian :: ! (n :: Nat) -> Vec Qubit n -> Vec Qubit n
 qft_little_headian n l = reverse Qubit n (qft_aux l)
@@ -98,6 +99,9 @@ qft_both n l = qft_little_headian_rev n $ qft_little_headian n l
 
 qft_both_Box :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n)
 qft_both_Box n = box (Vec Qubit n) $ \ x . qft_both n x
--}
--- main = qft_both_Box nine 
+
+main :: Circ(Vec Qubit nine, Vec Qubit nine)
+main = qft_both_Box nine 
+
+
 

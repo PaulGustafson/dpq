@@ -17,6 +17,8 @@ import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Debug.Trace
+
 
 data EvalState =
   ES { morph :: Morphism, -- ^ underlying incomplete circuit.
@@ -50,7 +52,26 @@ evaluation e =
 lookupLEnv x lenv =
   case Map.lookup x lenv of
     Nothing -> error "from lookupLEnv"
+    Just (Wired bd) ->
+      open bd $ \ wires m ->
+      case m of
+        (Morphism ins [Gate id ns gins gouts ctrls] outs) -> 
+          let vs' = helper ns lenv
+              (c:[]) = case ctrls of
+                          Star -> Star:[]
+                          _ -> helper [ctrls] lenv
+          in  Wired (abst wires (Morphism ins [Gate id vs' gins gouts c] outs))
+             
+        m' -> Wired (abst wires m')
+
     Just v -> v
+  where helper [] lc = []
+        helper ((Var x):xs) lc =
+          let res = helper xs lc in
+          case Map.lookup x lc of
+            Just v -> v:res
+            Nothing -> error $ "lookupLEnv: can't find variable " ++ (show $ disp x) 
+        helper (a:xs) lc = a : (helper xs lc)
 
 eval :: Map Variable Exp -> Exp -> Eval Exp
 eval lenv (Var x) =
@@ -58,6 +79,7 @@ eval lenv (Var x) =
 -- eval lenv (EigenVar x) =
 --   return $ lookupLEnv x lenv 
 eval lenv Star = return Star
+eval lenv (Label x) = return $ Label x
 eval lenv (Base k) = return (Base k)
 
 eval lenv a@(Const k) =
@@ -91,13 +113,13 @@ eval lenv (Force m) =
      case m' of
        Lift n -> eval lenv n
        v@(App UnBox _) -> return $ Force v
-       _ -> error "from force"
+       x -> error $ "from force" ++ (show $ disp x)
 
-eval lenv (Force' m) =
-  do m' <- eval lenv m
-     case m' of
-       Lift n -> tcToEval (shape n) >>= eval lenv 
-       _ -> error "from force'"
+-- eval lenv (Force' m) =
+--   do m' <- eval lenv m
+--      case m' of
+--        Lift n -> tcToEval (shape n) >>= eval lenv 
+--        x -> error $ "from force':" ++ (show $ disp x)
 
 eval lenv a@(Lam body) = 
   if Map.null lenv then return a else return $ instantiate lenv a
@@ -280,8 +302,8 @@ handleApplication appflag lenv v w =
                           lenv' = foldr (\ (x,v) y -> Map.insert x v y) lenv sub
                       eval lenv' (foldl app m ws)
 
-
-evalBox lenv body uv =
+-- evalBox lenv body uv | trace ("b:"++ (show $ disp body) ++ " uv:" ++(show $ disp uv)) $ False = undefined
+evalBox lenv (Lift body) uv =
   freshNames (genNames uv) $ \ vs ->
    do st <- get
       let uv' = toVal uv vs
@@ -318,6 +340,7 @@ evalExbox lenv body uv =
 instantiate :: Map Variable Exp -> Exp -> Exp
 instantiate lenv (Unit) = Unit
 instantiate lenv (Set) = Set
+instantiate lenv (Label x) = Label x
 instantiate lenv Star = Star
 instantiate lenv a@(Var x) =
   case Map.lookup x lenv of
@@ -410,6 +433,7 @@ getWires a = error $ "applying getWires function to an ill-formed template:" ++ 
 
 
 makeBinding :: Exp -> Exp -> Binding
+-- makeBinding w v | trace (("makeBinding:" ++ (show $ disp w) ++ ":" ++ (show $ disp v))) False = undefined
 makeBinding w v =
   let ws = getWires w
       vs = getWires v

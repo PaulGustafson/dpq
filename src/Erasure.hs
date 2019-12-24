@@ -43,7 +43,15 @@ erasure (AppDict e1 e2) =
      e2' <- erasure e2
      return $ AppDict e1' e2'
 
-erasure (AppDep e1 e2) =
+-- preparing the types of the box/existsBox for template generation. 
+erasure (AppDep e1 e2) | t <- erasePos e1, t == Box || t == ExBox  =
+  do e2' <- erasure e2
+     let e2'' = toApp e2'
+     return $ AppDep Box e2''
+  where toApp (App' e1 e2) = App (toApp e1) (toApp e2)
+        toApp a = a
+
+erasure (AppDep e1 e2) | otherwise =
   do e1' <- erasure e1
      e2' <- erasure e2
      return $ AppDep e1' e2'
