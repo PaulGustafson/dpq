@@ -97,16 +97,16 @@ lengthP l = case l of
                in S n
 
 -- | need to make the normalizeUnif more clever
--- sf_vec_index :: ! forall a . (n m :: Nat) -> Vec a (S (add n m)) ->
---                    Triple (Vec a n) a (Vec a m)
--- sf_vec_index n m as = 
---   case as of
---     VCons h t -> 
---       case n of
---         Z -> T VNil h t
---         S n' ->
---          let T before a after = sf_vec_index n' m (subst ( ) t) in
---          T (VCons h before) a after
+sf_vec_index :: ! (a :: Type) -> (n m :: Nat) -> Vec a (S (add n m)) ->
+                   Triple (Vec a n) a (Vec a m)
+sf_vec_index a n m as = 
+  case as of
+    VCons h t -> 
+      case n of
+        Z -> T VNil h t
+        S n' ->
+         let T before x after = sf_vec_index a n' m (subst (Vec a) (addS1 n' m) t) in
+         T (VCons h before) x after
 
 sf_vec_unindex :: ! (a :: Type) -> (n m :: Nat) ->
                   Vec a n -> a -> Vec a m -> Vec a (S (add n m)) 

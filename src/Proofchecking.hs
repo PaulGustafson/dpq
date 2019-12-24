@@ -72,6 +72,11 @@ proofInfer flag a@(Imply (x:xs) t) =
        Set -> proofInfer True (Imply xs t)
        _ -> throwError (NotEq x Set ty)
 
+proofInfer flag (Bang ty) =
+  do a <- proofInfer True ty
+     case a of
+       Set -> return Set
+       b -> throwError (NotEq ty Set b)
 
 proofInfer flag ty@(Tensor t1 t2) =
   do a1 <- proofInfer True t1
@@ -455,10 +460,10 @@ proofCheck flag a@(Case tm (B brs)) goal =
                  isDpm = isSemi || matchEigen
              ss <- getSubst
              when isDpm $ checkRetro tm ss             
-             t' <- normalize t
-             unifRes <- dependentUnif index isDpm head t'
+             -- t' <- normalize t
+             unifRes <- dependentUnif index isDpm head t
              case unifRes of
-               Nothing -> throwError $ (UnifErr head t')
+               Nothing -> throwError $ (UnifErr head t)
                Just sub' -> do
                  sub1 <-
                    if matchEigen then

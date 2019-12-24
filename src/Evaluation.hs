@@ -55,8 +55,8 @@ lookupLEnv x lenv =
 eval :: Map Variable Exp -> Exp -> Eval Exp
 eval lenv (Var x) =
   return $ lookupLEnv x lenv 
-eval lenv (EigenVar x) =
-  return $ lookupLEnv x lenv 
+-- eval lenv (EigenVar x) =
+--   return $ lookupLEnv x lenv 
 eval lenv Star = return Star
 eval lenv (Base k) = return (Base k)
 
@@ -81,7 +81,8 @@ eval lenv a@(LBase k) =
        Nothing -> throwError $ UndefinedId k
        Just e ->
          case identification e of
-           DataType Simple _ (Just e) -> return e
+           DataType Simple _ (Just d) -> return d
+           DataType (SemiSimple _) _ (Just d) -> return d
            DataType _ _ Nothing -> return a
            DictionaryType _ _ -> return a
 
@@ -121,7 +122,7 @@ eval lenv Revert = return Revert
 eval lenv a@(Box) = return a
 eval lenv a@(ExBox) = return a
 eval lenv a@(Wired _) = return a
-eval lenv a@(Pos _ e) = eval lenv e
+
 
 eval lenv (App m n) =
   do v <- eval lenv m
@@ -205,7 +206,7 @@ eval lenv b@(Case m (B bd)) =
                | otherwise -> reduce id args bds
         reduce id args [] = throwError $ MissBranch id b
 
-
+eval lenv a@(Pos _ e) = error "position in eval"
 eval lenv a = error $ "from eval: " ++ (show $ disp a)
 
 
@@ -356,7 +357,9 @@ instantiate lenv (LetPat m bd) = LetPat (instantiate lenv m)
                                  (open bd $ \ vs b -> abst vs (instantiate lenv b))
 instantiate lenv (Case e (B br)) = Case (instantiate lenv e) (B (map helper br))
   where helper bd = open bd $ \ p m -> abst p (instantiate lenv m)
-
+instantiate lenv (Pos _ e) = error "position in instantiate"
+  -- instantiate lenv e         
+instantiate lenv a = error $ "from instantiate:" ++ (show $ disp a)
 
 -- | Append a circuit to the underline circuit state according to a Binding
 -- For efficiency reason we try prepend instead of append        

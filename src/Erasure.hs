@@ -63,6 +63,11 @@ erasure (Circ e1 e2) =
      e2' <- erasure e2
      return $ Circ e1' e2'
 
+erasure (Tensor e1 e2) =
+  do e1' <- erasure e1
+     e2' <- erasure e2
+     return $ Tensor e1' e2'
+
 erasure (Pack e1 e2) =
   do e1' <- erasure e1
      e2' <- erasure e2

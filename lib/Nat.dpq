@@ -314,3 +314,7 @@ instance Equal Nat where
 
 -- psum :: forall (n :: Nat) . Eq Nat (add (S n) (sum n)) (sum (S n))
 -- psum = refl
+
+class Equal a where
+  eq :: a -> a -> Bool
+

@@ -306,15 +306,16 @@ elaborateInstance pos f' ty mths =
                  ms' <- zipWithM (helper env instEnv) mths (map snd bds)
                  -- construct the annotated version of the instance function.
                  let def = foldl App (foldl AppType (Const c) args) ms'
-                     def' = if null ns then rebind env def
-                            else rebind env $ LamDict (abst ns def)
+                     def' = unEigen $ if null ns then rebind env def
+                                      else rebind env $ LamDict (abst ns def)
                      annTy' = erasePos annTy
                  def'' <- erasure def'
                  let fp = Info { classifier = annTy',
-                                identification = DefinedInstFunction def' def''
+                                 identification = DefinedInstFunction def' def''
                               }
                  addNewId f' fp
-
+                 proofChecking False def' annTy'
+                 
        _ -> throwError $ ErrPos pos $ TypeClassNotValid h                 
        where instantiateWith (Forall (Abst vs b') t) xs =
                let subs = zip vs xs
@@ -325,16 +326,14 @@ elaborateInstance pos f' ty mths =
                let env' = map (\ x -> case x of
                                         (Just y, a) -> (y, a)
                                   ) env
-               in -- typeCheckWithEnv env' instEnv (Pos p m) (erasePos t)
+               in 
                  do mapM_ (\ (x, t) -> addVar x t) env'
                     mapM_ (\ (x, t) -> insertLocalInst x t) instEnv
                     updateParamInfo (map snd instEnv)
                     (t', a) <- typeChecking False (Pos p m) (erasePos t)
-                    proofChecking False a t'
-                    -- a' <- resolveGoals a
                     mapM_ (\ (x, t) -> removeVar x) env'
                     mapM_ (\ (x, t) -> removeLocalInst x) instEnv
-                    return $ a -- unEigen a'
+                    return a 
                     
 
              rebind [] t = t
@@ -467,9 +466,9 @@ makeTypeFun n k0 xs@((_, (Just i, _)):_) =
 
 typeChecking b exp ty =
   do (ty', exp') <- typeCheck b exp ty
-     exp'' <- updateWithSubst exp'
-     r <- resolveGoals exp''
-     ty'' <- updateWithSubst ty' >>= resolveGoals 
+     exp'' <- resolveGoals exp'
+     r <- updateWithSubst exp''
+     ty'' <- resolveGoals ty' >>= updateWithSubst
      return (unEigen ty'', unEigen r)
 
 -- | a version of type checking for elaborateInstance

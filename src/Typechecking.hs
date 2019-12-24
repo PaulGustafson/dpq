@@ -286,7 +286,24 @@ typeCheck flag a (Forall (Abst xs m) ty) =
      let res = if isKind ty then (Forall (abst xs $ t') ty, LamType (abst xs $ ann''))
                else (Forall (abst xs $ t') ty, LamTm (abst xs $ ann''))
      return res
-    
+
+typeCheck flag (LamDict (Abst xs e)) (Imply bds ty) =
+  let lxs = length xs
+      lbd = length bds
+  in if lxs <= lbd then
+       do let (pre, post) = splitAt lxs bds
+              ty' = if null post then ty else Imply post ty
+          mapM (\ (x, y) -> addVar x y) (zip xs pre)
+          (ty'', a) <- typeCheck flag e ty'
+          mapM_ removeVar xs
+          return (Imply pre ty'', LamDict (abst xs a))
+     else do let (pre, post) = splitAt lbd xs
+             mapM (\ (x, y) -> addVar x y) (zip pre bds)
+             (ty', a) <- typeCheck flag (LamDict (abst post e)) ty
+             mapM_ removeVar pre
+             return (Imply bds ty', LamDict (abst pre a))
+       
+
 typeCheck flag a (Imply bds ty) =
   do let ns1 = take (length bds) (repeat "#inst")
      ns <- newNames ns1
