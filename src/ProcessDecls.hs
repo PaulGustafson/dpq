@@ -396,7 +396,7 @@ makeGate id ps t =
           outExp' = toVal outExp outs
           g = Gate id params inExp' outExp' Star
           morph = Wired $ abst (ins ++ outs) (Morphism inExp' [g] outExp')
-          m =  App UnBox
+          m = Force $ App UnBox
                         (Let morph (freshNames ["y"] $ \ (y:[]) -> abst y (Var y)))
           unbox_morph = etaPair (length inss) m
           res = if null xs then unbox_morph

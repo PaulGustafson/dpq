@@ -49,6 +49,7 @@ evaluation e =
        Left e -> throwError $ EvalErr e
        Right r -> return r
 
+-- lookupLEnv update the parameters and controls in gate
 lookupLEnv x lenv =
   case Map.lookup x lenv of
     Nothing -> error "from lookupLEnv"
@@ -233,7 +234,7 @@ eval lenv a = error $ "from eval: " ++ (show $ disp a)
 
 
 evalApp lenv UnBox v = return $ App UnBox v
-evalApp lenv (App UnBox v) w =
+evalApp lenv (Force (App UnBox v)) w =
   case v of
     Wired bd ->
       open bd $ \ wires m ->
@@ -319,7 +320,7 @@ evalBox lenv (Lift body) uv =
           in return morph'
 
 
-evalExbox lenv body uv =
+evalExbox lenv (Lift body) uv =
   freshNames (genNames uv) $ \ vs ->
    do st <- get
       let uv' = toVal uv vs
