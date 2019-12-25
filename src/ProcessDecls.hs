@@ -94,9 +94,11 @@ process (Def pos f' ty' def') =
      proofChecking False ann ty1'
      a <- erasure ann
      v <- evaluation a
-     -- annV <- typeChecking False v ty1
+     b <- isBasicValue v
+     v' <- if b then typeChecking False v ty1' >>= \ x -> return $ snd x
+           else if isCirc v then return v else return ann
      let info2 = Info { classifier = ty1,
-                        identification = DefinedFunction (Just (ann, v))}
+                        identification = DefinedFunction (Just (ann, v, v'))}
      addNewId f' info2
 
 process (Data pos d kd cons) =

@@ -364,6 +364,10 @@ isEigenVar (EigenVar _) = True
 isEigenVar (Pos p e) = isEigenVar e
 isEigenVar _ = False
 
+isCirc (Wired _) = True
+isCirc (Pos p e) = isCirc e
+isCirc _ = False
+
 
 -- | change eigenvariable to the usual variable
 unEigen = unEigenBound []

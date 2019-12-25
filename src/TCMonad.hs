@@ -24,7 +24,7 @@ data Info =
 
 data Identification = DataConstr Id  -- ^ Data type id 
                     | DefinedGate Exp -- storing basic gates
-                    | DefinedFunction (Maybe (Exp, Exp))
+                    | DefinedFunction (Maybe (Exp, Exp, Exp))
                     -- Storing annotation, value 
                     | DefinedMethod Exp Exp --
                     | DefinedInstFunction Exp Exp 
@@ -632,20 +632,24 @@ checkApp f a =
 
 -- | Check if the expression is a basic value (i.e., things that can be displayed in an interpretor), note that function is not a basic value.
 isBasicValue :: Exp -> TCMonad Bool
-isBasicValue (Wired _) = return True
+-- isBasicValue (Wired _) = return True
 isBasicValue (Pos _ e) = isBasicValue e
 isBasicValue (Const k) =
   do pac <- lookupId k
      case identification pac of
        DataConstr _ -> return True
        _ -> return False
+isBasicValue (Pair x y) =
+  do r1 <- isBasicValue x
+     r2 <- isBasicValue y
+     return (r1 && r2)
 isBasicValue a@(App t t') = checkApp isBasicValue a
-isBasicValue a@(App' t t') = checkApp isBasicValue a
-isBasicValue a@(AppDep t t') = checkApp isBasicValue a
-isBasicValue a@(AppDep' t t') = checkApp isBasicValue a
-isBasicValue a@(AppDict t t') = checkApp isBasicValue a
-isBasicValue a@(AppType t t') = isBasicValue t
-isBasicValue a@(AppTm t t') = isBasicValue t
+-- isBasicValue a@(App' t t') = checkApp isBasicValue a
+-- isBasicValue a@(AppDep t t') = checkApp isBasicValue a
+-- isBasicValue a@(AppDep' t t') = checkApp isBasicValue a
+-- isBasicValue a@(AppDict t t') = checkApp isBasicValue a
+-- isBasicValue a@(AppType t t') = isBasicValue t
+-- isBasicValue a@(AppTm t t') = isBasicValue t
 isBasicValue _ = return False       
 
 checkParamCxt :: Exp -> TCMonad ()

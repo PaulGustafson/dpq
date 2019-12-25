@@ -397,10 +397,10 @@ proofCheck flag (LetPat m bd) goal  = open bd $ \ (PApp kid args) n ->
      let dt = classifier funPac
      (isSemi, index) <- isSemiSimple kid
      (head, vs, kid') <- inst isSemi dt args (Const kid)
-     tt' <- normalize tt
+     -- tt' <- normalize tt
      let matchEigen = isEigenVar m
          isDpm = isSemi || matchEigen
-     unifRes <- dependentUnif index isDpm head tt'
+     unifRes <- dependentUnif index isDpm head tt
      ss <- getSubst
      when isDpm $ checkRetro m ss         
      case unifRes of

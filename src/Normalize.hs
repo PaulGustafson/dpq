@@ -257,9 +257,9 @@ normalize a@(Const k) =
      let f = identification funPac
      case f of
        DataConstr _ -> return a
-       DefinedFunction (Just (a, e)) ->
+       DefinedFunction (Just (a, e, e')) ->
          do b <- isBasicValue e
-            if b then shape e else shape a
+            if b then shape e' else shape a
        DefinedMethod e _ -> return e
        DefinedInstFunction e _ -> return e
 

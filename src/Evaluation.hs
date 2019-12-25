@@ -93,7 +93,7 @@ eval lenv a@(Const k) =
            DataConstr _ -> return a
            DefinedGate e -> return e
            -- DefinedFunction Nothing -> throwError $ UndefinedId k
-           DefinedFunction (Just (_, v)) -> return v
+           DefinedFunction (Just (_, v, _)) -> return v
            DefinedMethod _ e -> return e
            DefinedInstFunction _ e -> return e
 

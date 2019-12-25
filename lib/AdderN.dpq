@@ -296,8 +296,8 @@ res = fst $ fst testAdd
 
 -- (binaryToNat res)
 
-resCirc :: Circ(Vec Qubit four, Vec Qubit four)
-resCirc = idCirc (binaryToNat res)
+-- resCirc :: Circ(Vec Qubit four, Vec Qubit four)
+-- resCirc = idCirc (binaryToNat res)
 
 -- res2 :: Bool
 -- res2 = runCirc (box Qubit QNot) True
