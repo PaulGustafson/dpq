@@ -53,7 +53,7 @@ instance Disp Error where
     text "proof checking error:" $$
     display flag e $$
     text "when checking the following annotated term:" $$
-    display flag a $$
+    dispRaw a $$
     text "*************************" $$
     text "this is a bug, please send bug report. Thanks!"
     

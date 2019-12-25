@@ -271,8 +271,8 @@ removePrefixes flag a = ([], a)
 -- be applied to both type and term expression. It return Nothing if the input is not
 -- in a applicative form. Left indicates the identifier is a term constructor, Right 
 -- indicates the identifier is a type construtor.
--- 'flatten' also returns a list of computational relevant arguments, note that the arguments
--- for AppType and AppTm are not considered relevant.
+-- 'flatten' also returns a list of arguments.
+
 
 flatten :: Exp -> Maybe (Either Id Id, [Exp])
 flatten (Base id) = return (Right id, [])
@@ -290,8 +290,12 @@ flatten (AppDep t1 t2) =
 flatten (AppDict t1 t2) =
   do (id, args) <- flatten t1
      return (id, args ++ [t2])          
-flatten (AppType t1 t2) = flatten t1
-flatten (AppTm t1 t2) = flatten t1
+flatten (AppType t1 t2) =
+  do (id, args) <- flatten t1
+     return (id, args ++ [t2])          
+flatten (AppTm t1 t2) =
+  do (id, args) <- flatten t1
+     return (id, args ++ [t2])          
 flatten (Pos p e) = flatten e
 flatten _ = Nothing
 

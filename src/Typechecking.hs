@@ -513,7 +513,7 @@ typeCheck flag (LetPat m bd) goal =
        do funPac <- lookupId kid
           let dt = classifier funPac
           (isSemi, index) <- isSemiSimple kid
-          (head, axs, ins, kid') <- extendEnv isSemi vs dt (Const kid)
+          (head, axs, ins, kid') <- extendEnv vs dt (Const kid)
           let matchEigen = isEigenVar m
               isDpm = isSemi || matchEigen
           when (isSemi && matchEigen) $
@@ -542,7 +542,8 @@ typeCheck flag (LetPat m bd) goal =
                  -- !!!! Note that let pat is ok to leak local substitution,
                  -- as the branch is really global!. 
                  mapM removeInst ins
-                 let axs' = if isDpm then map (substVar subb) axs else axs
+                 let axs' = map (substVar subb) axs
+                            -- if isDpm then map (substVar subb) axs else axs
                      goal''' = substitute subb goal''
                      res = LetPat ann (abst (PApp kid axs') ann2')
                  return (goal''', res)
@@ -594,7 +595,7 @@ typeCheck flag a@(Case tm (B brs)) goal =
                   let dt = classifier funPac
                   updateCountWith (\ c -> nextCase c kid)
                   (isSemi, index) <- isSemiSimple kid
-                  (head, axs, ins, kid') <- extendEnv isSemi vs dt (Const kid)
+                  (head, axs, ins, kid') <- extendEnv vs dt (Const kid)
                   let matchEigen = isEigenVar tm
                       isDpm = isSemi || matchEigen
                   ss <- getSubst
@@ -631,7 +632,8 @@ typeCheck flag a@(Case tm (B brs)) goal =
                          -- because the variable axs may be in the domain
                          -- of the substitution, hence it is necessary to update
                          -- axs as well before binding.
-                         let axs' = if isDpm then map (substVar subb) axs else axs
+                         let axs' = map (substVar subb) axs
+                         -- if isDpm then map (substVar subb) axs else axs
                          mapM_ (\ (Right v) -> removeVar v) vs
                          mapM removeInst ins
                          return (goal''', abst (PApp kid axs') ann2')
@@ -719,52 +721,55 @@ normalizeUnif t1 t2 =
                return $ runUnify t1'' t2''
 
 
-extendEnv isSemi xs (Forall bind ty) kid | isKind ty =
+extendEnv xs (Forall bind ty) kid | isKind ty =
   open bind $
       \ ys t' ->
       do mapM_ (\ x -> addVar x ty) ys
          let kid' = foldl AppType kid (map Var ys)
-         extendEnv isSemi xs t' kid'
+         (h, vs, ins, kid'') <- extendEnv xs t' kid'
+         let vs' = map Right ys ++ vs
+         return (h, vs', ins, kid'')
 
-extendEnv isSemi xs (Forall bind ty) kid | otherwise =
+extendEnv xs (Forall bind ty) kid | otherwise =
   open bind $
       \ ys t' ->
       do mapM_ (\ x -> addVar x ty) ys
          let kid' = foldl AppTm kid (map Var ys)
-         (h, vs, ins, kid'') <- extendEnv isSemi xs t' kid'
-         let vs' = if isSemi then (map Right ys)++vs else vs
+         (h, vs, ins, kid'') <- extendEnv xs t' kid'
+         let vs' = (map Right ys)++vs
+               -- if isSemi then (map Right ys)++vs else vs
          return (h, vs', ins, kid'')
 
-extendEnv isSemi xs (Imply bds ty) kid =
+extendEnv xs (Imply bds ty) kid =
   do let ns1 = take (length bds) (repeat "#inst")
      ns <- newNames ns1
      freshNames ns $ \ ns ->
        do mapM_ (\ (x, y) -> insertLocalInst x y) (zip ns bds)
           let kid' = foldl AppDict kid (map Var ns)
-          (h, vs, ins, kid'') <- extendEnv isSemi xs ty kid'
+          (h, vs, ins, kid'') <- extendEnv xs ty kid'
           return (h, (map Right ns)++vs, ns++ins, kid'')
 
-extendEnv isSemi [] t kid = return (t, [], [], kid)
+extendEnv [] t kid = return (t, [], [], kid)
 
-extendEnv isSemi (Right x:xs) (Arrow t1 t2) kid =
+extendEnv (Right x:xs) (Arrow t1 t2) kid =
   do addVar x t1
-     (h, ys, ins, kid') <- extendEnv isSemi xs t2 kid
+     (h, ys, ins, kid') <- extendEnv xs t2 kid
      return (h,  Right x : ys, ins, kid')
 
-extendEnv isSemi (Right x : xs) (Pi bind ty) kid
+extendEnv (Right x : xs) (Pi bind ty) kid
   | not (isKind ty) =
     open bind $ \ ys t' ->
     do let y = head ys
            t'' = apply [(y , EigenVar x)] t'  -- note that Pi is existential
        addVar x ty
        if null (tail ys)
-         then do (h, ys, ins, kid') <- extendEnv isSemi xs t'' kid
+         then do (h, ys, ins, kid') <- extendEnv xs t'' kid
                  return (h, (Right x : ys), ins, kid')
-         else do (h, ys, ins, kid') <- extendEnv isSemi xs (Pi (abst (tail ys) t'') ty) kid
+         else do (h, ys, ins, kid') <- extendEnv xs (Pi (abst (tail ys) t'') ty) kid
                  return (h, (Right x : ys), ins, kid')
 
      
-extendEnv isSemi a b kid = throwError $ ExtendEnvErr a b
+extendEnv a b kid = throwError $ ExtendEnvErr a b
 
 
 

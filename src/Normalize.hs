@@ -398,13 +398,18 @@ normalize (LetPat m bd) =
          case p of
            PApp kid vs
              | kid == id ->
-                 let vs' = map (\ (Right x) -> x) vs
-                     subs = (zip vs' args)
-                     m' = apply subs m
-                 in normalize m'
+               let m' = helper args vs m in normalize m'
+                 -- let vs' = map (\ (Right x) -> x) vs
+                 --     subs = (zip vs' args)
+                 --     m' = apply subs m
+                 -- in normalize m'
            p -> error "from normalize letpat"
-
-
+  where helper (a:args) ((Right x):vs) m =
+          helper args vs (apply [(x, a)] m)
+        helper (a:args) ((Left (NoBind t)):vs) m =
+          helper args vs m
+        helper [] [] m = m
+        
 normalize b@(Unit) = return b
 normalize b@(Set)  = return b
 normalize b@(Star) = return b
@@ -445,14 +450,19 @@ normalize b@(Case m (B bd)) =
           open bd $ \ p m ->
           case p of
              PApp kid vs
-               | kid == id -> 
-                  let vs' = map (\ (Right x) -> x) vs
-                      subs = (zip vs' args)
-                      m' = apply subs m
-                  in normalize m' 
+               | kid == id -> let m' = helper args vs m in normalize m' 
+                  -- let vs' = map (\ (Right x) -> x) vs
+                  --     subs = (zip vs' args)
+                  --     m' = apply subs m
+                  -- in normalize m' 
                | otherwise -> reduce id args bds m' 
         reduce id args [] m' = throwError $ MissBrErr m' b 
 
+        helper (a:args) ((Right x):vs) m =
+          helper args vs (apply [(x, a)] m)
+        helper (a:args) ((Left (NoBind t)):vs) m =
+          helper args vs m
+        helper [] [] m = m
 normalize a@(Lift _) = return a
 normalize a@(Lam' _) = return a
 normalize a@(Lam _) = return a

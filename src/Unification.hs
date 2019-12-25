@@ -13,7 +13,7 @@ import Debug.Trace
 
   
 runUnify :: Exp -> Exp -> Maybe Subst
--- runUnify t1 t2 | trace ((show $ disp t1) ++ ":" ++ (show $ disp t2)) $ False = undefined
+-- runUnify t1 t2 | trace ("unifying:" ++ (show $ disp t1) ++ ":" ++ (show $ disp t2)) $ False = undefined
 runUnify t1 t2 =
   let t1' = erasePos t1
       t2' = erasePos t2
@@ -22,6 +22,7 @@ runUnify t1 t2 =
 
 -- | Implement the usual syntactic unification
 unify :: Exp -> Exp -> State Subst Bool
+-- unify t1 t2 | trace ("unifying:" ++ (show $ dispRaw t1) ++ ":" ++ (show $ dispRaw t2)) $ False = undefined
 unify Unit Unit = return True
 unify Set Set = return True
 unify (Base x) (Base y) | x == y = return True

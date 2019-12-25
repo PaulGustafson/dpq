@@ -12,9 +12,9 @@ simple Vec a :: Nat -> Type where
 data List a = Nil | Cons a (List a)
 
 
-simple Vec' a :: List Unit -> Type where
-   Vec' a Nil = VNil'
-   Vec' a (Cons x xs) = VCons' a (Vec' a xs)
+-- simple Vec' a :: List Unit -> Type where
+--    Vec' a Nil = VNil'
+--    Vec' a (Cons x xs) = VCons' a (Vec' a xs)
     
 
 

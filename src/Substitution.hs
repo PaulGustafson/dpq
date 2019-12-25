@@ -169,15 +169,24 @@ substitute s (LetEx m bd) =
 
 substitute s (LetPat m bd) =
   let m' = substitute s m in
-   open bd $ \ ps b ->  LetPat m' (abst ps (substitute s b))
-
+   open bd $ \ (PApp id ps) b ->
+   let ps' = map (helper s) ps in 
+   LetPat m' (abst (PApp id ps') (substitute s b))
+  where helper s (Left (NoBind t)) = Left (NoBind (substitute s t))
+        helper s (Right x) = Right x
+        
 substitute s (Case tm (B br)) =
   Case (substitute s tm) (B (helper' br))
-  where helper' ps =
+  where helper' br =
           map (\ b -> open b $
-                       \ ys m ->
-                       abst ys (substitute s m))
-          ps
+                       \ (PApp id ps) m ->
+                       let ps' = map (helper s) ps in 
+                       abst (PApp id ps') (substitute s m))
+          br
+
+        helper s (Left (NoBind t)) = Left (NoBind (substitute s t))
+        helper s (Right x) = Right x
+
 substitute s a@(Wired _) = a
 substitute s (Pos p e) = Pos p (substitute s e)
 substitute s a = error ("from substitute: " ++ show (disp a))  

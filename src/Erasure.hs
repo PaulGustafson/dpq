@@ -145,46 +145,46 @@ erasure (LetPat m bd) = open bd $ \ pa b ->
       do b' <- erasure b
          m' <- erasure m
          funP <- lookupId kid
-         (isSemi, _) <- isSemiSimple kid
+         -- (isSemi, _) <- isSemiSimple kid
          let ty = classifier funP
-         args' <- helper isSemi ty args b 
+         args' <- helper ty args b 
          return $ LetPat m' (abst (PApp kid args') b')
   where 
         -- The only way a data constructor can have a Pi type
         -- is when it is an existential type. 
-        helper flag (Pi bds t) args b | not (isKind t) =
+        helper (Pi bds t) args b | not (isKind t) =
           open bds $ \ ys m ->
           do let (vs, res) = splitAt (length ys) args
-             vs' <- helper flag m res b
+             vs' <- helper m res b
              return $ vs++vs'
 
-        helper flag (Forall bds t) args b | isKind t =
-          open bds $ \ ys m ->
-          helper flag m args b
+        -- helper (Forall bds t) args b | isKind t =
+        --   open bds $ \ ys m ->
+        --   helper m args b
 
-        helper True (Forall bds t) args b =
+        helper (Forall bds t) args b =
           open bds $ \ ys m ->
           let (vs, res) = splitAt (length ys) args in
-              helper True m res b
+              helper m res b
 
-        helper False (Forall bds t) args b =
-          open bds $ \ ys m ->
-          helper False m args b
+        -- helper False (Forall bds t) args b =
+        --   open bds $ \ ys m ->
+        --   helper False m args b
 
-        helper flag (Arrow t1 t2) (x:xs) b =
-          do vs' <- helper flag t2 xs b
+        helper (Arrow t1 t2) (x:xs) b =
+          do vs' <- helper t2 xs b
              return $ x:vs'
 
-        helper flag (Imply [t1] t2) (x:xs) b =
-          do vs' <- helper flag t2 xs b
+        helper (Imply [t1] t2) (x:xs) b =
+          do vs' <- helper t2 xs b
              return $ x:vs'
 
-        helper flag (Imply (t1:ts) t2) (x:xs) b =
-          do vs' <- helper flag (Imply ts t2) xs b
+        helper (Imply (t1:ts) t2) (x:xs) b =
+          do vs' <- helper (Imply ts t2) xs b
              return $ x:vs'
 
-        helper flag a [] b = return []
-        helper flag a _ b = error $ "from helper erasure-letPat"
+        helper a [] b = return []
+        helper a _ b = error $ "from helper erasure-letPat"
 
              
 
@@ -198,42 +198,42 @@ erasure l@(Case e (B br)) =
                  PApp kid args ->
                    do funP <- lookupId kid
                       let ty = classifier funP
-                      (isSemi, _) <- isSemiSimple kid
-                      args' <- helper2 isSemi ty args m 
+                      -- (isSemi, _) <- isSemiSimple kid
+                      args' <- helper2 ty args m 
                       m' <- erasure m
                       return (abst (PApp kid args') m')
              -- The only way a data constructor can have a Pi type
              -- is when it is an existential type. 
                       
-             helper2 flag (Pi bds t) args ann | not (isKind t) =
+             helper2 (Pi bds t) args ann | not (isKind t) =
                open bds $ \ ys m ->
                do let (vs, res) = splitAt (length ys) args
-                  vs' <- helper2 flag m res ann
+                  vs' <- helper2 m res ann
                   return $ vs++vs'
-             helper2 flag (Forall bds t) args ann | isKind t =
-               open bds $ \ ys m ->
-               helper2 flag m args ann                  
-             helper2 True (Forall bds t) args ann =
+             -- helper2 flag (Forall bds t) args ann | isKind t =
+             --   open bds $ \ ys m ->
+             --   helper2 flag m args ann                  
+             helper2 (Forall bds t) args ann =
                open bds $ \ ys m ->
                let (vs, res) = splitAt (length ys) args
-               in helper2 True m res ann
-             helper2 False (Forall bds t) args ann =
-               open bds $ \ ys m ->
-               helper2 False m args ann                  
+               in helper2 m res ann
+             -- helper2 False (Forall bds t) args ann =
+             --   open bds $ \ ys m ->
+             --   helper2 False m args ann                  
                   
-             helper2 flag (Arrow t1 t2) (x:xs) ann =
-               do vs' <- helper2 flag t2 xs ann
+             helper2 (Arrow t1 t2) (x:xs) ann =
+               do vs' <- helper2 t2 xs ann
                   return $ x:vs'
-             helper2 flag (Imply [t1] t2) (x:xs) ann =
-               do vs' <- helper2 flag t2 xs ann
+             helper2 (Imply [t1] t2) (x:xs) ann =
+               do vs' <- helper2 t2 xs ann
                   return $ x:vs'
 
-             helper2 flag (Imply (t1:ts) t2) (x:xs) ann =
-               do vs' <- helper2 flag (Imply ts t2) xs ann
+             helper2 (Imply (t1:ts) t2) (x:xs) ann =
+               do vs' <- helper2 (Imply ts t2) xs ann
                   return $ x:vs'
                   
-             helper2 flag a [] _ = return []
-             helper2 flag a b _ = error $ "from helper2 flag-erasure-case" ++ (show $ disp a)
+             helper2 a [] _ = return []
+             helper2 a b _ = error $ "from helper2 flag-erasure-case" ++ (show $ disp a)
 
 erasure a@(Wired _) = return a
 erasure a = error $ "from erasure: " ++ (show $ disp a)

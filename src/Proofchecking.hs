@@ -18,7 +18,7 @@ import Control.Monad.Except
 import qualified Data.Set as S
 import qualified Data.Map as Map
 import Data.Map (Map)
-
+import Debug.Trace
 
 
 -- | A bidirectional proof checker that is mutually defined with proofInfer.
@@ -396,7 +396,7 @@ proofCheck flag (LetPat m bd) goal  = open bd $ \ (PApp kid args) n ->
      funPac <- lookupId kid
      let dt = classifier funPac
      (isSemi, index) <- isSemiSimple kid
-     (head, vs, kid') <- inst isSemi dt args (Const kid)
+     (head, vs, kid') <- inst dt args (Const kid)
      -- tt' <- normalize tt
      let matchEigen = isEigenVar m
          isDpm = isSemi || matchEigen
@@ -455,7 +455,7 @@ proofCheck flag a@(Case tm (B brs)) goal =
              let dt = classifier funPac
              updateCountWith (\ x -> nextCase x kid)
              (isSemi, index) <- isSemiSimple kid
-             (head, vs, kid') <- inst isSemi dt args (Const kid)
+             (head, vs, kid') <- inst dt args (Const kid)
              let matchEigen = isEigenVar tm
                  isDpm = isSemi || matchEigen
              ss <- getSubst
@@ -553,58 +553,58 @@ handleAbs flag lam prefix bd1 bd2 ty fl =
        mapM_ removeVar vs
 
 
-inst isSemi (Arrow t1 t2) (Right x : xs) kid =
+inst (Arrow t1 t2) (Right x : xs) kid =
   do addVar x t1
-     (h, vs, kid') <- inst isSemi t2 xs kid
+     (h, vs, kid') <- inst t2 xs kid
      return (h, Right x : vs, kid')
 
-inst isSemi (Imply [t1] t2) (Right x : xs) kid =
+inst (Imply [t1] t2) (Right x : xs) kid =
   do addVar x t1
-     (h, vs, kid') <- inst isSemi t2 xs kid
+     (h, vs, kid') <- inst t2 xs kid
      return (h, Right x : vs, kid')
 
-inst isSemi (Imply (t1:ts) t2) (Right x : xs) kid =
+inst (Imply (t1:ts) t2) (Right x : xs) kid =
   do addVar x t1
-     (h, vs, kid') <- inst isSemi (Imply ts t2) xs kid
+     (h, vs, kid') <- inst (Imply ts t2) xs kid
      return (h, Right x : vs, kid')
 
-inst isSemi (Pi bd t) (Right x:xs) kid | not (isKind t) = open bd $ \ ys t' ->
+inst (Pi bd t) (Right x:xs) kid | not (isKind t) = open bd $ \ ys t' ->
   do let y = head ys
          t'' = apply [(y, EigenVar x)] t' 
      if null (tail ys)
        then do addVar x t
-               (h, xs', kid') <- inst isSemi t'' xs kid 
+               (h, xs', kid') <- inst t'' xs kid 
                return (h, Right x:xs', kid')
        else do addVar x t
-               (h, xs', kid') <- inst isSemi (Pi (abst (tail ys) t'') t) xs kid
+               (h, xs', kid') <- inst (Pi (abst (tail ys) t'') t) xs kid
                return (h, Right x:xs', kid')
 
-inst isSemi (Forall bd ty) xs kid | isKind ty = open bd $ \ ys t' -> 
-  do mapM_ (\ x -> addVar x ty) ys
-     let kid' = foldl AppType kid (map Var ys)
-     (h, xs', kid'') <- inst isSemi t' xs kid'
-     return (h, xs', kid'')
+-- inst isSemi (Forall bd ty) xs kid | isKind ty = open bd $ \ ys t' -> 
+--   do mapM_ (\ x -> addVar x ty) ys
+--      let kid' = foldl AppType kid (map Var ys)
+--      (h, xs', kid'') <- inst isSemi t' xs kid'
+--      return (h, xs', kid'')
 
 -- not in dependent pattern matching mode
-inst False (Forall bd ty) xs kid = open bd $ \ ys t' -> 
-  do mapM_ (\ x -> addVar x ty) ys
-     let kid' = foldl AppTm kid (map Var ys)
-     (h, xs', kid'') <- inst False t' xs kid'
-     return (h, xs', kid'')
+-- inst False (Forall bd ty) xs kid = open bd $ \ ys t' -> 
+--   do mapM_ (\ x -> addVar x ty) ys
+--      let kid' = foldl AppTm kid (map Var ys)
+--      (h, xs', kid'') <- inst False t' xs kid'
+--      return (h, xs', kid'')
 
 
-inst True (Forall bd t) (Right x:xs) kid = open bd $ \ ys t' ->
+inst (Forall bd t) (Right x:xs) kid = open bd $ \ ys t' ->
   do let y = head ys
          t'' = apply [(y, EigenVar x)] t'
      if null (tail ys)
        then do addVar x t
-               (h, xs', kid') <- inst True t'' xs kid
+               (h, xs', kid') <- inst t'' xs kid
                return (h, Right x:xs', kid')
        else do addVar x t
-               (h, xs', kid') <- inst True (Forall (abst (tail ys) t'') t) xs kid
+               (h, xs', kid') <- inst (Forall (abst (tail ys) t'') t) xs kid
                return (h, Right x:xs', kid')
 
-inst isSemi (Forall bd t) (Left (NoBind x):xs) kid = open bd $ \ ys t' ->
+inst (Forall bd t) (Left (NoBind x):xs) kid = open bd $ \ ys t' ->
   do let y = head ys
          fvs = S.toList $ getVars NoEigen x
          fvs' = map EigenVar fvs
@@ -612,10 +612,10 @@ inst isSemi (Forall bd t) (Left (NoBind x):xs) kid = open bd $ \ ys t' ->
          x' = apply sub x
          t'' = apply [(y, x')] t' 
      if null (tail ys)
-       then do (h, xs', kid') <- inst isSemi t'' xs kid
+       then do (h, xs', kid') <- inst t'' xs kid
                return (h, Left (NoBind x'):xs', kid')
-       else do (h, xs', kid') <- inst isSemi (Forall (abst (tail ys) t'') t) xs kid
+       else do (h, xs', kid') <- inst (Forall (abst (tail ys) t'') t) xs kid
                return (h, Left (NoBind x'):xs', kid')
 
-inst isSemi t [] kid = return (t, [], kid)            
+inst t [] kid = return (t, [], kid)            
 -- inst flag a b kid = throwError $ InstEnvErr a b
