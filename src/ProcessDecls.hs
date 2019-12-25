@@ -22,7 +22,7 @@ import Control.Monad.State
 import Control.Monad.Identity
 import Control.Monad.Except
 import Text.PrettyPrint
-
+import Debug.Trace
 
 process :: Decl -> TCMonad ()
 process (Class pos d kd dict dictType mths) = 
@@ -354,9 +354,9 @@ elaborateInstance pos f' ty mths =
                  
        _ -> throwError $ ErrPos pos $ TypeClassNotValid h                 
        where instantiateWith (Forall (Abst vs b') t) xs =
-               let subs = zip vs xs
-                   xs' = drop (length vs) xs
-               in instantiateWith (apply subs b') xs'
+               let xs' = drop (length vs) xs
+                   b'' = apply (zip vs xs) b'
+               in instantiateWith b'' xs'
              instantiateWith t xs = t
              helper env instEnv (p, _, m) t =
                let env' = map (\ x -> case x of
@@ -366,11 +366,11 @@ elaborateInstance pos f' ty mths =
                  do mapM_ (\ (x, t) -> addVar x t) env'
                     mapM_ (\ (x, t) -> insertLocalInst x t) instEnv
                     updateParamInfo (map snd instEnv)
-                    (t', a) <- typeChecking False (Pos p m) (erasePos t)
+                    (t', a) <- typeChecking'' (map fst env') False (Pos p m) (erasePos t)
                     mapM_ (\ (x, t) -> removeVar x) env'
                     mapM_ (\ (x, t) -> removeLocalInst x) instEnv
+                    -- trace ("fromInstance:" ++ (show $ dispRaw a)) $ return a 
                     return a 
-                    
 
              rebind [] t = t
              rebind ((Just x, ty):res) t | isKind ty = LamType (abst [x] (rebind res t))
@@ -546,7 +546,7 @@ makeTypeFun n k0 xs@((_, (Just i, _)):_) =
              toPat p = let (h, as) = unwind AppFlag p
                        in PApp (getConst h) (map (\ a -> Right (getVar a)) as)
 
-
+-- typeChecking b exp ty | trace ("checking:" ++ (show $ dispRaw exp) ++ ":" ++ (show $ dispRaw ty)) $ False = undefined
 typeChecking b exp ty =
   do (ty', exp') <- typeCheck b exp ty
      exp'' <- resolveGoals exp'
@@ -562,6 +562,13 @@ typeChecking' b exp ty =
      exp'' <- updateWithSubst exp'
      r <- resolveGoals exp''
      return (unEigen r)
+
+typeChecking'' vars b exp ty =
+  do (ty', exp') <- typeCheck b exp ty
+     exp'' <- resolveGoals exp'
+     r <- updateWithSubst exp''
+     ty'' <- resolveGoals ty' >>= updateWithSubst
+     return (unEigenBound vars ty'', unEigenBound vars r)
 
 proofChecking b exp ty =
   proofCheck b exp ty `catchError` \ e -> throwError $ PfErrWrapper exp e

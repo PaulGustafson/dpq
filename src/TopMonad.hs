@@ -51,7 +51,7 @@ instance Disp Error where
   display flag (ScopeErr e) = display flag e
   display flag (CompileErr (PfErrWrapper a e)) =
     text "proof checking error:" $$
-    display flag e $$
+    dispRaw e $$
     text "when checking the following annotated term:" $$
     dispRaw a $$
     text "*************************" $$

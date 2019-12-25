@@ -686,7 +686,7 @@ patternUnif m isDpm index head t =
                   a' = unEigenBound (S.toList $ getVars OnlyEigen a) a
                   t' = foldl App' (LBase h) (bs++(a':as))
               in -- trace ("unifying:" ++ (show $ disp a') ++ " with " ++ (show $ disp t')) $
-                normalizeUnif head t'
+                 normalizeUnif head t'
             _ -> throwError $ withPosition m (UnifErr head t)
               
   else normalizeUnif head t

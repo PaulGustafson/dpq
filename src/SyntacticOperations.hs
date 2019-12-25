@@ -485,14 +485,17 @@ unEigenBound vars (LetPat m bd) = open bd $ \ (PApp id vs) b ->
       b' = unEigenBound (bvs ++ vars) b
   in LetPat m' (abst (PApp id vs') b')
  where  pvar ([]) = ([], [])
+
         pvar (Right x : xs) =
           let (bv, fv) = pvar xs in
           (x:bv, Right x : fv)
+
         pvar (Left (NoBind (Var x)):xs) =
           let (bv, fv) = pvar xs in
           if x `elem` vars then
             (bv, Left (NoBind (Var x)):fv)
           else (x:bv, Right x : fv)
+
         pvar (Left (NoBind (EigenVar x)):xs) =
           let (bv, fv) = pvar xs in
           if x `elem` vars then
@@ -578,19 +581,23 @@ unEigenBound vars a@(Case e (B br)) =
           abst (PApp id vs') (unEigenBound (bvs ++vars) b)
 
         pvar ([]) = ([], [])
+
         pvar ((Right x):xs) =
           let (bv, fv) = pvar xs in
           (x:bv, (Right x):fv)
+
         pvar ((Left (NoBind (Var x))):xs) =
           let (bv, fv) = pvar xs in
           if x `elem` vars then
             (bv, (Left (NoBind (Var x))):fv)
           else (x:bv, (Right x):fv)
+
         pvar ((Left (NoBind (EigenVar x))):xs) =
           let (bv, fv) = pvar xs in
           if x `elem` vars then
             (bv, (Left (NoBind (Var x))):fv)
           else (x:bv, (Right x):fv)
+
         pvar ((Left (NoBind x)):xs) =
           let (bv, fv) = pvar xs
               x' = unEigenBound vars x
