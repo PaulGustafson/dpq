@@ -14,14 +14,16 @@ import SyntacticOperations
 import TypeError
 import Resolve
 import ProcessDecls
+import Printcircuits
 
 import Nominal
-
+import System.Exit
 import System.Directory
 import System.FilePath
 import System.Environment
 import System.Info
 import System.IO
+import System.Process
 
 import qualified Data.Set as S
 import qualified Data.Map as Map
@@ -73,13 +75,9 @@ dispatch (Type e) =
      liftIO $ putStrLn ("it has classifier \n" ++ (show $ disp t'))
      return True
 
-
--- TODO: need to handle when input is a type exp
 dispatch (Eval e) =
   do e' <- topResolve e
      (t', e'') <- topTypeInfer e'
-     -- (liftTCMonad $ proofCheck False e'' t') `catchError`
-     --   (\ err -> throwError $ ProofCheckErr err (Id "<interactive>") e'' t')
      if isKind t' then
          do liftIO $ putStrLn ("it has kind \n" ++ (show $ disp t'))
             n <- tcTop $ normalize e''
@@ -90,9 +88,26 @@ dispatch (Eval e) =
          when (not $ S.null fvs) $ throwError $ CompileErr $ TyAmbiguous Nothing t'
          et <- tcTop $ erasure e'' >>= evaluation 
          liftIO $ putStrLn ("it has type \n" ++ (show $ disp t'))
-         -- res <- topEval et
          liftIO $ putStrLn ("it has value \n" ++ (show $ dispRaw et))
          return True
+
+dispatch (Display e) =
+  do e' <- topResolve e
+     (t', et) <- topTypeInfer e'
+     et <- tcTop $ erasure et
+     case t' of
+       A.Circ _ _ ->
+         do res <- tcTop $ evaluation et
+            tmpdir <- liftIO $ getTemporaryDirectory
+            (pdffile, fd) <- liftIO $ openTempFile tmpdir "DPQ.pdf"
+            ioTop $ printCirc_fd res fd
+            liftIO $ hClose fd
+            liftIO $ system_pdf_viewer 100 pdffile
+            liftIO $ removeFile pdffile            
+            return True
+       ty -> 
+         do liftIO $ print (text "not a circuit")
+            return True
 
 
 dispatch (Annotation e) =
@@ -246,3 +261,29 @@ initializeParameterClass d =
      let pt2 = freshNames ["a"] $ \ [a] ->
            A.Forall (abst [a] (A.App s $ A.Bang (A.Var a))) A.Set
      tcTop $ elaborateInstance (BuildIn (i+2)) instP3 pt2 []
+
+
+-- | @'system_pdf_viewer' zoom pdffile@: Call a system-specific PDF
+-- viewer on /pdffile/ file. The /zoom/ argument is out of 100 and may
+-- or may not be ignored by the viewer.
+system_pdf_viewer :: Double -> String -> IO ()
+system_pdf_viewer zoom pdffile = do
+  envList <- getEnvironment
+  if (elem ("OS", "Windows_NT") envList)
+    then do rawSystem "acroread.bat" [pdffile] `catchError` \ e -> handleErr
+            return ()
+    else if (os == "darwin")
+         then do
+           rawSystem "open" [pdffile]
+           rawSystem "sleep" ["1"] -- required or the file may be deleted too soon
+           return ()
+         else -- try acroread first, if it fails, try xpdf.
+           do rawSystem "acroread" ["/a", "zoom=100", pdffile]
+                `catchError` \ e -> rawSystem "xpdf" [pdffile]
+                `catchError` \ e -> handleErr
+              return ()
+  where handleErr =
+          do print (text "we currently only support acroread and xpdf for display" $$
+                    text "please use the :p command to print the circuit to a file")
+             return $ ExitFailure 1     
+

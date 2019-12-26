@@ -647,3 +647,16 @@ getWires (App e1 e2) = getWires e1 ++ getWires e2
 -- getWires (AppDep e1 e2) = getWires e1 ++ getWires e2
 getWires (Pair e1 e2) = getWires e1 ++ getWires e2
 getWires a = error $ "applying getWires function to an ill-formed template:" ++ (show $ disp a)
+
+toNum (Const x) | getName x == "Z" = 0
+toNum (App (Const s) n) | getName s == "S" =
+  toNum n + 1
+toNum _ = error "unknown number format, numbers should be comming from the Prelude module"  
+
+isBool (Const x) | getName x == "True" = True
+isBool (Const x) | getName x == "False" = True
+isBool _ = False
+
+toBool (Const x) | getName x == "True" = 1
+toBool (Const x) | getName x == "False" = 0
+toBool _ = error "unknown boolean format, bools should be comming from the Prelude module"  

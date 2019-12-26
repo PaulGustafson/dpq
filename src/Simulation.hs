@@ -1,6 +1,6 @@
 module Simulation where
 
-import SyntacticOperations
+import SyntacticOperations hiding (toBool)
 import Syntax
 import Utils
 
