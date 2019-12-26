@@ -363,7 +363,8 @@ atomExp = wrapPos (
        <|> doExp
        <|> existsType
        <|> lam
-       <|> idiomExp       
+       <|> idiomExp
+       <|> nat
        <|> vector
        <|> existsExp
        <|> piType
@@ -411,7 +412,11 @@ followedBy m p =
      p
      return r
 
-
+nat =
+  do i <- naturals
+     return $ toNat i
+     where toNat i | i == 0 = Base "Z"
+           toNat i | otherwise = App (Base "S") $ toNat (i-1)
 -- | A parser for the vector bracket notation.
 vector =
   do elems <- brackets $
@@ -603,7 +608,7 @@ appExp =
                      }
                             
         arg = wrapPos $ try unit <|> unitTy <|> set
-              <|> try varExp <|> try constExp <|> existsExp <|> try vector <|> idiomExp
+              <|> try varExp <|> try constExp <|> existsExp <|> nat <|> try vector <|> idiomExp
               <|> do{
                      tms <- parens (term `sepBy1` comma);
                      return $ foldl (\ x y -> Pair x y) (head tms) (tail tms)
@@ -748,7 +753,7 @@ dpqStyle = Token.LanguageDef
                     "round"
                   ]
                , Token.reservedOpNames =
-                    [";", "\\", "<-", "->", "::",  "*", "()", "!", "_", ":", ".", "=", "=>"]
+                    [ ".", "\\", "<-", "->", "::",  "*", "()", "!", "_", ":", "=", "=>"]
                 }
 
 

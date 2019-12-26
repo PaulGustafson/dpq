@@ -1,6 +1,6 @@
 module Qft where
-import "lib/Vec.dpq"
-import "lib/Gates.dpq"
+import "lib/Prelude.dpq"
+
 
 rotate :: ! forall (y :: Nat) . Qubit -> Nat -> Vec Qubit y -> Vec Qubit y * Qubit
 rotate q buff qs = 
@@ -49,8 +49,8 @@ qft2Box n = box (Vec Qubit n) $ \ x . qftUnbox n x
 -- qft2Box_t1 = qft2Box (five + five)
  
 
-qft4 :: Circ(Vec Qubit four, Vec Qubit four) 
-qft4 = qftBox four
+qft4 :: Circ(Vec Qubit 4, Vec Qubit 4) 
+qft4 = qftBox 4
 
 
 
@@ -88,10 +88,10 @@ qft_little_headian_rev_B n = revert $ qft_little_headian_Box n
 
 
 
-qft4_little :: Circ(Vec Qubit four, Vec Qubit four) 
-qft4_little = qft_little_headian_Box four
+qft4_little :: Circ(Vec Qubit 4, Vec Qubit 4) 
+qft4_little = qft_little_headian_Box 4
 
-qft4_little_rev :: Circ(Vec Qubit four, Vec Qubit four)
+qft4_little_rev :: Circ(Vec Qubit 4, Vec Qubit 4)
 qft4_little_rev = revert qft4_little
 
 qft_both :: ! (n :: Nat) -> Vec Qubit n -> Vec Qubit n
@@ -100,8 +100,8 @@ qft_both n l = qft_little_headian_rev n $ qft_little_headian n l
 qft_both_Box :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n)
 qft_both_Box n = box (Vec Qubit n) $ \ x . qft_both n x
 
-main :: Circ(Vec Qubit nine, Vec Qubit nine)
-main = qft_both_Box nine 
+main :: Circ(Vec Qubit 9, Vec Qubit 9)
+main = qft_both_Box 9
 
 
 

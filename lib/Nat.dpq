@@ -1,27 +1,10 @@
 module Nat where
 import "lib/Basics.dpq"
 import "lib/Equality.dpq"
--- import "lib/Class.dpq"
 
 
-
-
--- Natural numbers
 
 data Nat = Z | S Nat
-
--- instance forall {n :: Nat} . Num (Real n) where
---   (+) x y = plusReal x y
---   (-) x y = minusReal x y
---   (/) x y = divReal x y
---   (@) x y = mulReal x y
---   (>) x y = ltReal x y
---   (<) x y = ltReal y x 
---   (>=) x y = ltReal x y || eqReal x y
---   (<=) x y = ltReal y x || eqReal x y  
-
-
-
 
 data Maybe a = Nothing | Just a
 
@@ -32,12 +15,12 @@ iterN n f b = case n of
 
 
 add :: !(Nat -> Nat -> Nat)
-add n m = -- iterN n S m
+add n m = 
   case n of
     Z -> m
     S n' -> S (add n' m) 
 
-minus :: ! (Nat -> Nat -> Nat)
+minus :: !(Nat -> Nat -> Nat)
 minus n m = case n of
               Z -> Z
 	      S n' -> case m of
@@ -45,7 +28,7 @@ minus n m = case n of
 	               S m' -> minus n' m'
 
 mul :: ! (Nat -> Nat -> Nat)
-mul n m = iterN n (\ x . add m x) Z
+mul n m = iterN n (\ x . add m x) 0
 
 pred :: ! (Nat -> Nat)
 pred n = case n of
@@ -53,121 +36,50 @@ pred n = case n of
             S m -> m
             
 exponential :: ! (Nat -> Nat -> Nat)
-exponential e n = iterN n (\ x . mul e x) (S Z)
+exponential e n = iterN n (\ x . mul e x) 1
 
 
--- (<) :: ! (Nat -> Nat -> Bool)
--- (<) n m = case n of
---            Z -> case m of
---                   Z -> False
---                   S m' -> True
---            S n' -> case m of
---                      Z -> False
---                      S m' -> n' < m'
-
-
--- (+) :: ! (Nat -> Nat -> Nat)
--- (+) = add 
-
--- (-) :: ! (Nat -> Nat -> Nat)
--- (-) = minus 
-
--- (>=) :: !(Nat -> Nat -> Bool)
--- (>=) x y = not (x < y)
-
--- (>) :: !(Nat -> Nat -> Bool)
--- (>) x y = case x of
---             Z -> False
---             S x' -> case y of
---                      Z -> True
---                      S y' -> x' > y'
-
--- (<=) :: !(Nat -> Nat -> Bool)
--- (<=) x y =
---   case x of
---     Z -> True
---     S x' -> case y of
---                Z -> False
--- 	       S y' -> x' <= y'
-
-
-{-
-instance Num Nat where
-  (+) = add
-  (-) = minus
-  (/) x y = 
-     case x < y of
-      True -> Z
-      False -> let u = minus x y
-                   res =  u / y
-                in (S res)
-
-  (@) = mul  
-  (>) x y = case x of
-              Z -> False
-              S x' -> case y of
-                        Z -> True
-                        S y' -> x' > y'
-  (<) n m = case n of
+less :: ! (Nat -> Nat -> Bool)
+less n m = case n of
              Z -> case m of
                    Z -> False
                    S m' -> True
              S n' -> case m of
                       Z -> False
-                      S m' -> n' < m'
+                      S m' -> less n' m'
 
-  (>=) x y = not (x < y)
-  (<=) x y =
-    case x of
-      Z -> True
-      S x' -> case y of
-               Z -> False
-	       S y' -> x' <= y'
--}
--- div diverge when y == Z
+divMod :: !(Nat -> Nat -> Nat * Nat)
+divMod x y = 
+     if less x y then (0, x)
+       else let u = minus x y
+                (q, r) = divMod u y
+            in (S q, r)
 
--- div :: ! (Nat -> Nat -> Nat * Nat)
--- div x y =
---      case x < y of
---       True -> (Z, x)
---       False -> let u = minus x y
---                    (res, rem) = div u y
---                  in (S res, rem)    
+div :: !(Nat -> Nat -> Nat)
+div x y = snd $ divMod x y
 
--- mod :: ! (Nat -> Nat -> Nat)
--- mod x y = let (_, r) = div x y in r
+mod :: ! (Nat -> Nat -> Nat)
+mod x y = let (_, r) = divMod x y in r
 
--- log2helper :: ! (Nat -> Nat -> Nat)
--- log2helper n m =
---   case exp (S (S Z)) m >= n of
---    True -> m
---    False -> log2helper n (S m)
+log2helper :: ! (Nat -> Nat -> Nat)
+log2helper n m =
+  if not $ less (exponential 2 m) n then
+   m else log2helper n (S m)
 
--- log2 :: ! (Nat -> Nat)
--- log2 n = log2helper n Z
+log2 :: ! (Nat -> Nat)
+log2 n = log2helper n Z
 
+isOdd :: ! (Nat -> Bool)
+isOdd n = let (_, rem) = divMod n 2
+          in case rem of
+                Z -> False
+                S _ -> True
 
--- minusM :: ! (Nat -> Nat -> Maybe Nat)
--- minusM n m =
---   case n < m of
---     True -> Nothing
---     False -> Just (n - m)
+isEven :: ! (Nat -> Bool)
+isEven n = not (isOdd n)
 
 
--- isOdd :: ! (Nat -> Bool)
--- isOdd n = let (_, rem) = div n (S (S Z)) 
---           in case rem of
---                 Z -> False
---                 S _ -> True
-
--- isEven :: ! (Nat -> Bool)
--- isEven n = not (isOdd n)
-
-
--- Some theorems about arithmetic
-
--- forceBool :: !(!Bool -> Bool)
--- forceBool x = x
+-- Some equalities about nat, for manual equality conversion.
 
 addS1 :: ! (n m :: Nat) -> Eq Nat (add (S n) m) (S (add n m))
 addS1 n m = refl
@@ -181,7 +93,6 @@ addS n m =
 
 addS' :: ! (n m :: Nat) -> Eq Nat (S (add n m)) (add n (S m))
 addS' n m =  sym (add n (S m)) (addS n m)
--- sym (add n (S m)) (addS n m)
 
 addSS :: ! (n m :: Nat) -> Eq Nat (add n (S (S m))) (add (S (S n)) m) 
 addSS n m = let p1 = addS n (S m)
@@ -190,8 +101,6 @@ addSS n m = let p1 = addS n (S m)
 
 addSS' :: ! (n m :: Nat) -> Eq Nat (add (S (S n)) m) (add n (S (S m)))
 addSS' n m = sym (add n (S (S m))) (addSS n m)
-
--- sym (add n (S (S m))) (addSS n m)
 
 
 addOne :: ! (n :: Nat) -> Eq Nat (S n) (add n (S Z))
@@ -206,13 +115,11 @@ addZ n = case n of
 
 addZ' :: ! (n :: Nat) -> Eq Nat n (add n Z)
 addZ' n = sym (add n Z) (addZ n)
--- sym (add n Z) (addZ n)
 
 symAdd :: ! (n m :: Nat) -> Eq Nat (add n m) (add m n)
 symAdd n m =
   case n of
     Z -> sym (add m Z) (addZ m)
-    -- (add m Z) (addZ m)
     S n' -> trans (cong S (symAdd n' m)) (addS' m n')
 
 
@@ -228,8 +135,6 @@ boolBot n m pf =
          case b of
            False -> p n
            True -> p m ) hy)
-                               
-
 
 eitherOr :: ! forall a . (x :: Bool) -> !(Eq Bool x True -> a) -> !(Eq Bool x False -> a) -> a
 eitherOr x f1 f2 =
@@ -237,84 +142,4 @@ eitherOr x f1 f2 =
     True -> f1 refl 
     False -> f2 refl
 
-
-
-
-one :: Nat
-one = S Z
-
-two :: Nat
-two = S one
-
-three :: Nat
-three = S two
-
-four :: Nat
-four = S three
-
-five :: Nat
-five = S four
-
-six :: Nat
-six = S five
-
-seven :: Nat
-seven = S six
-
-eight :: Nat
-eight = S seven
-
-nine :: Nat
-nine = S eight
-
-smallNum :: Nat
-smallNum = four
-
-
--- largeNum :: Nat
--- largeNum = iterN (add smallNum smallNum) (add smallNum) smallNum
-
-{-
-instance Equal Nat where
-  (==) x y = case x of
-               Z -> case y of
-                      Z -> True
-                      S _ -> False
-               S x' -> case y of
-                         Z -> False
-                         S y' -> x' == y'
-
--}
-
--- testRefl :: Eq Nat (S Z) Z -- True False
--- testRefl = refl
-
--- testRefl2 :: Bool -> Nat -- True False
--- testRefl2 = id
-
--- testR :: Nat
--- testR = Bool
-
-
--- complement :: ! (m l :: Nat) -> Eq Bool (l <= m) True -> Eq Nat m (add l (minus m l))
--- complement m l pf = 
---   case l of
---     Z -> minusZ m
---     S l' -> case m of
---               Z -> boolBot Z (S (add l' (minus Z (S l')))) pf
---               S m' ->
---                 let res = complement m' l' pf in
---                  cong S res
-	                            
--- complement' :: ! (m l :: Nat) -> Eq Bool (l <= m) True -> Eq Nat (add l (minus m l)) m
--- complement' m l pf = sym (complement m l pf)
-
-
-
-
--- psum :: forall (n :: Nat) . Eq Nat (add (S n) (sum n)) (sum (S n))
--- psum = refl
-
-class Equal a where
-  eq :: a -> a -> Bool
 

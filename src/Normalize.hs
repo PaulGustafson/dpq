@@ -260,8 +260,8 @@ normalize a@(Const k) =
        DefinedFunction (Just (a, e, e')) ->
          do b <- isBasicValue e
             if b then shape e' else shape a
-       DefinedMethod e _ -> return e
-       DefinedInstFunction e _ -> return e
+       DefinedMethod e _ -> shape e
+       DefinedInstFunction e _ -> shape e
 
        
 normalize a@(LBase k) = return a

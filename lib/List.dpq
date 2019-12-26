@@ -1,0 +1,27 @@
+module List where
+import "lib/Vec.dpq"
+
+
+data List a = Nil | Cons a (List a)
+
+appendL :: ! forall a  . List a  -> List a -> List a
+appendL l1 l2 = case l1 of
+                  Nil -> l2
+    	          Cons x xs -> Cons x (appendL xs l2)
+
+mapL :: ! forall a b . !(a -> b) -> List a -> List b
+mapL f l =
+  case l of
+    Nil -> Nil
+    Cons x xs -> Cons (f x) (mapL f xs)
+
+-- An isomorphism 
+toNat :: ! (List Unit -> Nat)
+toNat x = case x of
+            Nil -> Z
+            Cons y qs -> S (toNat qs)
+
+listToVec :: ! (x :: List Qubit) -> Vec Qubit (toNat x)
+listToVec x = case x of
+                Nil -> VNil
+                Cons y zs -> VCons y (listToVec zs)

@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
 module Simplecheck where
 
 
@@ -13,6 +14,7 @@ import Nominal
 
 import Data.List
 import Control.Monad.Except
+import Debug.Trace
 
 -- | Make sure the pattern matching is on the same argument in the simple type declaration.
 -- The first argument is the length of the type arguments.  

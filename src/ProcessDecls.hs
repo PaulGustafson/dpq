@@ -219,10 +219,9 @@ process (ControlDecl pos id params t) =
              checkSimple a = throwError (NotStrictSimple a)
 
 
-process (SimpData pos d n k0 eqs) = -- [instSimp, instParam, instPS]
-  do -- defaultToElab $ ensureArrowKind k0
-     -- defaultToElab $ checkRegular k0
-     (_, k2) <- typeChecking True k0 Sort 
+process (SimpData pos d n k0 eqs) = 
+  do (_, k2) <- typeChecking True k0 Sort `catchError`
+                \ e -> throwError $ collapsePos pos e
      let k = foldr (\ x y -> Arrow Set y) k2 (take n [0 .. ])
      let constructors = map (\ (_, _, c, _) -> c) eqs
          pretypes = map (\ (_, _,_, t) -> t) eqs

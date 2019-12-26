@@ -1,15 +1,16 @@
 module Basics where
 
+-- Bool has to be defined before declaring Qubit.
+-- Because object Qubit will generate SimpParam instance, which
+-- need Bool.
 data Bool = True | False
 
 object Qubit
 
 object Bit
 
-
 id :: ! forall a . a -> a
 id x = x
-
 
 swap :: ! forall a b . a * b -> b * a
 swap u = let (x, y) = u in (y, x)
@@ -23,15 +24,11 @@ uncurry f x = let (a, b) = x in f a b
 curry :: ! forall a b c . (a * b -> c) -> (a -> b -> c)
 curry f = \ x y . f (x, y)
 
--- infix operator declaration:
--- the higher the level is, the lower the priority
--- that the operator has
+-- The higher the number is, the lower the priority is.
 infixr 30 $
 
 ($) :: ! forall a b . (a -> b) -> a -> b
 ($) f x = f x
-
-
 
 fst :: ! forall a b . (Parameter b) => a * b -> a
 fst x =
@@ -41,33 +38,6 @@ snd :: ! forall a b . (Parameter a) => a * b -> b
 snd x =
   let (x1, x2) = x in x2
 
-
-simple Pair a :: Type where
-  Pair a = P a a
-
-
-simple Triple a b c :: Type where
-  Triple a b c = T a b c
-
-
-toT :: ! forall a b c . (a * b) * c -> Triple a b c
-toT x = let (a, b, c) = x 
-        in T a b c
-
-simple Quad a b c d :: Type where
-  Quad a b c d = Q a b c d
-
-simple Five a b c d e :: Type where
-  Five a b c d e = F a b c d e
-
-toQ :: ! forall a b c d . a * b * c * d -> Quad a b c d
-toQ x = let (a, b, c, d) = x in Q a b c d
-
-simple Six a b c d e f :: Type where
-  Six a b c d e f = ST a b c d e f
-
-simple Seven a b c d e f g :: Type where
-  Seven a b c d e f g = SV a b c d e f g
 
 
 

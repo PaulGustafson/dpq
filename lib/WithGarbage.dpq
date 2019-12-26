@@ -1,0 +1,215 @@
+module WithGarbage where
+import "lib/Basics.dpq"
+import "lib/Monad.dpq"
+import "lib/Vec.dpq"
+import "lib/Gates.dpq"
+
+  
+data WithGarbage a = WG (exists n :: Nat . Vec Qubit n) a
+
+instance Monad WithGarbage where
+  return x = WG {Z, VNil} x
+  bind wg f = let WG ng r = wg
+                  {n, g} = ng
+                  WG mg' r' = f r
+                  {m, g'} = mg'
+               in WG {add n m, append g g'} r'
+
+dispose_qubit :: !(Qubit -> WithGarbage Unit)
+dispose_qubit q = WG {S Z, VCons q VNil} ()
+
+class Disposable a where
+  dispose :: a -> WithGarbage Unit
+
+instance Disposable Qubit where
+  dispose = dispose_qubit 
+
+
+instance forall a b . (Disposable a, Disposable b) => Disposable (a * b) where
+  dispose x =
+    let (x, y) = x in dispose x >> dispose y
+
+instance forall a (n :: Nat) . (Disposable a) => Disposable (Vec a n) where
+  dispose v = case v of
+                VNil -> return ()
+                VCons x xs -> dispose x >> dispose xs
+
+
+class BooleanLogic a where
+  band :: a -> a -> WithGarbage a
+  bor ::  a -> a -> WithGarbage a
+  bxor :: a -> a -> WithGarbage a
+  bnot :: a -> WithGarbage a
+  bif :: Qubit -> a -> a -> WithGarbage a
+
+instance BooleanLogic Qubit where
+  -- generate 2 garbage
+  band x y =
+    let z = initQubit False
+        (z', y', x') =  ToffoliGate True True z y x
+    in dispose x' >> dispose y' >> return z'
+       
+  -- generate 2 garbage
+  bor x y =
+    let z = initQubit True
+        (z', y', x') = ToffoliGate False False z y x
+    in dispose x' >> dispose y' >> return z'
+        
+
+  bxor x y =
+    let z = initQubit False
+        (z', x') = CNot z x
+	(z'', y') = CNot z' y
+    in dispose x' >> dispose y' >> return z''
+       
+
+  bnot x =
+    let (r, x') = CNotGate False (Init0 ()) x
+    in dispose x' >> return r
+
+  -- generate 3 garbage
+  bif q q1 q2 =
+       let (out1, cs) = Not_g (Init0 ()) (q1, q)
+           (q1', q') = cs
+           (out2, cs')  = Not_g out1 (q2, QNot q')
+           (q2', q'') = cs'
+     in  dispose (QNot q'') >> dispose q1' >> dispose q2' >> return out2
+
+instance forall a b . (BooleanLogic a, BooleanLogic b) => BooleanLogic (a * b) where
+  band x y =
+    let (x1, x2) = x
+        (y1, y2) = y in
+    do r1 <- band x1 y1
+       r2 <- band x2 y2
+       return (r1, r2)
+
+  bor x y =
+    let (x1, x2) = x
+        (y1, y2) = y in
+    do r1 <- bor x1 y1
+       r2 <- bor x2 y2
+       return (r1, r2)
+
+
+  bxor x y =
+    let (x1, x2) = x
+        (y1, y2) = y in
+    do r1 <- bxor x1 y1
+       r2 <- bxor x2 y2
+       return (r1, r2)
+
+  bnot x =
+    let (x1, x2) = x in
+    do r1 <- bnot x1 
+       r2 <- bnot x2 
+       return (r1, r2)
+
+  bif r b c =
+    let (r1, r2) = copy r
+        (b1, b2) = b
+        (c1, c2) = c
+    in
+       do rs1 <- bif r1 b1 c1
+          rs2 <- bif r2 b2 c2
+          return (rs1, rs2)
+
+instance forall a (n :: Nat) . (BooleanLogic a) => BooleanLogic (Vec a n) where
+  band x y =
+    case x of
+      VNil -> return y
+      VCons x xs ->
+        case y of
+          VCons y ys ->
+            do r1 <- band x y
+               res <- band xs ys
+               return (VCons r1 res)
+
+  bor x y =
+    case x of
+      VNil -> return y
+      VCons x xs ->
+        case y of
+          VCons y ys ->
+            do r1 <- bor x y
+               res <- bor xs ys
+               return (VCons r1 res)
+
+  bxor x y =
+    case x of
+      VNil -> return y
+      VCons x xs ->
+        case y of
+          VCons y ys ->
+            do r1 <- bxor x y
+               res <- bxor xs ys
+               return (VCons r1 res)
+
+  bnot x =
+    case x of
+      VNil -> return VNil
+      VCons x xs ->
+        do x' <- bnot x
+           xs' <- bnot xs
+           return (VCons x' xs')
+
+  bif r b c =
+    case b of
+      VNil ->
+        let VNil = c in dispose r >> return VNil
+      VCons x xs ->
+        case c of
+          VCons y ys ->
+            let (r1, r2) = copy r in
+            do r <- bif r1 x y
+               rs <- bif r2 xs ys
+               return $ VCons r rs
+
+
+run_garbage :: !forall a . WithGarbage a -> (exists n :: Nat . (Vec Qubit n) * a)
+run_garbage comp = let WG x a = comp in let {n, v} = x in {n, (v, a)}
+
+box_garbage' :: ! (a b :: Type) -> (Simple a , Simple b) =>
+               !(a -> WithGarbage b) -> exists n :: Nat . Circ(a, Vec Qubit n * b)
+box_garbage' a b f =
+  let {n, circ} = existsBox a (\n . Vec Qubit n * b) (\x . run_garbage (f x))
+  in {n, circ}
+
+with_computed :: ! forall c .  (a b :: Type) -> (Simple a, Simple b) =>
+                       !(a -> exists n :: Nat . Vec Qubit n * b) ->
+                       (b -> c * b) -> (a -> c * a)
+with_computed a b ex g = \ input .
+  let {_, h_circ} = existsBox a (\ x . Vec Qubit x * b) ex
+      h' = unbox h_circ
+      (v, r) = h' input
+      h'_rev = unbox (revert h_circ)
+      (c, r') = g r
+      res = h'_rev (v, r')
+  in (c, res)
+
+
+without_garbage :: ! forall c . (a b :: Type) -> (Simple a , Simple b) =>
+               !(a -> WithGarbage b) -> (b -> c * b) -> (a -> c * a)
+without_garbage a b f g =
+   with_computed a b (\ x . run_garbage (f x)) g    
+
+with_computed2 :: ! forall c d .  (a b :: Type) -> (Simple a, Simple b) =>
+                       !(a -> exists n :: Nat . Vec Qubit n * b) ->
+                       (b * d -> b * c) -> (a * d -> a * c)
+with_computed2 x y ex g = \ input .
+  let {_, h_circ} = existsBox x (\ z . Vec Qubit z * y) ex
+      h' = unbox h_circ
+      (a, d) = input
+      (v, r) = h' a
+      h'_rev = unbox (revert h_circ)
+      (r', d') = g (r, d)
+      res = h'_rev (v, r')
+  in (res, d')
+
+without_garbage2 :: ! forall c d . (a b :: Type) -> (Simple a , Simple b) =>
+               !(a -> WithGarbage b) -> (b * d -> b * c) -> (a * d -> a * c)
+without_garbage2 a b f g y =
+  with_computed2 a b (\ x . run_garbage (f x)) g y   
+
+
+
+

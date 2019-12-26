@@ -1,0 +1,16 @@
+module Thereoms where
+import "lib/Nat.dpq"
+import "lib/Class.dpq"
+
+complement :: ! (m l :: Nat) -> Eq Bool (l <= m) True -> Eq Nat m (add l (minus m l))
+complement m l pf = 
+  case l of
+    Z -> minusZ m
+    S l' -> case m of
+              Z -> boolBot Z (S (add l' (minus Z (S l')))) pf
+              S m' ->
+                let res = complement m' l' pf in
+                 cong S res
+
+complement' :: ! (m l :: Nat) -> Eq Bool (l <= m) True -> Eq Nat (add l (minus m l)) m
+complement' m l pf = sym m (complement m l pf)

@@ -64,6 +64,12 @@ typeInfer flag a@(App t1 t2) =
        then handleTypeApp ann t' t1 t2 
        else handleTermApp flag ann t1 t' t1 t2
 
+typeInfer True a@(App' t1 t2) =
+  do (t', ann) <- typeInfer True t1
+     if isKind t'
+       then handleTypeApp ann t' t1 t2
+       else error "from typeInfer App'"
+
 typeInfer False a@(UnBox) =
   freshNames ["a", "b"] $ \ [a, b] ->
   let va = Var a
@@ -660,10 +666,10 @@ equality flag tm ty =
              unifRes <- normalizeUnif tym' ty1
              case unifRes of
                Nothing -> 
-                 do tyN1 <- normalize tym'
-                    tyN2 <- normalize ty1
-                    throwError $ NotEq tm tyN2 tyN1
---                 throwError $ NotEq tm ty1 tym'
+                 -- do tyN1 <- normalize tym'
+                 --    tyN2 <- normalize ty1
+                 --    throwError $ NotEq tm tyN2 tyN1
+                 throwError $ NotEq tm ty1 tym'
                Just s ->
                  do ss <- getSubst
                     let sub' = s `mergeSub` ss

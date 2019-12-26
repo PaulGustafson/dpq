@@ -1,12 +1,10 @@
 module Equality where
 
---data (Parameter a) => Ph a = Ha a (Ph a) | N
-
--- f :: ! forall a . (Parameter a) => Ph a -> Unit
--- f x = ()
+-- Leibniz equality for parameters.
 data (Parameter a) => Eq a (x :: a) (y :: a) =
       E (! (p :: a -> Type) -> p x -> p y)
 
+-- Combinators for manual equality conversion.
 
 refl :: ! forall a . (Parameter a) => forall (x :: a) . Eq a x x
 refl = E (\ p l . l)
@@ -17,22 +15,6 @@ sym :: ! forall a . (Parameter a) =>
 sym x q = 
   let E q1 = q in
     E ( \ p l . q1 (\ z . p z -> p x) (\ b . b) l)
-
-
--- implicitly sym = sym' :: ! forall a . (Parameter a) =>
---                             forall (y :: a) . forall {x :: a} . Eq a x y -> Eq a y x
-
--- nofun :: ! forall a . (Parameter a) =>
---                           forall (y :: a) . forall (x :: a) . Eq a x y -> Eq a y x
--- nofun = sym'                            
-
--- sym' :: ! forall a . (Parameter a) =>
---              forall (y :: a) . forall' (x :: a) . Eq a x y -> Eq a y x
--- sym' = \ Imp x . \ q = sym x q
---   \ lamTm x . (sym') {t1} q1
--- when erasing, make sure x not used as explicit.
-
-
 
 trans :: ! forall a . (Parameter a) =>
               forall (x y z :: a) . Eq a x y -> Eq a y z -> Eq a x z
@@ -47,8 +29,6 @@ cong :: ! forall a . (Parameter a) =>
 cong f pf =
   let E pf = pf in
   E (\ p . pf (\ n . p (f n)))
-
-
 
 subst :: ! forall a . (Parameter a) =>
              forall (n m :: a) . (p :: a -> Type) -> Eq a n m -> p n -> p m

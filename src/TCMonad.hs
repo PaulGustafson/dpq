@@ -141,6 +141,8 @@ lookupVar x =
               TermVar c _ -> return (a, Just c)
               _ -> return (a, Nothing)
 
+-- | determine if a constructor is a constructor of a semi-simple type,
+-- or a type constructor is a semi-simple type.
 
 isSemiSimple :: Id -> TCMonad (Bool, Maybe Int)
 isSemiSimple id =
@@ -151,6 +153,7 @@ isSemiSimple id =
             case identification info of
               DataType (SemiSimple b) _ _ -> return (True, b)
               _ -> return (False, Nothing)
+       DataType (SemiSimple b) _ _ -> return (True, b)              
        _ -> return (False, Nothing)
 
 -- | Determine if a type expression is a parameter type. 
@@ -326,16 +329,9 @@ shape a@(Circ _ _) = return a
 shape a@(Force' m) = return a
 shape (Force m) = shape m >>= \ x -> return (Force' x)
 shape a@(App t1 t2) =
-  case flatten a of
-    Just (Right k, _) ->
-      do p <- isParam a
-         if p then return a
-           else shapeApp t1 t2
-    _ -> shapeApp t1 t2
-  where shapeApp t1 t2 = 
-          do t1' <- shape t1
-             t2' <- shape t2
-             return (App' t1' t2')         
+  do t1' <- shape t1
+     t2' <- shape t2
+     return $ App' t1' t2'
 
 shape a@(App' t1 t2) =
   case flatten a of
@@ -630,7 +626,7 @@ checkApp f a =
                    fromEither (Right x) = x
     _ -> return False
 
--- | Check if the expression is a basic value (i.e., things that can be displayed in an interpretor), note that function is not a basic value.
+-- | Check if the expression is a basic value (i.e., things that can be displayed in an interpretor), note that function and circuit is not a basic value.
 isBasicValue :: Exp -> TCMonad Bool
 -- isBasicValue (Wired _) = return True
 isBasicValue (Pos _ e) = isBasicValue e
