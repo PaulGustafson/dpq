@@ -20,6 +20,7 @@ erasure :: Exp -> TCMonad Exp
 -- erasure a | trace ("erasing:" ++ (show $ disp a)) $ False = undefined
 erasure (Pos p a) = erasure a
 erasure Star = return Star
+erasure Unit = return Unit
 erasure Set = return Set
 erasure a@(Var x) = return a
 erasure a@(EigenVar x) = return a

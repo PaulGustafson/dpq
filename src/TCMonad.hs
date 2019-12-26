@@ -318,6 +318,7 @@ shape a | isKind a = return a
 shape Unit = return Unit
 shape (LBase x) | getName x == "Qubit" = return Unit
 shape a@(LBase x) | otherwise = return a
+shape Star = return Star
 shape a@(Base _) = return a
 shape a@(Const _) = return a
 shape a@(Var _) = return a
@@ -386,6 +387,7 @@ shape (Forall (Abst x t) t2) =
      return $ Forall (abst x t') t2
 
 shape a@(Arrow' _ _) = return a
+shape a@(Lam' _) = return a
 
 shape (Pi (Abst x t) t2) =
   do t' <- shape t

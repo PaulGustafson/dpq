@@ -31,6 +31,9 @@ class Equal a where
 instance Equal Nat where
   (==) x y =
     case x of
+      Z -> case y of
+            Z -> True
+            S _ -> False
       S x' -> case y of
                Z -> False
                S y' -> x' == y'

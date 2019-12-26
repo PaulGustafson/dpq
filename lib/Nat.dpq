@@ -79,62 +79,6 @@ isEven :: ! (Nat -> Bool)
 isEven n = not (isOdd n)
 
 
--- Some equalities about nat, for manual equality conversion.
-
-addS1 :: ! (n m :: Nat) -> Eq Nat (add (S n) m) (S (add n m))
-addS1 n m = refl
-
-addS :: ! (n m :: Nat) -> Eq Nat (add n (S m)) (S (add n m))
-addS n m = 
-           case n of
-             Z -> refl 
-             S n' -> cong S (addS n' m)
-
-
-addS' :: ! (n m :: Nat) -> Eq Nat (S (add n m)) (add n (S m))
-addS' n m =  sym (add n (S m)) (addS n m)
-
-addSS :: ! (n m :: Nat) -> Eq Nat (add n (S (S m))) (add (S (S n)) m) 
-addSS n m = let p1 = addS n (S m)
-                p2 = cong S (addS n m)
-            in trans p1 p2
-
-addSS' :: ! (n m :: Nat) -> Eq Nat (add (S (S n)) m) (add n (S (S m)))
-addSS' n m = sym (add n (S (S m))) (addSS n m)
-
-
-addOne :: ! (n :: Nat) -> Eq Nat (S n) (add n (S Z))
-addOne n = case n of
-              Z -> refl
-              S n' -> cong S (addOne n')
-
-addZ :: ! (n :: Nat) -> Eq Nat (add n Z) n
-addZ n = case n of
-           Z -> refl
-           S n' -> cong S (addZ n')
-
-addZ' :: ! (n :: Nat) -> Eq Nat n (add n Z)
-addZ' n = sym (add n Z) (addZ n)
-
-symAdd :: ! (n m :: Nat) -> Eq Nat (add n m) (add m n)
-symAdd n m =
-  case n of
-    Z -> sym (add m Z) (addZ m)
-    S n' -> trans (cong S (symAdd n' m)) (addS' m n')
-
-
-minusZ :: ! (n :: Nat) -> Eq Nat n (minus n Z)
-minusZ n = case n of
-             Z -> refl
-	     S n' -> refl
-
-boolBot :: ! (n m :: Nat) -> Eq Bool False True -> Eq Nat n m
-boolBot n m pf =
-  let E pf = pf in 
-    E (\ p hy . pf (\ b . 
-         case b of
-           False -> p n
-           True -> p m ) hy)
 
 eitherOr :: ! forall a . (x :: Bool) -> !(Eq Bool x True -> a) -> !(Eq Bool x False -> a) -> a
 eitherOr x f1 f2 =

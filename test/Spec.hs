@@ -18,7 +18,7 @@ main = do
        p <- getPath
        dispatch (Load True $ p </> "test/Qft.dpq")
        dispatch (Load True $ p </> "test/AdderN.dpq")
-       -- dispatch (Load True $ p </> "test/Grover.dpq")              
+       dispatch (Load True $ p </> "test/BWT2.dpq")              
        -- dispatch (Load True $ p </> "test/Controls.dpq")
        -- dispatch (Load True $ p </> "test/Exists.dpq")
        -- dispatch (Load True $ p </> "test/QftAdder.dpq")

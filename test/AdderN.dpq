@@ -14,7 +14,6 @@ adder a b carry_in =
 
 nAdder :: ! (n :: Nat) -> Qubit -> Vec Qubit n -> Vec Qubit n ->
                WithGarbage (Vec Qubit n * Qubit)
--- nAdder (n :: Nat) (carry_in :: Qubit) (as bs :: Vec Qubit n) =
 nAdder n carry_in as bs =
   case n of
     Z ->
@@ -36,8 +35,8 @@ nAdderRev :: ! (n :: Nat) -> Circ(Qubit * Vec Qubit n * Vec Qubit n,
 nAdderRev n = box (Qubit * Vec Qubit n * Vec Qubit n) $ \ x .
   let c = without_garbage (Qubit * Vec Qubit n * Vec Qubit n)
             (Vec Qubit n * Qubit)
-              (\ x . let (carry_in, a, b) = x in nAdder n carry_in a b) -- f
-	      (\ x . copy x) -- g
+            (\ x . let (carry_in, a, b) = x in nAdder n carry_in a b) 
+            copy 
   in c x
 
 
@@ -79,6 +78,7 @@ res = fst $ fst testAdd
 
 -- (binaryToNat res)
 
+-- use the adder's result to construct circuits
 resCirc :: Circ(Vec Qubit 4, Vec Qubit 4)
 resCirc = idCirc (binaryToNat res)
 

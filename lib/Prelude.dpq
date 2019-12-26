@@ -3,6 +3,7 @@ import "lib/Nat.dpq"
 import "lib/Vec.dpq"
 import "lib/Class.dpq"
 import "lib/WithGarbage.dpq"
+import "lib/List.dpq"
 
 copyT :: !(Qubit -> Qubit * Qubit * Qubit)
 copyT q =
