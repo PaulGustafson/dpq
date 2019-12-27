@@ -524,7 +524,6 @@ typeCheck flag (LetPat m bd) goal =
               isDpm = isSemi || matchEigen
           when (isSemi && matchEigen) $
             error "matchEigen and matchEigen cannot be true at the same time."
-          when isDpm $ checkRetro m ss
           unifRes <- patternUnif m isDpm index head t'
           case unifRes of
             Nothing ->
@@ -610,7 +609,6 @@ typeCheck flag a@(Case tm (B brs)) goal =
                   ss <- getSubst
                   when (isSemi && matchEigen) $
                     error "isSemi and matchEigen cannot be true at the same time."
-                  when isDpm $ checkRetro tm ss
                   unifRes <- patternUnif tm isDpm index head t
                   case unifRes of
                     Nothing -> throwError $ withPosition tm (UnifErr head t) 

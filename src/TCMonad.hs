@@ -694,17 +694,6 @@ getSubst =
   do ts <- get
      return $ subst ts
 
--- | Make sure if an expression is a variable, then it
--- is not in the domain of the substitution.
-
-checkRetro :: Exp -> Subst -> TCMonad ()
-checkRetro (Var x) sub =
-  case Map.lookup x sub of
-    Nothing -> return ()
-    Just m -> throwError $ RetroErr x m
-checkRetro (Pos p e) sub = checkRetro e sub
-checkRetro a sub = return ()
-
 
 -- | Add a position information of an expression to the error message without duplicating
 -- position.

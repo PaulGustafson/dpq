@@ -64,7 +64,7 @@ append l1 l2 = case l1 of
 -- append'' :: ! forall a (m :: Nat) . (n :: Nat) -> Vec a n -> Vec a m -> Vec a (add n m)
 -- append'' n l1 l2 = case l1 of
 --                     VNil -> l2
---     	            VCons x xs ->
+--                     VCons x xs ->
 --                       case n of
 --                          S n' -> VCons x (append'' n' xs l2)
 

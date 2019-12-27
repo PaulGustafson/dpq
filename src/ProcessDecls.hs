@@ -51,8 +51,8 @@ process (Class pos d kd dict dictType mths) =
                   -- (_, ty'') <- typeChecking True ty' Set
                   (_, tyy') <- typeChecking True tyy Set 
                   (tyy'', a) <- typeChecking False (Pos pos mth) tyy'
-                  proofChecking False a tyy''
                   a' <- erasure a 
+                  proofChecking False a tyy''
                   let fp = Info{ classifier = tyy',
                                  identification = DefinedMethod a a'
                                }
@@ -91,8 +91,9 @@ process (Def pos f' ty' def') =
                         identification = DefinedFunction Nothing}
      addNewId f' info1
      (ty1', ann) <- typeChecking False (Pos pos def') ty1
-     proofChecking False ann ty1'
+     -- note: need to do an erasure check before proof checking
      a <- erasure ann
+     proofChecking False ann ty1'
      v <- evaluation a
      b <- isBasicValue v
      v' <- if b then typeChecking False v ty1' >>= \ x -> return $ snd x

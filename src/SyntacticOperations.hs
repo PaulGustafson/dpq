@@ -737,4 +737,11 @@ isExplicit s (Case tm (B br)) =
 isExplicit s (Pos p e) = isExplicit s e
 isExplicit s (Var x) = s == x 
 isExplicit s (EigenVar x) = s == x 
-isExplicit s a = False
+isExplicit s Star = False
+isExplicit s Unit = False
+isExplicit s Set = False
+isExplicit s (Base _) = False
+isExplicit s (LBase _) = False
+isExplicit s (Const _) = False
+
+isExplicit s a = error $ "from isExplicit:" ++ (show $ disp a)

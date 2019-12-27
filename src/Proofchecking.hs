@@ -402,7 +402,6 @@ proofCheck flag (LetPat m bd) goal  = open bd $ \ (PApp kid args) n ->
          isDpm = isSemi || matchEigen
      unifRes <- dependentUnif index isDpm head tt
      ss <- getSubst
-     when isDpm $ checkRetro m ss         
      case unifRes of
        Nothing -> throwError $ (UnifErr head tt)
        Just sub' -> do
@@ -459,8 +458,6 @@ proofCheck flag a@(Case tm (B brs)) goal =
              let matchEigen = isEigenVar tm
                  isDpm = isSemi || matchEigen
              ss <- getSubst
-             when isDpm $ checkRetro tm ss             
-             -- t' <- normalize t
              unifRes <- dependentUnif index isDpm head t
              case unifRes of
                Nothing -> throwError $ (UnifErr head t)
