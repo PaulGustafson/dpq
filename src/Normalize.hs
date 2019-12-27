@@ -248,8 +248,7 @@ normalize a@(EigenVar x) =
          case varIdentification lti of
            TypeVar _ -> return a
            TermVar _ Nothing -> return a
-           TermVar _ (Just d) -> trace ("normalizing:"++(show $ disp a) ++ ":" ++ (show $ disp d)) $ normalize d
-             -- shape d >>= normalize 
+           TermVar _ (Just d) -> normalize d
   
 
 normalize a@(GoalVar x) = return a

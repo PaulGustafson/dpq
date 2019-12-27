@@ -357,7 +357,7 @@ proofCheck flag (Let m bd) goal = open bd $ \ x t ->
   do t' <- proofInfer flag m
      let vs = S.toList $ getVars NoEigen m
          su = zip vs (map EigenVar vs)
-         m'' = apply su m
+     m'' <- shape $ apply su m
      addVarDef x t' m''
      r <- proofCheck flag t goal
      when (not flag) $ checkUsage x t
