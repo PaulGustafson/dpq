@@ -12,3 +12,16 @@ copyT q =
    in (q1, q2, q3)
 
 
+initVec :: ! (n :: Nat) -> Bool -> Vec Qubit n
+initVec n b = case n of
+                Z -> VNil 
+		S n' -> VCons (initQubit b) (initVec n' b)
+
+disB :: ! forall (n :: Nat) . Vec Bit n -> Unit
+disB l = case l of
+              VNil -> ()
+	      VCons q qs ->
+	        let _ = Discard q
+		    _ = disB qs
+		in ()
+
