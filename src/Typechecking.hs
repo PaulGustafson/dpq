@@ -546,7 +546,10 @@ typeCheck flag (LetPat m bd) goal =
                  updateLocalInst subb
                  ann2' <- resolveGoals (substitute subb ann2)
                  -- !!!! Note that let pat is ok to leak local substitution,
-                 -- as the branch is really global!. 
+                 -- as the branch is really global!.
+                 -- when isDpm $ updateSubst ss
+                 -- when (not isDpm) $ updateSubst subb
+
                  mapM removeInst ins
                  let axs' = map (substVar subb) axs
                             -- if isDpm then map (substVar subb) axs else axs

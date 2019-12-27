@@ -59,7 +59,7 @@ data TypeError = Unhandle Exp
                | PfErrWrapper Exp TypeError
                | TensorExpErr Exp Exp
                | NotUnit
-
+               | ImplicitCase Variable Exp
 
                
 data EvalError = MissBranch Id Exp
@@ -367,3 +367,7 @@ instance Disp TypeError where
     text "controlled gate's type can not contain unit" 
 
 
+  display flag (ImplicitCase x ann) =
+    text "the irrelavent pattern variable:" <+> dispRaw x $$   
+    text "is used explicitly in the annotated program:" $$
+    nest 2 (dispRaw ann)

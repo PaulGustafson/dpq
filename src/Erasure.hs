@@ -5,6 +5,7 @@ import Syntax
 import Nominal
 import Utils
 import TCMonad
+import TypeError
 import SyntacticOperations
 
 import Control.Monad.Except
@@ -18,7 +19,7 @@ import Debug.Trace
 
 erasure :: Exp -> TCMonad Exp
 -- erasure a | trace ("erasing:" ++ (show $ disp a)) $ False = undefined
-erasure (Pos p a) = erasure a
+erasure (Pos p a) = erasure a `catchError` \ e -> throwError $ collapsePos p e
 erasure Star = return Star
 erasure Unit = return Unit
 erasure Set = return Set
@@ -166,7 +167,8 @@ erasure (LetPat m bd) = open bd $ \ pa b ->
         helper (Forall bds t) args b =
           open bds $ \ ys m ->
           let (vs, res) = splitAt (length ys) args in
-              helper m res b
+          do checkExplicit vs b
+             helper m res b
 
         -- helper False (Forall bds t) args b =
         --   open bds $ \ ys m ->
@@ -217,7 +219,8 @@ erasure l@(Case e (B br)) =
              helper2 (Forall bds t) args ann =
                open bds $ \ ys m ->
                let (vs, res) = splitAt (length ys) args
-               in helper2 m res ann
+               in do checkExplicit vs ann
+                     helper2 m res ann
              -- helper2 False (Forall bds t) args ann =
              --   open bds $ \ ys m ->
              --   helper2 False m args ann                  
@@ -240,3 +243,8 @@ erasure a@(Wired _) = return a
 erasure a = error $ "from erasure: " ++ (show $ disp a)
 
 
+checkExplicit [] ann = return ()
+checkExplicit (Left a :xs) ann = checkExplicit xs ann
+checkExplicit (Right x :xs) ann =
+  do when (isExplicit x ann) $ throwError $ ImplicitCase x ann
+     checkExplicit xs ann

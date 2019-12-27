@@ -660,3 +660,81 @@ isBool _ = False
 toBool (Const x) | getName x == "True" = 1
 toBool (Const x) | getName x == "False" = 0
 toBool _ = error "unknown boolean format, bools should be comming from the Prelude module"  
+
+
+isExplicit s (App t tm) =
+   (isExplicit s t) || (isExplicit s tm)
+
+isExplicit s (App' t tm) =
+   (isExplicit s t) || (isExplicit s tm)
+
+isExplicit s (AppType t tm) =
+  (isExplicit s t)
+isExplicit s (AppTm t tm) =
+   (isExplicit s t)
+
+isExplicit s (AppDep t tm) =
+   (isExplicit s t) || (isExplicit s tm)
+
+isExplicit s (AppDep' t tm) =
+   (isExplicit s t) || (isExplicit s tm)
+
+isExplicit s (AppDict t tm) =
+   (isExplicit s t) || (isExplicit s tm)
+
+isExplicit s (Lam bind) =
+  open bind $
+  \ ys m -> isExplicit s m
+
+isExplicit s (LamType bind) =
+  open bind $
+  \ ys m -> isExplicit s m 
+
+isExplicit s (LamTm bind) =
+  open bind $
+  \ ys m -> isExplicit s m
+
+isExplicit s (LamDep bind) =
+  open bind $
+  \ ys m -> isExplicit s m
+
+isExplicit s (Pair t tm) =
+   (isExplicit s t) || (isExplicit s tm)
+isExplicit s (Pack t tm) =
+   (isExplicit s t) || (isExplicit s tm)
+
+isExplicit s (Force t) = (isExplicit s t)
+isExplicit s (Force' t) = (isExplicit s t)
+isExplicit s (Lift t) = (isExplicit s t)
+       
+isExplicit s (Let m bd) =
+  if isExplicit s m then True
+  else open bd $ \ y b -> isExplicit s b
+
+isExplicit s (LetPair m bd) =
+  if isExplicit s m then True
+  else 
+    open bd $ \ ys b -> isExplicit s b
+
+isExplicit s (LetEx m bd) =
+  if isExplicit s m then True
+  else open bd $ \ (y, z) b -> isExplicit s b
+
+
+isExplicit s (LetPat m bd) =
+  if isExplicit s m then True
+  else open bd $ \ ps b ->  isExplicit s b
+
+isExplicit s (Case tm (B br)) =
+  if isExplicit s tm then True
+  else or (helper' br)
+  where helper' ps =
+          map (\ b -> open b $
+                       \ ys m ->
+                        (isExplicit s m))
+          ps
+
+isExplicit s (Pos p e) = isExplicit s e
+isExplicit s (Var x) = s == x 
+isExplicit s (EigenVar x) = s == x 
+isExplicit s a = False
