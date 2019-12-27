@@ -147,7 +147,6 @@ erasure (LetPat m bd) = open bd $ \ pa b ->
       do b' <- erasure b
          m' <- erasure m
          funP <- lookupId kid
-         -- (isSemi, _) <- isSemiSimple kid
          let ty = classifier funP
          args' <- helper ty args b 
          return $ LetPat m' (abst (PApp kid args') b')
@@ -160,19 +159,11 @@ erasure (LetPat m bd) = open bd $ \ pa b ->
              vs' <- helper m res b
              return $ vs++vs'
 
-        -- helper (Forall bds t) args b | isKind t =
-        --   open bds $ \ ys m ->
-        --   helper m args b
-
         helper (Forall bds t) args b =
           open bds $ \ ys m ->
           let (vs, res) = splitAt (length ys) args in
           do checkExplicit vs b
              helper m res b
-
-        -- helper False (Forall bds t) args b =
-        --   open bds $ \ ys m ->
-        --   helper False m args b
 
         helper (Arrow t1 t2) (x:xs) b =
           do vs' <- helper t2 xs b
@@ -213,17 +204,11 @@ erasure l@(Case e (B br)) =
                do let (vs, res) = splitAt (length ys) args
                   vs' <- helper2 m res ann
                   return $ vs++vs'
-             -- helper2 flag (Forall bds t) args ann | isKind t =
-             --   open bds $ \ ys m ->
-             --   helper2 flag m args ann                  
              helper2 (Forall bds t) args ann =
                open bds $ \ ys m ->
                let (vs, res) = splitAt (length ys) args
                in do checkExplicit vs ann
                      helper2 m res ann
-             -- helper2 False (Forall bds t) args ann =
-             --   open bds $ \ ys m ->
-             --   helper2 False m args ann                  
                   
              helper2 (Arrow t1 t2) (x:xs) ann =
                do vs' <- helper2 t2 xs ann

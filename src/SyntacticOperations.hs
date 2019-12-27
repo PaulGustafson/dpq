@@ -686,6 +686,10 @@ isExplicit s (Lam bind) =
   open bind $
   \ ys m -> isExplicit s m
 
+isExplicit s (Lam' bind) =
+  open bind $
+  \ ys m -> isExplicit s m
+
 isExplicit s (LamType bind) =
   open bind $
   \ ys m -> isExplicit s m 
