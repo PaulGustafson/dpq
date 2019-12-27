@@ -479,7 +479,7 @@ makeControl id ps t =
           m = Force $ App UnBox
               (Let morph (freshNames ["y"] $ \ (y:[]) -> abst y (Var y)))
           unbox_morph = etaPair (length inss) m c
-          abstraction m = freshNames ["dict"] $ \ (d:[]) -> LamDict (abst [d] m) 
+          abstraction m = freshNames ["dict"] $ \ (d:[]) -> Lam (abst [d] m) 
           res = if null xs then Lift $ abstraction $ unbox_morph
                 else
                   case unbox_morph of

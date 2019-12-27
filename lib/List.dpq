@@ -46,3 +46,10 @@ unsafe_to_vec n l =
         Nil -> VNil
     S n' -> case l of
              Cons x xs -> VCons x (unsafe_to_vec n' xs)
+
+lengthL :: ! forall a  . List a  -> List a * Nat
+lengthL l = case l of
+              Nil -> (Nil, Z)
+	      Cons x xs ->
+	        let (xs', n) = lengthL xs in
+		(Cons x xs', S n)

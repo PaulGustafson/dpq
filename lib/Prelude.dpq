@@ -4,6 +4,7 @@ import "lib/Vec.dpq"
 import "lib/Class.dpq"
 import "lib/WithGarbage.dpq"
 import "lib/List.dpq"
+import "lib/State.dpq"
 
 copyT :: !(Qubit -> Qubit * Qubit * Qubit)
 copyT q =
@@ -24,4 +25,19 @@ disB l = case l of
 	        let _ = Discard q
 		    _ = disB qs
 		in ()
+
+mapM :: ! forall a b (m :: Type -> Type) (n :: Nat) .
+           (Monad m) => !(a -> m b) -> Vec a n -> m (Vec b n)
+mapM f l =
+  case l of
+    VNil -> return VNil
+    VCons x xs ->
+      do x' <- f x
+         xs' <- mapM f xs
+	 return $ VCons x' xs'
+
+
+
+revertSimpleFunction :: ! forall b . (a :: Type) -> (Simple a, Simple b) => !(a -> b) -> !(b -> a)
+revertSimpleFunction a f x = unbox (revert $ box a f) x
 

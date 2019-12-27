@@ -451,7 +451,11 @@ typeCheck flag (Let m bd) goal =
               addVarDef x t' m'' 
               (goal', ann2) <- typeCheck flag t goal
               checkUsage x t
-              ann2' <- resolveGoals ann2 >>= updateWithSubst 
+              -- If the goal resolution fails, delay it for upper level to resolve 
+              ann2' <- (resolveGoals ann2 >>= updateWithSubst) `catchError`
+                          \ e -> return ann2
+                -- updateWithSubst ann2
+                --
               removeVar x
               let res = Let ann (abst x ann2') 
               return (goal', res)
@@ -812,7 +816,8 @@ handleTypeApp ann t' t1 t2 =
 handleTermApp flag ann pos t' t1 t2 = 
   do (a1', rt, anEnv) <- addAnn flag pos ann t' []
      mapM (\ (x, t) -> addVar x t) anEnv
-     case rt of
+     rt' <- updateWithSubst rt
+     case rt' of
        Arrow ty1 ty2 ->
          do (_, ann2) <- typeCheck flag t2 ty1
             let res = if flag then App' a1' ann2 else App a1' ann2

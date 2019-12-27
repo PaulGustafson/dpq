@@ -89,6 +89,15 @@ qterm' bq =
 
 -- Generalized multi-control gate
 controlled Not_g :: Qubit -> Qubit
+controlled H_g :: Qubit -> Qubit
+
+cnot :: ! forall u . (Simple u) => Qubit -> Qubit -> u -> (Qubit * Qubit) * u
+cnot a b s =
+   let (a, bs) = Not_g
+                  a
+		  (b, s)
+       (b, s) = bs
+   in ((a, b), s)
 
 
 

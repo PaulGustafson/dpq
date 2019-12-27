@@ -1,0 +1,78 @@
+module State where
+import "lib/Basics.dpq"
+import "lib/Monad.dpq"
+
+data Identity a = Ident a
+
+data StateT s (m :: Type -> Type) a =
+   StT (s -> m (a * s))
+
+instance Monad Identity where
+   return x = Ident x
+   bind m f =
+      let Ident a = m in
+      f a
+
+runIdentity :: ! forall a . Identity a -> a
+runIdentity x = let Ident x' = x in x'
+  
+instance forall s (m :: Type -> Type) .  (Monad m) => Monad (StateT s m)  where
+   return x = StT (\ s . return (x, s))
+   bind m f = StT $ \ r .
+     let StT m' = m
+     in do (a, r') <- m' r
+           let StT m'' = f a in
+	   m'' r'
+	   
+runStateT :: ! forall a s (m :: Type -> Type) . s -> StateT s m a -> m (a * s)
+runStateT s m =
+  let StT m' = m
+  in m' s
+
+
+withControlT :: ! forall a s (m :: Type -> Type) . (Simple s) =>
+                    s -> StateT s m a -> m (a * s)
+withControlT s m = runStateT s m
+
+apply :: ! forall a s (m :: Type -> Type) . (Monad m) => (s -> (a * s)) -> StateT s m a
+apply f = StT $ \ r . return $ f r
+
+updateT :: ! forall s (m :: Type -> Type) . (Monad m) => (s -> s) -> StateT s m Unit
+updateT f = StT $ \ r . return ((), f r)
+
+
+instance forall s . MonadTrans (StateT s) where
+   lift m = StT $ \ s . do
+        a <- m
+        return (a, s)
+
+
+
+data State s a = St (StateT s Identity a)
+
+instance forall s . Monad (State s) where
+  return x = St $ return x
+  bind x f = let St x' = x
+             in St $ do r <- x'
+                        let St y = f r
+                        y 
+
+update :: ! forall s . (s -> s) -> State s Unit
+update f = St $ updateT f
+
+applyS :: ! forall a s . (s -> a * s) -> State s a
+applyS f = St $ apply f
+
+swapState :: ! forall s . s -> State s s
+swapState x = St $ apply $ \ r . (r, x)
+
+runState :: ! forall a s . s -> State s a -> a * s
+runState s m = let St m' = m in runIdentity $ runStateT s m'
+
+withControl :: ! forall a s . (Simple s) => s -> State s a -> a * s
+withControl s m = runState s m
+
+
+                           
+  
+

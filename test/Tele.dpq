@@ -122,7 +122,7 @@ teleBox_t1 :: Circ (Vec Qubit 9, Vec Qubit 9)
 teleBox_t1 = teleBox 9
 
 teleBox' :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n)
-teleBox' n = box (Vec Qubit n) (\ x . tele_generic n x)
+teleBox' n = box (Vec Qubit n) $ \ x . tele_generic n x
 
 
 

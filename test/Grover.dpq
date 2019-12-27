@@ -6,144 +6,51 @@ import "lib/Prelude.dpq"
 toffoli :: ! (Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit)
 toffoli x y z = ToffoliGate True True x y z
 
--- The shape of a is of type b
-class Shape a s where
-  sh :: (Simple a, Parameter s) => a -> a * s
-  initialize :: (Simple a, Parameter s) => Bool -> s -> a
-
-
-instance Shape Qubit Unit where
-  sh q = (q, ())
-  initialize b u = initQubit b
-
--- instance forall (n :: Nat) . Shape (Vec Qubit n) Nat where
---   sh v =
---     case v of
---       VNil -> (VNil, Z)
---       VCons x xs ->
---         let (xs, m) = sh xs
---         in (VCons x xs, S m)
---   initialize b s =
---     case s of
---       Z -> VNil
-    
-class Termination a where
-  terminate :: (Simple a) => Bool -> a -> Unit
-
-instance Termination Qubit where
-  terminate x y = qterm x y
-
-instance forall a (n :: Nat) .  (Termination a, Simple a) => Termination (Vec a n) where
-  terminate b v =
-    case v of
-      VNil -> ()
-      VCons x xs ->
-        let _ = terminate b x
-	    _ = terminate b xs
-	in ()
-
-instance forall a b . (Simple a, Parameter b, Shape a b) =>
-            Shape (Vec a Z) (Vec b Z) where
-   sh v = let VNil = v in (VNil, VNil)
-   initialize v b =
-    case b of
-      VNil -> VNil
-
-instance forall a b (m :: Nat) . (Simple a, Parameter b,
-                       Shape a b, Shape (Vec a m) (Vec b m)) =>
-            Shape (Vec a (S m)) (Vec b (S m)) where
-
-  sh v =
-    case v of
-      VCons x xs -> 
-        let (x, shx) = sh x 
-      	    (xs, shxs) = sh xs
-      	 in (VCons x xs,  VCons shx shxs)
-
-  initialize v b =
-    case b of
-      VCons x xs ->
-        let q = initialize v x
-      	    qs = initialize v xs
-      	in VCons q qs
-{-
-instance forall a b (m :: Nat) . (Simple a, Parameter b, Shape a b) =>
-            Shape (Vec a m) (Vec b m) where
-  sh v =
-    case v of
-      VNil -> (VNil, VNil)   
-      VCons x xs -> 
-        let (x, shx) = sh x 
-      	    (xs, shxs) = sh xs
-      	 in (VCons x xs,  VCons shx shxs)
-
-  initialize v b =
-    case b of
-      VNil -> VNil
-      VCons x xs ->
-        let q = initialize v x
-      	    qs = initialize v xs
-      	in  VCons q qs
--}
-toUnits :: ! (n :: Nat) -> Vec Unit n
-toUnits n =
-  case n of
-    Z -> VNil
-    S m -> VCons () (toUnits m)
-
-
--- A generalized version of withAncilla
-useAncilla :: ! forall a b s . (Parameter s, Simple b, Termination b, Shape b s) =>
-                  Bool -> s -> (b -> a * b) -> a
-useAncilla b v body =
-  let ancilla = initialize b v
-      (output, ancilla) = body ancilla
-      _ = terminate b ancilla
-  in output
- 
 
 controlled CZ :: Qubit -> Qubit
 
 -- There are some reshuffling using reverse to make the order match up with
 -- Mermin's book. But the core part is the mapM.
--- cascade :: ! forall {n :: Nat} . Vec Qubit n -> Qubit -> Vec Qubit n ->
---                 Vec Qubit n * Vec Qubit n * Qubit
-
-cascade {n :: Nat} . (a :: Vec Qubit n) (c :: Qubit) (b :: Vec Qubit n) =
--- cascade a c b = 
-  let a1 = reverse a
+cascade :: ! (n :: Nat) -> Vec Qubit n -> Qubit -> Vec Qubit n ->
+                Vec Qubit n * Vec Qubit n * Qubit
+cascade n a c b =
+  let a1 = reverse Qubit n a
       r = zip a1 b 
       (r1, c') = runState c $ 
         mapM (\ x . let (a, b) = x in
-               apply $ \ s .
+               applyS $ \ s .
                     let (a', s', b') = toffoli a s b
                     in ((s', b'), a')
           ) r
       (a', b') = unzip r1
   in (a', b', c')
 
+box_cascade :: ! (n :: Nat) -> Circ(Vec Qubit n * Qubit * Vec Qubit n,
+                                  Vec Qubit n * Vec Qubit n * Qubit)
+box_cascade n = box (Vec Qubit n * Qubit * Vec Qubit n) $
+                 \ x . (uncurry $ uncurry (\ y . cascade n y)) x
 
-box_cascade (n :: Nat) = box (Vec Qubit n * Qubit * Vec Qubit n) $ \ x . (uncurry $ uncurry cascade) x
+testCas1 :: Circ(Vec Qubit 4 * Qubit * Vec Qubit 4,
+                                  Vec Qubit 4 * Vec Qubit 4 * Qubit)
+testCas1 = box_cascade 4
 
-testCas1 = box_cascade four
-testCas2 = box_cascade nine
 
-nfoldZ (n :: Nat) (a :: Vec Qubit n) (c :: Qubit) (b :: Vec Qubit n) (d1 d2 :: Qubit) =
-  let (a', b', c') = cascade a c b
+nfoldZ :: ! (n :: Nat) -> Vec Qubit n -> Qubit -> Vec Qubit n -> Qubit -> Qubit ->
+              Qubit * Qubit * Vec Qubit n * Qubit * Vec Qubit n
+nfoldZ n a c b d1 d2 =
+  let (a', b', c') = cascade n a c b
       (d1', r) = CZ d1 (d2, c')
       (d2', c'') = r
       cascade' = unbox $ revert $ box_cascade n
       (a'', c''', b'') = cascade' (a', b', c'')
   in (d1', d2', a'', c''', b'')
 
-box_nfoldZ (n :: Nat) =
+box_nfoldZ :: ! (n :: Nat) -> Circ(Vec Qubit n * Qubit * Vec Qubit n * Qubit * Qubit,
+                                Qubit * Qubit * Vec Qubit n * Qubit * Vec Qubit n)
+box_nfoldZ n =
   box (Vec Qubit n * Qubit * Vec Qubit n * Qubit * Qubit) $
       uncurry $ uncurry $ uncurry $ uncurry (\ y . nfoldZ n y)
 
-testNfoldZ = box_nfoldZ four
-testNfoldZ2 = box_nfoldZ nine
-
-box_CZ (n :: Nat) = box (Qubit * Vec Qubit n) $ \ x . uncurry CZ x 
-
-testCZ = box_CZ four
-testCZ2 = box_CZ nine
+testNfoldZ :: Circ(Vec Qubit 4 * Qubit * Vec Qubit 4 * Qubit * Qubit,
+                                Qubit * Qubit * Vec Qubit 4 * Qubit * Vec Qubit 4)
+testNfoldZ = box_nfoldZ 4
