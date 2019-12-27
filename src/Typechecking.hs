@@ -690,14 +690,24 @@ patternUnif m isDpm index head t =
           case flatten t of
             Just (Right h, args) -> 
               let (bs, a:as) = splitAt i args
-                  a' = unEigenBound (S.toList $ getVars OnlyEigen a) a
+                  vars = S.toList $ getVars OnlyEigen a
+                  eSub = zip vars (map EigenVar vars)
+                  a' = unEigenBound vars a
                   t' = foldl App' (LBase h) (bs++(a':as))
-              in -- trace ("unifying:" ++ (show $ disp a') ++ " with " ++ (show $ disp t')) $
-                 normalizeUnif head t'
+              in do r <- normalizeUnif head t'
+                    case r of
+                      Nothing -> return Nothing
+                      Just subst ->
+                        helper subst vars eSub
             _ -> throwError $ withPosition m (UnifErr head t)
-              
   else normalizeUnif head t
-
+  where -- change relavent variables back into eigenvariables after dependent pattern-matching 
+        helper subst (v:vars) eSub =
+          let subst' = Map.mapWithKey (\ k val -> if k == v then toEigen val else val) subst
+              subst'' = Map.map (\ val -> apply eSub val) subst'
+          in helper subst'' vars eSub
+        helper subst [] eSub = return $ Just subst
+          
       
 -- | There is a degree of freedom in implementing normalizeUnif function.
 normalizeUnif t1 t2 =

@@ -198,4 +198,11 @@ mergeSub :: Map Variable Exp -> Map Variable Exp -> Map Variable Exp
 mergeSub new old =
   new `Map.union` Map.map (substitute new) old
 
+-- | convert all the free variables in an expression into eigenvariables.
+toEigen t =
+  let fvs = S.toList $ getVars NoEigen t
+      sub = zip fvs (map EigenVar fvs)
+  in apply sub t
+      
+
 

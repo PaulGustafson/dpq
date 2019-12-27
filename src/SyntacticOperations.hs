@@ -749,3 +749,4 @@ isExplicit s (LBase _) = False
 isExplicit s (Const _) = False
 
 isExplicit s a = error $ "from isExplicit:" ++ (show $ disp a)
+

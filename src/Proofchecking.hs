@@ -501,10 +501,21 @@ dependentUnif index isDpm head t =
            case flatten t of
             Just (Right h, args) -> 
               let (bs, a:as) = splitAt i args
-                  a' = unEigenBound (S.toList $ getVars OnlyEigen a) a
+                  vars = S.toList $ getVars OnlyEigen a
+                  eSub = zip vars (map EigenVar vars)
+                  a' = unEigenBound vars a
                   t' = foldl App' (LBase h) (bs++(a':as))
-              in return $ runUnify head t'
+              in case runUnify head t' of
+                   Nothing -> return Nothing
+                   Just subst -> 
+                     helper subst vars eSub
             _ -> throwError $ UnifErr head t
+  where -- change relavent variables back into eigenvariables after dependent pattern-matching 
+        helper subst (v:vars) eSub =
+          let subst' = Map.mapWithKey (\ k val -> if k == v then toEigen val else val) subst
+              subst'' = Map.map (\ val -> apply eSub val) subst'
+          in helper subst'' vars eSub
+        helper subst [] eSub = return $ Just subst
 
 
 handleForallApp flag t' t1 t2 = 
