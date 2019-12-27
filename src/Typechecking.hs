@@ -451,8 +451,8 @@ typeCheck flag (Let m bd) goal =
               addVarDef x t' m'' 
               (goal', ann2) <- typeCheck flag t goal
               checkUsage x t
-              removeVar x
               ann2' <- updateWithSubst ann2
+              removeVar x
               let res = Let ann (abst x ann2') 
               return (goal', res)
 

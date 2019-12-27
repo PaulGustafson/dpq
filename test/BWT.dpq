@@ -206,24 +206,24 @@ testIsChild even ischild direction color n =
 setParent :: ! (n l :: Nat) -> Vec Qubit (S (S (add n l))) -> 
                 Vec Qubit (S (S (add n l))) -> Qubit -> 
                 Triple (Vec Qubit (S (S (add n l)))) (Vec Qubit (S (S (add n l)))) Qubit
-setParent n l a b isparent = setParent n l a b isparent
-  -- let (a, bis) = with_list_range Qubit l (S Z) n a (subst (\ x . Vec Qubit x) (ha1 n l) a)  (\ as .
-  --      let (b, asis) = with_list_range Z n (subst (\ x . Vec Qubit x) (addZ2 n l) b) (\ bs .
-  --       let T as bs isparent = for_each_map2 as bs isparent ( \ a b isparent .
-  --         let T b isparent a = toT $ ToffoliGate True True b isparent a
-  --         in T a b isparent  )
-  --       in (bs, (as, isparent)) )
-  --          (as, isparent) = asis
-  --      in (as, (b, isparent))  )
-  --     (b, isparent) = bis -- subst (\ x . Vec Qubit x) (addS (S n) l) $
-  --     (a, bis) = with_list_index Qubit (S n) l (subst (\ x . Vec Qubit x) (addS (S n) l) $ a) (\ a .
-  --         let (b, ais) = with_list_index Qubit (S n) l (subst (\ x . Vec Qubit x) (addSS n l) $ b) (\ b .
-  --               let T b isparent a = toT $ ToffoliGate True True b isparent a
-  --               in (b, (a, isparent))   )
-  --             (a, isparent) = ais
-  --         in (a, (b, isparent)) )
-  --     (b, isparent) = bis
-  -- in T a b isparent
+setParent n l a b isparent = 
+  let (a, bis) = with_list_range Qubit (S l) (S Z) n (subst (\ x . Vec Qubit x) (ha1 n l) a) (\ as .
+       let (b, asis) = with_list_range Qubit (S (S l)) Z n (subst (\ x . Vec Qubit x) (addZ2 n l) b) (\ bs .
+        let T as bs isparent = for_each_map2 as bs isparent ( \ a b isparent .
+          let T b isparent a = toT $ ToffoliGate True True b isparent a
+          in T a b isparent  )
+        in (bs, (as, isparent)) )
+           (as, isparent) = asis
+       in (as, (b, isparent))  )
+      (b, isparent) = bis -- subst (\ x . Vec Qubit x) (addS (S n) l) $
+      (a, bis) = with_list_index Qubit (S n) l (subst (\ x . Vec Qubit x) (addS (S n) l) $ a) (\ a .
+          let (b, ais) = with_list_index Qubit (S n) l (subst (\ x . Vec Qubit x) (addSS n l) $ b) (\ b .
+                let T b isparent a = toT $ ToffoliGate True True b isparent a
+                in (b, (a, isparent))   )
+              (a, isparent) = ais
+          in (a, (b, isparent)) )
+      (b, isparent) = bis
+  in T a b isparent
 
 
 -- Input a node label 'a', and a register 'b' initialized to 0. If
@@ -239,9 +239,9 @@ doWeld0 :: ! (n l :: Nat) ->
               Triple (Vec Qubit (S (S (add n l))))
 	              (Vec Qubit (S (S (add n l)))) Qubit
 doWeld0 n l a b weldctrl f =
-  let T abefore as aafter = toT $ sf_list_range Z (n) (subst (\ x . Vec Qubit x) (addZ2 n l) a)
-      T bbefore bs bafter = toT $ sf_list_range Z (n) (subst (\ x . Vec Qubit x) (addZ2 n l) b)
-      T fbefore fs fafter = toT $ sf_list_range Z (n) (subst (\ x . Vec Bool x) (addZZ' n) f)
+  let T abefore as aafter = toT $ sf_list_range Qubit (S (S l)) Z (n) (subst (\ x . Vec Qubit x) (addZ2 n l) a)
+      T bbefore bs bafter = toT $ sf_list_range Qubit (S (S l)) Z (n) (subst (\ x . Vec Qubit x) (addZ2 n l) b)
+      T fbefore fs fafter = toT $ sf_list_range Bool Z Z (n) (subst (\ x . Vec Bool x) (addZZ' n) f)
       Q as bs fs weldctrl = for_each_map3 as bs fs weldctrl ( \ ai bi fi weldctrl .
         let T bi weldctrl ai = toT $ ToffoliGate True (not fi) bi weldctrl ai 
         in Q ai bi fi weldctrl)
@@ -330,14 +330,13 @@ cAddNumHelper output input num control =
               in T control (VCons o os) (VCons i is)
              
 
-cAddNum :: ! forall (l m :: Nat) .
-	    (n :: Nat) -> Qubit -> Vec Qubit (add n l) -> Vec Qubit (add n m) ->
+cAddNum :: ! (l m n :: Nat)  -> Qubit -> Vec Qubit (add n l) -> Vec Qubit (add n m) ->
 	    Vec Bool n -> 
             Triple Qubit (Vec Qubit (add n l)) (Vec Qubit (add n m))
-cAddNum n control output input num =
-  let (output, orest) = list_split n output
-      (input, irest) = list_split n input
-      (num, nrest) = list_split n (subst (\ x . Vec Bool x) (addZ' n) num)
+cAddNum l m n control output input num =
+  let (output, orest) = list_split Qubit n l output
+      (input, irest) = list_split Qubit n m input
+      (num, nrest) = list_split Bool n 0 (subst (\ x . Vec Bool x) (addZ' n) num)
       T control output input = cAddNumHelper output input num control
       output = output ++ orest 
       input = input ++ irest
@@ -351,14 +350,14 @@ cAddNum n control output input num =
 -- complement. The generated sequence of gates is slightly different,
 -- but nevertheless correct.
 -- 
-cSubNum :: ! forall (l m :: Nat) .
+cSubNum :: ! (l m :: Nat) ->
 	    (n :: Nat) -> Qubit -> Vec Qubit (add n l) -> Vec Qubit (add n m) ->
 	    Vec Bool n -> 
             Triple Qubit (Vec Qubit (add n l)) (Vec Qubit (add n m))
 
-cSubNum n control output input num =
+cSubNum l m n control output input num =
   let num' = twos_complement num in
-  cAddNum n control output input num'
+  cAddNum l m n control output input num'
 
 
 -- Input a node label 'a', and a register 'b' initialized to 0. If
@@ -374,12 +373,12 @@ doWeld1 :: ! (n l :: Nat) -> Vec Qubit (S (S (add n l))) ->
                 (Vec Qubit (S (S (add n l)))) Qubit
 doWeld1 n l a b weldctrl g =
   let T a b weldctrl = with_ancilla False (\ addsub .
-       let T as an1 aafter = sf_list_index (S n) (a)
+       let T as an1 aafter = sf_list_index Qubit (S n) l (a)
            T addsub weldctrl an1 = toT $ ToffoliGate True False addsub weldctrl an1
-           T addsub b as = cAddNum n addsub (subst (\ x . Vec Qubit x) (addSS' n l) b)
+           T addsub b as = cAddNum (S (S l)) 1 n addsub (subst (\ x . Vec Qubit x) (addSS' n l) b)
                              (subst (\ x . Vec Qubit x) (addOne n) as) g
            (addsub, weldctrl) = CNotGate True addsub weldctrl
-           T addsub b as = cSubNum n addsub b as g
+           T addsub b as = cSubNum (S (S l)) 1 n addsub b as g
            T addsub weldctrl an1 = toT $ ToffoliGate True True addsub weldctrl an1
            a = subst (\ x . Vec Qubit x) (addSZ n l) $ as ++ VCons an1 aafter
 	   b = subst (\ x . Vec Qubit x) (addSS n l) b
@@ -403,8 +402,8 @@ setWeld n l a b childctrl direction f g =
             T a b weldctrl = doWeld1 n l a b weldctrl g 
             T weldctrl childctrl direction = toT $ ToffoliGate True True
                                                      weldctrl childctrl direction
-            T abefore an1 aafter = sf_list_index (S n) ( a)
-            T bbefore bnn bafter = toT $ sf_list_range n (S (S Z)) (subst (\ x . Vec Qubit x) (addSSZ n l) b)
+            T abefore an1 aafter = sf_list_index Qubit (S n) l a
+            T bbefore bnn bafter = toT $ sf_list_range Qubit l n (S (S Z)) (subst (\ x . Vec Qubit x) (addSSZ n l) b)
             VCons bn bs = bnn
             VCons bn1 m = bs
             VNil = m
@@ -424,21 +423,19 @@ setChildInTree :: ! (n l :: Nat) -> Vec Qubit (S (S (add n l))) -> Vec Qubit (S 
                   Qubit -> Qubit -> 
                   Quad (Vec Qubit (S (S (add n l)))) (Vec Qubit (S (S (add n l)))) Qubit Qubit
 setChildInTree n l a b childctrl direction  = 
-  let T bbefore b0 bafter = sf_list_index Z ( b)
+  let T bbefore b0 bafter = sf_list_index Qubit Z (S (add n l)) b
       T b0 childctrl direction = toT $ ToffoliGate True True b0 childctrl direction
-      b = bbefore ++ VCons b0 bafter -- subst (\ x . Vec Qubit x) (addZ2 n l)
-      T abefore as aafter = toT $ sf_list_range Z n (subst (\ x . Vec Qubit x) (addZ2 n l) a)
-      T bbefore bs bafter = -- toT $ sf_list_range one n b
-        toT $ sf_list_range 1 n (subst (\ x . Vec Qubit x) (minor' n l) b)
-        --(subst (\ x . Vec Qubit (S x)) (addS' n l) (subst (\ x . Vec Qubit x) (addZ'' (S (S (add n l)))) b))
-	--  -- (subst (\ x . Vec Qubit (S x)) (addS' n l) b)
+      b = bbefore ++ VCons b0 bafter 
+      T abefore as aafter = toT $ sf_list_range Qubit (S (S l)) Z n (subst (\ x . Vec Qubit x) (addZ2 n l) a)
+      T bbefore bs bafter = 
+        toT $ sf_list_range Qubit (S l) 1 n (subst (\ x . Vec Qubit x) (minor' n l) b)
       T as bs childctrl = for_each_map2 as bs childctrl ( \ a b childctrl .
             let T b childctrl a = toT $ ToffoliGate True True b childctrl a
             in T a b childctrl )
       b = bbefore ++ bs ++ bafter
       a = abefore ++ as ++ aafter
-      T abefore an1 aafter = sf_list_index (S n) (subst (\ x . Vec Qubit x) (addSS n l) a)
-      T bbefore bn1 bafter = sf_list_index (S n) (subst (\ x . Vec Qubit (S x)) (addS n l) b)
+      T abefore an1 aafter = sf_list_index Qubit (S n) l (subst (\ x . Vec Qubit x) (addSS n l) a)
+      T bbefore bn1 bafter = sf_list_index Qubit (S n) l (subst (\ x . Vec Qubit (S x)) (addS n l) b)
       --  subst (\ x . Vec Qubit x) (ha4 n l)
       T bn1 childctrl an1 = toT $ ToffoliGate True True bn1 childctrl an1
       a = subst (\ x . Vec Qubit (S x)) (addS n l) $ abefore ++ VCons an1 aafter
@@ -513,32 +510,31 @@ oraclefun n l f g c a b r =
 -- Display the circuit for tree depth n, repetition count s=1, and
 -- some arbitrary choice of welding vectors f and g.
 --
-{-
-orthodoxy :: ! (s :: Nat) -> (n :: Nat) -> Vec Bool n -> Vec Bool n -> Vec Qubit (S (S n))
-orthodoxy s n f g =
-  let entrance = boolreg_of_int_le (S (S n)) one
-      m = S (S n)
-      k = four
-      fun :: ! (Nat ->
+
+fun :: ! (Nat -> (n :: Nat) -> Vec Bool n -> Vec Bool n ->
                  Vec Qubit (S (S n)) ->
                      Vec Qubit (S (S n)) ->
                        Qubit -> Vec Qubit (S (S n)) * Vec Qubit (S (S n)) * Qubit)
-      fun =  \ x .
-                  (subst (\ x . Nat -> Vec Qubit (S (S x)) -> Vec Qubit (S (S x))
-                            -> Qubit -> Vec Qubit (S (S x)) * Vec Qubit (S (S x)) * Qubit) (addZ n)
-                  $ oraclefun n Z f g) x
-      oracle = O n k entrance fun	    	      	  
-  in qrwbwt s m oracle
+fun x n f g = 
+         subst (\ x . Nat -> Vec Qubit (S (S x)) -> Vec Qubit (S (S x))
+                  -> Qubit -> Vec Qubit (S (S x)) * Vec Qubit (S (S x)) * Qubit) (addZ n)
+                   (oraclefun n Z f g) x
+
+orthodoxy :: ! (s :: Nat) -> (n :: Nat) -> Vec Bool n -> Vec Bool n -> Vec Qubit (S (S n))
+orthodoxy s n f g =
+  let entrance = boolreg_of_int_le (S (S n)) 1
+      k = 4
+      v = S (S n)
+      oracle = O n k entrance (\ x . fun x n f g)
+  in qrwbwt s v oracle
   -- qrwbwt s n m k entrance fun
+-- qrwbwt :: ! (Nat -> (m :: Nat) -> Oracle m -> Vec Qubit m)
 
-
-main :: Circ(Unit, Vec Qubit six)
-main =
+main :: Circ(Unit, Vec Qubit 6)
+main = -- box Unit $ \ u . orthodoxy 1 4 (VCons True $ VCons False $ VCons True $ VCons False VNil) (VCons False $ VCons True $ VCons False $ VCons True VNil)
    let f = VCons True $ VCons False $ VCons True $ VCons False VNil
        g = VCons False $ VCons True $ VCons False $ VCons True VNil
-       -- (s, n) = (one, four)
-      -- MP s n = MP one four
-       n = four
-       s = one
+       n = 4
+       s = 1
   in box Unit $ \ u . orthodoxy s n f g
--}
+

@@ -15,7 +15,7 @@ import qualified Data.Map as Map
 import Data.Map (Map)
 import Control.Monad.Except
 import Control.Monad.State
-
+import Debug.Trace
 
 betaNormalize :: Exp -> TCMonad Exp
 betaNormalize a@(Var x) = return a
@@ -237,6 +237,7 @@ normalize a@(Var x) =
            TypeVar _ -> return a
            TermVar _ Nothing -> return a
            TermVar _ (Just d) -> normalize d
+             -- shape d >>= normalize 
 
 normalize a@(EigenVar x) = 
   do ts <- get
@@ -247,7 +248,8 @@ normalize a@(EigenVar x) =
          case varIdentification lti of
            TypeVar _ -> return a
            TermVar _ Nothing -> return a
-           TermVar _ (Just d) -> normalize d
+           TermVar _ (Just d) -> trace ("normalizing:"++(show $ disp a) ++ ":" ++ (show $ disp d)) $ normalize d
+             -- shape d >>= normalize 
   
 
 normalize a@(GoalVar x) = return a
