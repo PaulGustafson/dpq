@@ -24,7 +24,8 @@ resolveGoals a =
          goals' = map (\ (x, (t, e)) -> (x, (substitute subs t, e))) goals
          goalVars = getVars GetGoal a
          goals'' = [ (x, (t, e)) | (x, (t, e)) <- goals', x `S.member` goalVars]
-     if (not (S.null goalVars)) then helper a goals''
+     if (not (S.null goalVars)) then
+       helper a goals''
        else  return a
        
   where helper ann [] = return ann

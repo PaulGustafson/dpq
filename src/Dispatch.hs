@@ -122,7 +122,7 @@ dispatch (Annotation e) =
          case identification p of
            DefinedFunction (Just (a, _, av)) ->
              do liftIO $ putStrLn ("it has annotation \n" ++ (show $ dispRaw a))
-                liftIO $ putStrLn ("it has annotated value: \n" ++ (show $ dispRaw av))
+                -- liftIO $ putStrLn ("it has annotated value: \n" ++ (show $ dispRaw av))
                 return True
            DefinedMethod a _ ->
              do liftIO $ putStrLn ("it has annotation \n" ++ (show $ dispRaw a))

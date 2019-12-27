@@ -534,7 +534,7 @@ main :: Circ(Unit, Vec Qubit 6)
 main = -- box Unit $ \ u . orthodoxy 1 4 (VCons True $ VCons False $ VCons True $ VCons False VNil) (VCons False $ VCons True $ VCons False $ VCons True VNil)
    let f = VCons True $ VCons False $ VCons True $ VCons False VNil
        g = VCons False $ VCons True $ VCons False $ VCons True VNil
-       n = 4
        s = 1
-  in box Unit $ \ u . orthodoxy s n f g
+       n = 4
+   in box Unit $ \ u . orthodoxy s n f g
 
