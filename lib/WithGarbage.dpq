@@ -168,9 +168,9 @@ instance forall a (n :: Nat) . (BooleanLogic a) => BooleanLogic (Vec a n) where
 run_garbage :: !forall a . WithGarbage a -> (exists n :: Nat . (Vec Qubit n) * a)
 run_garbage comp = let WG x a = comp in let {n, v} = x in {n, (v, a)}
 
-box_garbage' :: ! (a b :: Type) -> (Simple a , Simple b) =>
+box_garbage :: ! (a b :: Type) -> (Simple a , Simple b) =>
                !(a -> WithGarbage b) -> exists n :: Nat . Circ(a, Vec Qubit n * b)
-box_garbage' a b f =
+box_garbage a b f =
   let {n, circ} = existsBox a (\n . Vec Qubit n * b) (\x . run_garbage (f x))
   in {n, circ}
 

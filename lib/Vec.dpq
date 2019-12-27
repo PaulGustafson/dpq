@@ -244,4 +244,11 @@ moveForward a n m k pf v =
      go a n (minus m k) k v
 
 
+depFold :: ! forall b (n :: Nat) . (p :: Nat -> Type) ->
+             (! forall (n :: Nat) . b -> p n -> p (S n)) -> p Z -> Vec b n -> p n
+depFold p f a l = 
+  case l of
+    VNil -> a
+    VCons b bs ->
+      f b (depFold p (\ x . f x) a bs)
   

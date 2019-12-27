@@ -1,0 +1,137 @@
+module Design where
+import "lib/Prelude.dpq"
+
+
+toffoli :: ! (Qubit -> Qubit * Qubit -> Qubit * Qubit * Qubit)
+toffoli x c =
+  let (c1, c2) = c in ToffoliGate True True x c1 c2
+
+tgate_inv :: ! (Qubit -> Qubit)
+tgate_inv = unbox $ revert $ box Qubit TGate
+controlled SGate :: Qubit -> Qubit
+
+sgate :: ! (Qubit -> Qubit)
+sgate x = fst $ SGate x ()
+
+makeToffoli :: !(Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit)
+makeToffoli a b c =
+  let 
+      c = H c
+      (c, b) = CNot c b
+      c = tgate_inv c
+      (c, a) = CNot c a
+      c = TGate c
+      (c, b) = CNot c b
+      c = tgate_inv c
+      (c, a) = CNot c a
+      c = H (TGate c)
+      b = tgate_inv b
+      (b, a) = CNot b a
+      b = tgate_inv b
+      (b, a) = CNot b a
+      a = TGate a
+      b = sgate b
+  in (a, b, c)
+
+boxT :: Circ(Qubit * Qubit * Qubit, Qubit * Qubit * Qubit)
+boxT = box (Qubit * Qubit * Qubit) $ uncurry $ uncurry makeToffoli
+
+
+-- ideally, if_then_else :: !(Qubit -> Qubit -> Qubit -> M Qubit)
+
+if_then_else :: !(Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit * Qubit)
+if_then_else a x y = 
+  let anc = initQubit False
+      (anc, x, a) = toffoli anc (x, a)     
+      (z, y, a) = toffoli anc (y, QNot a)
+  in (QNot a, x , y , z)
+
+box_if :: Circ(Qubit * Qubit * Qubit, Qubit * Qubit * Qubit * Qubit)
+box_if = box (Qubit * Qubit * Qubit) $ uncurry $ uncurry if_then_else
+
+
+-- mistake :: !(Qubit -> Qubit -> Qubit * Qubit * Qubit * Qubit)
+-- mistake a x = if_then_else a x (QNot x)
+negateOn :: !(Qubit -> Qubit -> Qubit * Qubit * Qubit * Qubit)
+negateOn a x = 
+  let anc = initQubit False
+      (x1, x2) = CNot anc x
+  in if_then_else a x1 (QNot x2)
+
+negateOn' :: !(Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit)
+negateOn' a x r = 
+  let (a, x1, x2, z) = negateOn a x
+      negateOn_rev = revert $ box (Qubit * Qubit) $ uncurry negateOn 
+      (r, z) = CNot r z
+      (a, x) = unbox negateOn_rev (a, x1, x2, z)
+  in (a, x, r)
+
+box_negateOn' :: Circ(Qubit * Qubit * Qubit, Qubit * Qubit * Qubit)
+box_negateOn' = box (Qubit * Qubit * Qubit) $ uncurry $ uncurry negateOn'
+
+negateAnd :: ! (Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit * Qubit * Qubit * Qubit)
+negateAnd a x y =
+  let (a, x1, x2, z) = negateOn a x
+      (r, y, z) = toffoli (initQubit False) (y, z)
+  in (a, x1, x2, r, y, z)
+
+box_negateAnd :: Circ(Qubit * Qubit * Qubit, Qubit * Qubit * Qubit * Qubit * Qubit * Qubit)
+box_negateAnd = box (Qubit * Qubit * Qubit) $ uncurry $ uncurry negateAnd
+
+negateOn2 :: ! (Qubit -> Qubit -> WithGarbage Qubit)
+negateOn2 a x =
+  do let (a, x1, x2, z) = negateOn a x
+     dispose a
+     dispose x1
+     dispose x2
+     return z
+
+conjunction :: ! (Qubit -> Qubit -> WithGarbage Qubit)
+conjunction x y = 
+  do let (r, x, y) = toffoli (initQubit False) (x, y)
+     dispose x
+     dispose y
+     return r
+
+negateAnd2 :: ! (Qubit -> Qubit -> Qubit -> WithGarbage Qubit)
+negateAnd2 a x y = 
+  do z <- negateOn2 a x
+     r <- conjunction y z
+     return r
+
+box_negateAnd2 :: exists n :: Nat . Circ(Qubit * Qubit * Qubit, Vec Qubit n * Qubit)
+box_negateAnd2 = box_garbage (Qubit * Qubit * Qubit) Qubit $ uncurry $ uncurry negateAnd2
+
+                            
+rotate :: ! (Qubit -> State (Qubit * Nat) Qubit)
+rotate x =
+  applyS $ \ s .
+    let (q, n) = s
+        (x, q) = R n x q
+    in (x, (q, S n))
+                        
+cascadeRotation :: ! forall (n :: Nat) . Qubit -> Vec Qubit n -> Qubit * Vec Qubit n
+cascadeRotation q v = 
+  let (r, st) = runState (H q, Z) $ mapM rotate v
+  in (fst st, r)
+
+tower :: ! forall (n :: Nat) . Vec Qubit n -> Vec Qubit n
+tower v =
+  case v of
+    VNil -> VNil
+    VCons x xs ->
+      let (x, xs) = cascadeRotation x xs
+      in VCons x (tower xs)
+
+tower' :: ! forall (n :: Nat) . Vec Qubit n -> Vec Qubit n
+tower' v = depFold (\ x . Vec Qubit x)
+             (\ a b . let (a, b) = cascadeRotation a b
+                      in VCons a b
+             ) VNil v          
+                      
+                      
+    
+box_negateAndRev :: Circ(Qubit * Qubit * Qubit * Qubit, Qubit * Qubit * Qubit * Qubit)
+box_negateAndRev = box (Qubit * Qubit * Qubit * Qubit) $
+   \ x . without_garbage2 (Qubit * Qubit * Qubit) Qubit
+                                (uncurry $ uncurry negateAnd2) (switch $ uncurry CNot) x
