@@ -172,7 +172,7 @@ instance Disp Exp where
 --    fsep [dParen flag (precedence a - 1) t, text "@2", dParen flag (precedence a) t']
   display flag a@(App' t t') =
 --    fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
-    fsep [dParen flag (precedence a - 1) t, text "@", dParen flag (precedence a) t']
+    fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
 
   display flag a@(AppDep t t') =
        fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']

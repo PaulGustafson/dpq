@@ -109,6 +109,25 @@ dispatch (Display e) =
          do liftIO $ print (text "not a circuit")
             return True
 
+dispatch (DisplayEx e) =
+  do e' <- topResolve e
+     (t', et) <- topTypeInfer e'
+     et <- tcTop $ erasure et
+     case t' of
+       A.Exists (Abst n (A.Circ _ _)) _ ->
+         do res <- tcTop $ evaluation et
+            case res of
+              A.Pair _ circ -> 
+                do tmpdir <- liftIO $ getTemporaryDirectory
+                   (pdffile, fd) <- liftIO $ openTempFile tmpdir "Quipper.pdf"
+                   liftIO $ printCirc_fd circ fd
+                   liftIO $ hClose fd
+                   liftIO $ system_pdf_viewer 100 pdffile
+                   liftIO $ removeFile pdffile            
+                   return True
+       ty -> 
+         do liftIO $ print (text "not an existential circuit")
+            return True
 
 dispatch (Annotation e) =
   do cid <- topResolve e

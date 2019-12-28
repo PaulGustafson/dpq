@@ -28,8 +28,8 @@ main = do
        dispatch (Load True $ p </> "test/March14.dpq")
        dispatch (Load True $ p </> "test/April12.dpq")
        dispatch (Load True $ p </> "test/Design.dpq")
-
-       -- dispatch (Load True $ p </> "hex/Hex.dpq")
+       dispatch (Load True $ p </> "test/Hex.dpq")
+       dispatch (Load True $ p </> "test/HexVerbose.dpq")
        -- dispatch (Load True $ p </> "hex/Hex2.dpq")
        -- dispatch (Load True $ p </> "hex/Hex3.dpq")
        -- dispatch (Load True $ p </> "hex/Hex4.dpq")
