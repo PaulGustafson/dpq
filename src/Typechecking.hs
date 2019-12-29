@@ -208,9 +208,12 @@ typeCheck True (Pi (Abst xs m) ty) Set =
        mapM_ removeVar xs
        return (Set, res)
 
-typeCheck True (PiImp (Abst xs m) ty) Set = 
-    do (_, tyAnn) <- if isKind ty then typeCheck True ty Sort else typeCheck True ty Set
+typeCheck True pty@(PiImp (Abst xs m) ty) Set = 
+  do   isP <- isParam ty
+       when (not isP) $ throwError $ ForallLinearErr xs ty pty            
+       (_, tyAnn) <- if isKind ty then typeCheck True ty Sort else typeCheck True ty Set
        mapM_ (\ x -> addVar x (erasePos tyAnn)) xs
+       
        let sub = zip xs (map EigenVar xs)
            m' = apply sub m
        (_, ann2) <- typeCheck True m' Set
@@ -429,8 +432,6 @@ typeCheck False c@(Lam bind) t =
                         mapM_ (\ x -> addVar x ty) xs
                         (t, ann) <- typeCheck False m'
                                     (if null rs then b' else PiImp (abst rs b') ty)
-                        isP <- isParam ty
-                        when (not isP) $ throwError $ ForallLinearErr ys ty pty
                         mapM_ removeVar xs
                         -- Since xs may appear in the type annotation in ann,
                         -- we have to update ann with current substitution.
@@ -453,8 +454,6 @@ typeCheck False c@(Lam bind) t =
                         (t, ann) <- typeCheck False
                                     (if null rs then m' else Lam (abst rs m'))
                                     b'
-                        isP <- isParam ty
-                        when (not isP) $ throwError $ ForallLinearErr ys ty pty            
                         mapM_ removeVar vs
                         ann1 <- updateWithSubst ann
                         t' <- updateWithSubst t
