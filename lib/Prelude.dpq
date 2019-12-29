@@ -44,3 +44,5 @@ revertSimpleFunction a f x = unbox (revert $ box a f) x
 switch :: ! forall a b c d . (a * b -> c * d) -> (b * a -> d * c)
 switch f a = swap $ f (swap a)
 
+boxCirc :: ! {a :: Type} -> forall (b :: Type) . (Simple a, Simple b) => !(a -> b) -> Circ(a, b)
+boxCirc a f = box a f

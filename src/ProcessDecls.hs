@@ -23,6 +23,7 @@ import Control.Monad.Identity
 import Control.Monad.Except
 import Text.PrettyPrint
 import Debug.Trace
+import qualified Data.Set as S
 
 process :: Decl -> TCMonad ()
 process (Class pos d kd dict dictType mths) = 
@@ -101,6 +102,46 @@ process (Def pos f' ty' def') =
      let info2 = Info { classifier = ty1,
                         identification = DefinedFunction (Just (ann, v, v'))}
      addNewId f' info2
+
+-- This definition without arguments can not be recursive.
+process (Defn pos f Nothing def) =
+  do (ty, a) <- typeInfering False (Pos pos def)
+     let fvs = getVars AllowEigen ty
+     when (not $ S.null fvs) $ throwError $ ErrPos pos $ TyAmbiguous (Just f) ty
+     checkVacuous pos ty
+     p <- isParam ty
+     when (not p && not (isConst def)) $
+       throwError (ErrPos pos $ NotParam (Const f) ty)
+     a' <- erasure a
+     proofChecking False a ty
+     v <- evaluation a'
+     b <- isBasicValue v
+     v' <- if b then typeChecking False v ty >>= \ x -> return $ snd x
+           else if isCirc v then return v else return a
+     let fp = Info {classifier = erasePos $ removeVacuousPi ty,
+                    identification = DefinedFunction (Just (a, v, v'))
+                   }
+     addNewId f fp
+
+process (Defn pos f (Just tt) def) =
+  do let (Forall (Abst [r] ty') Set) = tt
+     ty <- preprocess ty'
+     checkVacuous pos ty
+     tmp <- kindChecking (Forall (abst [r] ty) Set) Set True
+            `catchError` \ e -> throwError $ ErrPos pos e
+     let (Forall (Abst [r'] tk) _) = tmp
+     -- Here we cannot remove vacuousPi because we don't know which one
+     -- will be.
+     (tk', _) <- typeChecking f (Pos pos def) (erasePos tk) True
+     ty' <- kindChecking tk' Set True `catchError` \ e -> throwError $ ErrPos pos (KindErr tk' e)
+     let ty2 = erasePos $ removeVacuousPi ty'
+     (ty2', a) <- typeChecking f (Pos pos def) ty2 True    
+     -- checkVacuous pos ty'
+     let fp = Pkg {classifier = ty2',
+                   identification = DefinedFunction a
+                   }
+     insertNewConst f fp
+
 
 process (Data pos d kd cons) =
   do let constructors = map (\ (_, id, _) -> id) cons
@@ -572,3 +613,10 @@ typeChecking'' vars b exp ty =
 
 proofChecking b exp ty =
   proofCheck b exp ty `catchError` \ e -> throwError $ PfErrWrapper exp e
+
+typeInfering b exp =
+  do (ty', exp') <- typeInfer b exp
+     exp'' <- resolveGoals exp'
+     r <- updateWithSubst exp''
+     ty'' <- resolveGoals ty' >>= updateWithSubst
+     return (unEigen ty'', unEigen r)

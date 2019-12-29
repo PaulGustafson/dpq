@@ -98,9 +98,9 @@ qft_both :: ! (n :: Nat) -> Vec Qubit n -> Vec Qubit n
 qft_both n l = qft_little_headian_rev n $ qft_little_headian n l
 
 qft_both_Box :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n)
-qft_both_Box n = box (Vec Qubit n) $ \ x . qft_both n x
+qft_both_Box n = boxCirc $ \ x . qft_both n x
 
-main :: Circ(Vec Qubit 9, Vec Qubit 9)
+-- main :: Circ(Vec Qubit 9, Vec Qubit 9)
 main = qft_both_Box 9
 
 

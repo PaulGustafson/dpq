@@ -320,5 +320,5 @@ data Decl = Object Position Id
           | ControlDecl Position Id [Exp] Exp
           | ImportDecl Position String
           | OperatorDecl Position String Int String
-
+          | Defn Position Id (Maybe Exp) Exp
 

@@ -349,6 +349,39 @@ resolveDecl scope (C.Def p f ty args def) =
           let res = if null xs then def' else Lam (abst xs def') 
           return (Def p id ty' res, scope')
 
+resolveDecl scope (C.Defn p f [] [] def) =
+  do (id, scope') <- addConst p f Const scope
+     let lscope' = toLScope scope
+     def' <- resolve lscope' def
+     return (Defn p id Nothing def', scope')
+
+resolveDecl scope (C.Defn p f qs args def) =
+  do (id, scope') <- addConst p f Const scope
+     let lscope' = toLScope scope'
+         pi = toPi args (C.Var "#r") 
+         args' = concat $ map (\ x -> case x of
+                                  Left _ -> []
+                                  Right (vs, _) -> vs
+                                  ) args
+         ty = if null args then C.Forall [(["#r"], C.Set)] pi
+              else C.Forall [(["#r"], C.Set)] $ C.Bang $ toForall qs pi 
+     ty' <- resolve lscope' ty
+     lscopeVars lscope' args' $ \ d xs ->
+       do def' <- resolve d def
+          let res = if null xs then def' else Lam (abst xs def') 
+          return (Defn p id (Just ty') res, scope')
+     where toPi [] m = m 
+           toPi ((Left s):xs) m = C.Imply [s] (toPi xs m)
+           toPi ((Right (vs, t)):xs) m =
+             C.Pi vs t (toPi xs m)
+           toForall [] m = m 
+           toForall ((Left s):xs) m = C.Imply [s] (toForall xs m)
+           toForall (Right (vs, t):xs) m =
+             C.Forall [(vs, t)] (toForall xs m)
+           -- toForall (Right (Left (vs, t)):xs) m =
+           --   C.PiImp vs t (toForall xs m)
+
+
 resolveDecl scope (C.Data p d ts vs constrs) =
   do (id, scope') <- addConst p d Base scope
      let tyArgs = map C.Var $ concat $ map fst vs

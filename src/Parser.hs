@@ -164,7 +164,7 @@ decls = do
         <|> classDecl <|> instanceDecl
         <|> controlDecl <|>  gateDecl <|>  objectDecl <|>  dataDecl
         <|> operatorDecl
-        <|> funDecl <?> "top level declaration") 
+        <|> try funDecl <|> funDef <?> "top level declaration") 
   st <- getState
   eof
   return (bs, st)
@@ -337,6 +337,28 @@ funDecl =
      reservedOp "="
      def <- term
      return $ Def (P p) f ty args def
+
+-- | Function definition in the infer mode.
+funDef :: Parser Decl
+funDef =
+  do p <- getPosition 
+     f <- parens operator <|> var
+     qs <- option [] $ try $ 
+             do ans <- many1 (try annotation <|> classExp)
+                reservedOp "."
+                return ans
+     args <- many (try explicitAnnotation <|> classExp)
+     reservedOp "="
+     def <- term
+     return $ Defn (P p) f qs args def
+       where explicitAnnotation =
+               do x <- ann
+                  return $ Right x
+             annotation =
+               do x <- ann <|> impAnn
+                  return $ Right x
+             classExp = parens typeExp >>= \ x -> return $ Left x
+
 
 
 -- | A parser for term, built from the operator table.

@@ -87,7 +87,10 @@ data Decl =
     [(Position, String, -- method name
       [String], 
       Exp) -- method definition
-    ] 
+    ]
+  | Defn Position String [Either Exp ([String], Exp)]
+    [Either Exp ([String], Exp)] Exp -- ^ Infer mode function declaration.
+    
   deriving (Show)
 
 -- | Command line instruction.

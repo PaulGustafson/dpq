@@ -388,6 +388,10 @@ isEigenVar (EigenVar _) = True
 isEigenVar (Pos p e) = isEigenVar e
 isEigenVar _ = False
 
+isConst (Const _) = True
+isConst (Pos p e) = isConst e
+isConst _ = False
+
 isCirc (Wired _) = True
 isCirc (Pos p e) = isCirc e
 isCirc _ = False
