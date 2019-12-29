@@ -20,6 +20,7 @@ data Exp =
   | Bang Exp
   | Circ Exp Exp
   | Pi [String] Exp Exp
+  | PiImp [String] Exp Exp
   | Exists String Exp Exp
   | Forall [([String], Exp)] Exp
   | Lam [String] Exp

@@ -166,7 +166,19 @@ proofInfer False a@(AppDep t1 t2) =
             m' <- betaNormalize (apply [(head xs, t2'')] m) 
             if null (tail xs)
               then return m'
-              else return $ Pi (abst (tail xs) m') ty  
+              else return $ Pi (abst (tail xs) m') ty
+       b@(PiImp bd ty) -> open bd $ \ xs m ->
+         do let isK = isKind ty
+            proofCheck isK t2 ty
+            let vs = S.toList $ getVars NoEigen t2
+                su = zip vs (map EigenVar vs)
+                t2' = apply su t2
+            t2'' <- if isK then return t2' else shape t2'
+            m' <- betaNormalize (apply [(head xs, t2'')] m) 
+            if null (tail xs)
+              then return m'
+              else return $ PiImp (abst (tail xs) m') ty  
+                   
        b -> throwError $ ArrowErr t1 b
 
 proofInfer True a@(AppDep' t1 t2) =
@@ -329,6 +341,9 @@ proofCheck flag a@(LamDict bd) (Imply (t1:ts) t2) = open bd $ \ xs m ->
 
 proofCheck False a@(LamDep bd1) exp@(Pi bd2 ty) =
   handleAbs False LamDep Pi bd1 bd2 ty True
+
+proofCheck False a@(LamDep bd1) exp@(PiImp bd2 ty) =
+  handleAbs False LamDep PiImp bd1 bd2 ty False
 
 proofCheck True a@(LamDep' bd1) exp@(Pi' bd2 ty) =
   handleAbs True LamDep' Pi' bd1 bd2 ty False

@@ -64,27 +64,27 @@ secondLayer n v =
 round1 :: ! (n :: Nat) -> Nat -> Vec Qubit (S (S n)) -> Vec Qubit (S (S n))
 round1 n p v =
   let VCons x xs = v
-      VCons y ys = reverse Qubit (S n) xs
+      VCons y ys = reverse xs
       (y, x) = R p y x
-  in VCons x (reverse Qubit (S n) $ VCons y ys)
+  in VCons x (reverse $ VCons y ys)
 
 round2 :: ! (n :: Nat) -> Nat -> Vec Qubit (S (S n)) -> Vec Qubit (S (S n))
 round2 n p v =
   case v of
     VCons x xs ->
-      let VCons y ys = reverse Qubit (S n) xs
+      let VCons y ys = reverse xs
           (y, x) = R p y x
-      in VCons x (reverse Qubit (S n) $ VCons y ys)
+      in VCons x (reverse $ VCons y ys)
 
 
 round' :: ! (n :: Nat) -> Nat -> Vec Qubit (S (S n)) -> Vec Qubit (S (S n))
 round' n p v =
   case v of
     VCons x xs ->
-      case reverse Qubit (S n) xs of
+      case reverse xs of
        VCons y ys ->
          let (y, x) = R p y x
-         in VCons x (reverse Qubit (S n) $ VCons y ys)
+         in VCons x (reverse $ VCons y ys)
 
 boxSecond :: ! (y :: Nat) -> Nat -> Circ(Vec Qubit (S (S y)), Vec Qubit (S (S y)))
 boxSecond y m = box (Vec Qubit (S (S y))) $ \ x . round1 y m $ secondLayer m x
@@ -96,7 +96,7 @@ secondLayer' m n v =
   let VZ l q r = v
   in case l of
        VNil ->
-         case reverse Qubit m r of
+         case reverse r of
 	   VNil -> VZ VNil q VNil
 	   VCons h xs -> let (q, h) = R n q h
 	                 in VZ (VCons h xs) q VNil

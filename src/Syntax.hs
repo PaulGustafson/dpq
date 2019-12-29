@@ -70,6 +70,7 @@ data Exp =
   | Circ Exp Exp
   | Pi (Bind [Variable] Exp) Exp
   | Pi' (Bind [Variable] Exp) Exp
+  | PiImp (Bind [Variable] Exp) Exp
   | Exists (Bind Variable Exp) Exp
   | Forall (Bind [Variable] Exp) Exp
   | Wired (Bind [Variable] Morphism)
@@ -80,7 +81,7 @@ data Exp =
   | LamDep' (Bind [Variable] Exp)
   | AppType Exp Exp 
   | AppTm Exp Exp  
-  | AppDep Exp Exp 
+  | AppDep Exp Exp
   | AppDep' Exp Exp
   | PlaceHolder
   | Pos Position Exp
@@ -219,6 +220,12 @@ instance Disp Exp where
     open bd $ \ vs b ->
     fsep [parens ((hsep $ map (display flag) vs) <+> text "::" <+> display flag t)
     <+> text "->" , nest 2 $ display flag b]
+
+  display flag (PiImp bd t) =
+    open bd $ \ vs b ->
+    fsep [braces ((hsep $ map (display flag) vs) <+> text "::" <+> display flag t)
+    <+> text "->" , nest 2 $ display flag b]
+    
   display flag (Pi' bd t) =
     open bd $ \ vs b ->
     fsep [parens ((hsep $ map (display flag) vs) <+> text "::" <+> display flag t)

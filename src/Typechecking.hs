@@ -208,6 +208,18 @@ typeCheck True (Pi (Abst xs m) ty) Set =
        mapM_ removeVar xs
        return (Set, res)
 
+typeCheck True (PiImp (Abst xs m) ty) Set = 
+    do (_, tyAnn) <- if isKind ty then typeCheck True ty Sort else typeCheck True ty Set
+       mapM_ (\ x -> addVar x (erasePos tyAnn)) xs
+       let sub = zip xs (map EigenVar xs)
+           m' = apply sub m
+       (_, ann2) <- typeCheck True m' Set
+       ann2' <- updateWithSubst ann2
+       ann2'' <- resolveGoals ann2'
+       let res = PiImp (abst xs ann2'') tyAnn
+       mapM_ removeVar xs
+       return (Set, res)
+
 
 typeCheck True (Forall (Abst xs m) ty) a@(Set) | isKind ty = 
   do (_, tyAnn) <- typeCheck True ty Sort
@@ -289,9 +301,13 @@ typeCheck flag a (Forall (Abst xs m) ty) =
      -- It is necessary to resolve all the goals before going out of
      -- the scope of xs as well.
      ann'' <- resolveGoals ann'
+     mapM_ (checkExplicit ann'') xs
      let res = if isKind ty then (Forall (abst xs $ t') ty, LamType (abst xs $ ann''))
                else (Forall (abst xs $ t') ty, LamTm (abst xs $ ann''))
      return res
+  where checkExplicit ann'' x =
+          when (isExplicit x ann'') $ throwError $ ImplicitVarErr x ann''
+
 
 typeCheck flag (LamDict (Abst xs e)) (Imply bds ty) =
   let lxs = length xs
@@ -402,6 +418,49 @@ typeCheck False c@(Lam bind) t =
                         ann' <- resolveGoals ann1
                         let res = LamDep (abst vs ann') 
                         return (Pi (abst vs t') ty, res)
+         pty@(PiImp bd ty) -> 
+           open bind $ \ xs m -> open bd $ \ ys b ->
+                   if length xs <= length ys then
+                     do let sub1 = zip ys (map EigenVar xs)
+                            b' = apply sub1 b
+                            (vs, rs) = splitAt (length xs) ys
+                            sub2 = zip xs (map EigenVar xs)
+                            m' = apply sub2 m
+                        mapM_ (\ x -> addVar x ty) xs
+                        (t, ann) <- typeCheck False m'
+                                    (if null rs then b' else PiImp (abst rs b') ty)
+                        isP <- isParam ty
+                        when (not isP) $ throwError $ ForallLinearErr ys ty pty
+                        mapM_ removeVar xs
+                        -- Since xs may appear in the type annotation in ann,
+                        -- we have to update ann with current substitution.
+                        -- before going out of the scope of xs. We also have to
+                        -- resolve the current goals because current goals may
+                        -- depend on xs.
+                        ann2 <- updateWithSubst ann
+                        ann' <- resolveGoals ann2
+                        t' <- updateWithSubst t
+                        let res = LamDep (abst xs ann') 
+                            t'' = PiImp (abst xs t') ty
+                        return (t'', res)
+                   else
+                     do let sub1 = zip ys (map EigenVar xs)
+                            b' = apply sub1 b
+                            (vs, rs) = splitAt (length ys) xs
+                            sub2 = zip xs $ take (length ys) (map EigenVar xs)
+                            m' = apply sub2 m
+                        mapM_ (\ x -> addVar x ty) vs
+                        (t, ann) <- typeCheck False
+                                    (if null rs then m' else Lam (abst rs m'))
+                                    b'
+                        isP <- isParam ty
+                        when (not isP) $ throwError $ ForallLinearErr ys ty pty            
+                        mapM_ removeVar vs
+                        ann1 <- updateWithSubst ann
+                        t' <- updateWithSubst t
+                        ann' <- resolveGoals ann1
+                        let res = LamDep (abst vs ann') 
+                        return (PiImp (abst vs t') ty, res)
          b -> throwError $ LamErr c b
 
 typeCheck flag a@(Pack t1 t2) (Exists p ty) =
@@ -870,6 +929,12 @@ addAnn flag e a (Forall bd ty) env | otherwise = open bd $ \ xs t ->
        let a' = foldl AppTm a (map Var xs)
            new = map (\ x -> (x, ty)) xs
        in addAnn flag e a' t (new ++ env)
+
+addAnn flag e a (PiImp bd ty) env = open bd $ \ xs t ->
+       let app = if flag then AppDep' else AppDep
+           a' = foldl app a (map Var xs)
+           new = map (\ x -> (x, ty)) xs
+       in addAnn flag e a' t (new ++ env)          
 
 addAnn flag e a (Imply bds ty) env =
   do ts <- get

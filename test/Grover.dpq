@@ -14,7 +14,7 @@ controlled CZ :: Qubit -> Qubit
 cascade :: ! (n :: Nat) -> Vec Qubit n -> Qubit -> Vec Qubit n ->
                 Vec Qubit n * Vec Qubit n * Qubit
 cascade n a c b =
-  let a1 = reverse Qubit n a
+  let a1 = reverse a
       r = zip a1 b 
       (r1, c') = runState c $ 
         mapM (\ x . let (a, b) = x in

@@ -294,6 +294,12 @@ resolve d (C.Pi vs t1 t2) =
      t2' <- resolve d' t2
      return (Pi (abst xs t2') t1')
 
+resolve d (C.PiImp vs t1 t2) =
+  lscopeVars d vs $ \d' xs -> 
+  do t1' <- resolve d t1
+     t2' <- resolve d' t2
+     return (PiImp (abst xs t2') t1')
+
 resolve d (C.Exists v t1 t2) =
   lscopeVars d [v] $ \d' (x:[]) -> 
   do t1' <- resolve d t1

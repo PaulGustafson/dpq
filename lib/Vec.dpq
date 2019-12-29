@@ -74,15 +74,15 @@ infixl 11 ++
 (++) :: ! forall a (n m :: Nat) . Vec a n  -> Vec a m -> Vec a (add n m)
 (++) = append 
 
-reverseh :: ! (a :: Type) -> (n m :: Nat) -> Vec a n -> Vec a m -> Vec a (add n m)
+reverseh :: ! {a :: Type} -> {n m :: Nat} -> Vec a n -> Vec a m -> Vec a (add n m)
 reverseh a n m l1 l2 =
   case n of
     Z -> case l1 of
            VNil -> l2
     S n' -> case l1 of
              VCons q qs -> 
-    	       subst (\ x . Vec a x) (addS n' m) $ reverseh a n' (S m) qs (VCons q l2)
-
+    	       subst (\ x . Vec a x) (addS n' m) $ reverseh qs (VCons q l2)
+-- a n' (S m)
   -- case n of
   --   Z -> case l1 of
   --          VNil -> l2
@@ -102,9 +102,8 @@ reverseh a n m l1 l2 =
   --            VCons q qs -> 
   --   	       subst (\ x . Vec a x) (addS n' m) $ reverseh a n' (S m) qs (VCons q l2)
 
-reverse :: ! (a :: Type) -> (n :: Nat) -> Vec a n -> Vec a n
-reverse a n l = subst (\ x . Vec a x) (addZ n) $ reverseh a n Z l VNil
-
+reverse :: ! {a :: Type} -> {n :: Nat} -> Vec a n -> Vec a n
+reverse a n l = subst (\ x . Vec a x) (addZ n) $ reverseh l VNil
 
 zipWith :: ! forall a b c (n :: Nat) . !(a -> b -> c) ->
               Vec a n -> Vec b n -> Vec c n

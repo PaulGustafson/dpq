@@ -92,6 +92,12 @@ betaNormalize a@(Pi bd t) =
        t2 <- betaNormalize t'
        return $ Pi (abst xs t2) t1 
 
+betaNormalize a@(PiImp bd t) =
+  open bd $ \ xs t' ->
+    do t1 <- betaNormalize t
+       t2 <- betaNormalize t'
+       return $ PiImp (abst xs t2) t1 
+
 betaNormalize a@(Exists bd t) =
   open bd $ \ xs t' ->
     do t1 <- betaNormalize t
@@ -371,6 +377,7 @@ normalize (Arrow m n) =
 
 normalize a@(Forall _ _) = return a
 normalize a@(Pi _ _) = return a
+normalize a@(PiImp _ _) = return a
 normalize a@(Pi' _ _) = return a
 
 normalize a@(Exists _ _) = return a

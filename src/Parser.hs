@@ -366,6 +366,7 @@ atomExp = wrapPos (
        <|> idiomExp
        <|> nat
        <|> vector
+       <|> implicitType
        <|> existsExp
        <|> piType
        <|> impType
@@ -443,6 +444,16 @@ piType =
                            (reservedOp "->") 
      t <- typeExp
      return $ Pi vs ty t
+
+implicitType =
+  do (vs, ty) <- try $ followedBy (braces $
+                                    do vs <- many1 var
+                                       reservedOp "::"
+                                       ty <- typeExp
+                                       return (vs, ty))
+                           (reservedOp "->") 
+     t <- typeExp
+     return $ PiImp vs ty t
 
 -- | A parser for existential type. 
 existsType =

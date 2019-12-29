@@ -23,7 +23,7 @@ qft_aux l = case l of
 
 -- big-headian QFT: the highest-order bit is at the head of the list.
 qft :: !  (n :: Nat) -> Vec Qubit n -> Vec Qubit n
-qft n l = reverse Qubit n (qft_aux l)
+qft n l = reverse (qft_aux l)
 
 
 -- test1 :: Vec Qubit four
@@ -57,7 +57,7 @@ qft4 = qftBox 4
 
 -- little-headian QFT: the lowest-order bit is at the head of the list.
 qft_little_headian :: ! (n :: Nat) -> Vec Qubit n -> Vec Qubit n
-qft_little_headian n l = reverse Qubit n (qft_aux l)
+qft_little_headian n l = reverse (qft_aux l)
 
 
 qft_little_headian_Box :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n)

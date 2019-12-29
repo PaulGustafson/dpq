@@ -76,6 +76,10 @@ substitute s (Pi bind t) =
   open bind $
   \ ys m -> Pi (abst ys (substitute s m))
            (substitute s t) 
+substitute s (PiImp bind t) =
+  open bind $
+  \ ys m -> PiImp (abst ys (substitute s m))
+           (substitute s t) 
 
 substitute s (Pi' bind t) =
   open bind $

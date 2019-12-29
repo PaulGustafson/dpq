@@ -12,6 +12,9 @@ removeVacuousPi :: Exp -> Exp
 removeVacuousPi (Pos p e) = removeVacuousPi e
 removeVacuousPi (Forall (Abst xs m) ty) =
   Forall (abst xs $ removeVacuousPi m) (removeVacuousPi ty)
+removeVacuousPi (PiImp (Abst xs m) ty) =
+  PiImp (abst xs $ removeVacuousPi m) (removeVacuousPi ty)
+
 removeVacuousPi (Pi (Abst xs m) ty) =
   let fvs = getVars AllowEigen m
       xs' = map (\ x ->
@@ -45,6 +48,12 @@ vacuousForall (Arrow t1 t2) =
 
 vacuousForall (Pi (Abst vs m) ty) | isKind ty = vacuousForall m
 vacuousForall (Pi (Abst vs m) ty) | otherwise = 
+  case vacuousForall ty of
+    Nothing -> vacuousForall m
+    Just p -> Just p
+
+vacuousForall (PiImp (Abst vs m) ty) | isKind ty = vacuousForall m
+vacuousForall (PiImp (Abst vs m) ty) | otherwise = 
   case vacuousForall ty of
     Nothing -> vacuousForall m
     Just p -> Just p
@@ -121,6 +130,11 @@ getVars b (Bang t) = getVars b t
 getVars b (Pi bind t) =
   getVars b t `S.union`
   (open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs)
+
+getVars b (PiImp bind t) =
+  getVars b t `S.union`
+  (open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs)
+  
 getVars b (Pi' bind t) =
   getVars b t `S.union`
   (open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs)  
@@ -244,6 +258,10 @@ flattenArrows (Arrow' t1 t2) =
 flattenArrows (Pi (Abst vs t2) t1) = 
   let (res, h) = flattenArrows t2 in
   (map (\ x -> (Just x, t1)) vs ++ res, h)
+flattenArrows (PiImp (Abst vs t2) t1) = 
+  let (res, h) = flattenArrows t2 in
+  (map (\ x -> (Just x, t1)) vs ++ res, h)
+  
 flattenArrows (Pi' (Abst vs t2) t1) = 
   let (res, h) = flattenArrows t2 in
   (map (\ x -> (Just x, t1)) vs ++ res, h)  
@@ -347,10 +365,12 @@ erasePos (Force' e) = Force' $ erasePos e
 erasePos a@(Wired _) = a 
 erasePos (Circ e1 e2) = Circ (erasePos e1) (erasePos e2)
 erasePos (Pi (Abst vs b) e) = Pi (abst vs (erasePos b)) (erasePos e)
+erasePos (PiImp (Abst vs b) e) = PiImp (abst vs (erasePos b)) (erasePos e)
+
 erasePos (Pi' (Abst vs b) e) = Pi' (abst vs (erasePos b)) (erasePos e)
 erasePos (Exists (Abst vs b) e) = Exists (abst vs (erasePos b)) (erasePos e)
 erasePos (Forall (Abst vs b) e) = Forall (abst vs (erasePos b)) (erasePos e)
-erasePos (Lam (Abst vs b)) = Lam (abst vs (erasePos b)) 
+erasePos (Lam (Abst vs b)) = Lam (abst vs (erasePos b))
 erasePos (Lam' (Abst vs b)) = Lam' (abst vs (erasePos b)) 
 erasePos (LamTm (Abst vs b)) = LamTm (abst vs (erasePos b))
 erasePos (LamDep (Abst vs b)) = LamDep (abst vs (erasePos b)) 
@@ -553,6 +573,12 @@ unEigenBound vars (Pi bd ty) =
        ty' = unEigenBound vars ty
    in Pi (abst xs m') ty'
 
+unEigenBound vars (PiImp bd ty) =
+  open bd $ \ xs m ->
+   let m' = unEigenBound (xs ++ vars) m
+       ty' = unEigenBound vars ty
+   in PiImp (abst xs m') ty'
+
 unEigenBound vars (Pi' bd ty) =
   open bd $ \ xs m ->
    let m' = unEigenBound (xs ++ vars) m
@@ -665,6 +691,9 @@ toBool _ = error "unknown boolean format, bools should be comming from the Prelu
 isExplicit s (App t tm) =
    (isExplicit s t) || (isExplicit s tm)
 
+isExplicit s (Arrow t tm) =
+   (isExplicit s t) || (isExplicit s tm)
+
 isExplicit s (App' t tm) =
    (isExplicit s t) || (isExplicit s tm)
 
@@ -686,6 +715,10 @@ isExplicit s (Lam bind) =
   open bind $
   \ ys m -> isExplicit s m
 
+isExplicit s (LamDict bind) =
+  open bind $
+  \ ys m -> isExplicit s m
+
 isExplicit s (Lam' bind) =
   open bind $
   \ ys m -> isExplicit s m
@@ -704,6 +737,10 @@ isExplicit s (LamDep bind) =
 
 isExplicit s (Pair t tm) =
    (isExplicit s t) || (isExplicit s tm)
+
+isExplicit s (Tensor t tm) =
+   (isExplicit s t) || (isExplicit s tm)
+   
 isExplicit s (Pack t tm) =
    (isExplicit s t) || (isExplicit s tm)
 
@@ -742,6 +779,12 @@ isExplicit s (Pos p e) = isExplicit s e
 isExplicit s (Var x) = s == x 
 isExplicit s (EigenVar x) = s == x 
 isExplicit s Star = False
+isExplicit s Box = False
+isExplicit s UnBox = False
+isExplicit s ExBox = False
+isExplicit s Revert = False
+isExplicit s (Wired _) = False
+
 isExplicit s Unit = False
 isExplicit s Set = False
 isExplicit s (Base _) = False

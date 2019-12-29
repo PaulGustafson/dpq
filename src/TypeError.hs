@@ -60,7 +60,7 @@ data TypeError = Unhandle Exp
                | TensorExpErr Exp Exp
                | NotUnit
                | ImplicitCase Variable Exp
-
+               | ImplicitVarErr Variable Exp
                
 data EvalError = MissBranch Id Exp
                | UndefinedId Id 
@@ -139,11 +139,11 @@ instance Disp TypeError where
 
 
   display flag (ForallLinearErr xs ty exp) =
-    text "irrelavent quantification on linear resource:"$$
+    text "illegal quantification on linear resource:"$$
     nest 2 (hsep $ map (display flag) xs) $$
     text "have a linear type:" $$
     nest 2 (display flag ty) $$
-    text "when kinding:" $$ display flag exp
+    text "when checking:" $$ display flag exp
 
 
   display flag (KArrowErr ty a) =
@@ -371,3 +371,11 @@ instance Disp TypeError where
     text "the irrelavent pattern variable:" <+> dispRaw x $$   
     text "is used explicitly in the annotated program:" $$
     nest 2 (dispRaw ann)
+
+  display flag (ImplicitVarErr x a) =
+    text "the irrelavent variable: "
+    <+> display flag x $$
+    text "is used explicitly in the annotated program:" $$
+    nest 2 (display flag a)
+
+    
