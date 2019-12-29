@@ -1,0 +1,58 @@
+module HexVerbose where
+
+import "lib/Prelude.dpq"
+
+-- This case study show case the use of dependently typed vector zipper.
+
+-- update_focus generates garbage size 1
+-- update_focus :: ! forall (n m :: Nat) . Bool -> Vec Qubit n -> Qubit -> Vec Qubit m ->
+--                      WithGarbage (VecZipper Qubit n m)
+update_focus (n m :: Nat) . (b :: Bool) (l :: Vec Qubit n) (q :: Qubit) (r :: Vec Qubit m) = 
+  let q' = initQubit b in dispose q >> return (VZ l q' r)
+  
+
+-- test_focus generates garbage size 10.
+-- test_focus update the focus of newmap depends on its
+-- neighbors' values.
+-- test_focus :: ! forall (n m :: Nat) .
+--                    VecZipper Qubit n m -> VecZipper Qubit n m -> VecZipper Qubit n m ->
+--                      WithGarbage
+--                         (VecZipper Qubit n m * VecZipper Qubit n m * VecZipper Qubit n m)
+test_focus (n m :: Nat) . (maskmap bitmap newmap :: VecZipper Qubit n m) = 
+  do let VZ maskl ma maskr = maskmap
+         VZ bitl b bitr = bitmap
+         VZ newl o newr = newmap
+         (o1, o2) = copy o
+         (b1, b2) = copy b
+         (ma1, ma2) = copy ma
+         o' = initQubit True
+     r <- [|band [|band (bnot ma1) (bnot b1)|] (bnot o1)|]
+     o'' <- bif r o' o2
+     let newmap' = VZ newl o'' newr
+         bitmap' = VZ bitl b2 bitr
+         maskmap' = VZ maskl ma2 maskr
+     return (maskmap', bitmap', newmap')
+
+-- box_test_focus :: ! (n m :: Nat) ->
+--                        exists y :: Nat .
+--                         Circ(VecZipper Qubit n m * VecZipper Qubit n m *
+--                                        VecZipper Qubit n m,
+--                                         Vec Qubit y *
+--                                          (VecZipper Qubit n m * VecZipper Qubit n m *
+--                                           VecZipper Qubit n m))
+box_test_focus (n m :: Nat) = 
+ box_garbage (VecZipper Qubit n m *
+               VecZipper Qubit n m *
+ 	       VecZipper Qubit n m)
+              (VecZipper Qubit n m *
+               VecZipper Qubit n m *
+ 	       VecZipper Qubit n m) $  
+ 		   uncurry $ uncurry test_focus
+
+-- box_test_focus_t1 :: exists y :: Nat .
+--                         Circ(VecZipper Qubit 9 9 * VecZipper Qubit 9 9 *
+--                                        VecZipper Qubit 9 9,
+--                                         Vec Qubit y *
+--                                          (VecZipper Qubit 9 9 * VecZipper Qubit 9 9 *
+--                                           VecZipper Qubit 9 9))
+box_test_focus_t1 = box_test_focus 9 9
