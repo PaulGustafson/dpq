@@ -479,7 +479,7 @@ typeCheck flag a@(Pack t1 t2) (Exists p ty) =
 typeCheck flag a@(Pair t1 t2) d =
   do sd <- updateWithSubst d
      ns <- newNames ["#unif", "#unif"]
-     case sd of
+     case erasePos sd of
        Tensor ty1 ty2 ->
          do (ty1', t1') <- typeCheck flag t1 ty1
             (ty2', t2') <- typeCheck flag t2 ty2
@@ -552,8 +552,8 @@ typeCheck flag (LetPair m (Abst xs n)) goal =
             let res = LetPair ann (abst xs ann2') 
             return (goal', res)
        Nothing ->
-         do ns <- newNames $ map (\ x -> "#unif") xs
-            freshNames ns $ \ (h:ns) ->
+         do nss <- newNames $ map (\ x -> "#unif") xs
+            freshNames nss $ \ (h:ns) ->
                   do let newTensor = foldl Tensor (Var h) (map Var ns)
                          vars = map Var (h:ns)
                      res <- normalizeUnif at newTensor
@@ -582,16 +582,15 @@ typeCheck flag (LetPat m bd) goal =
           let dt = classifier funPac
           (isSemi, index) <- isSemiSimple kid
           (head, axs, ins, kid') <- extendEnv vs dt (Const kid)
+          inf <- getInfer
           let matchEigen = isEigenVar m
-              isDpm = isSemi || matchEigen
-          when (isSemi && matchEigen) $
-            error "matchEigen and matchEigen cannot be true at the same time."
+              isDpm = (isSemi || matchEigen) && not inf
           unifRes <- patternUnif m isDpm index head t'
           case unifRes of
             Nothing ->
               throwError $ withPosition m (UnifErr head t') 
             Just sub' -> do
-                 sub1 <- if matchEigen 
+                 sub1 <- if matchEigen && not inf
                          then makeSub m sub' $
                               foldl (\ x (Right y) -> App x (EigenVar y)) kid' vs
                          else return sub'
@@ -610,7 +609,6 @@ typeCheck flag (LetPat m bd) goal =
                  -- as the branch is really global!.
                  -- when isDpm $ updateSubst ss
                  -- when (not isDpm) $ updateSubst subb
-
                  mapM removeInst ins
                  let axs' = map (substVar subb) axs
                             -- if isDpm then map (substVar subb) axs else axs
@@ -666,16 +664,16 @@ typeCheck flag a@(Case tm (B brs)) goal =
                   updateCountWith (\ c -> nextCase c kid)
                   (isSemi, index) <- isSemiSimple kid
                   (head, axs, ins, kid') <- extendEnv vs dt (Const kid)
+                  inf <- getInfer
                   let matchEigen = isEigenVar tm
-                      isDpm = isSemi || matchEigen
+                      -- infer mode over-write dependent pattern matching
+                      isDpm = (isSemi || matchEigen) && not inf
                   ss <- getSubst
-                  when (isSemi && matchEigen) $
-                    error "isSemi and matchEigen cannot be true at the same time."
                   unifRes <- patternUnif tm isDpm index head t
                   case unifRes of
                     Nothing -> throwError $ withPosition tm (UnifErr head t) 
                     Just sub' -> do
-                         sub1 <- if matchEigen then
+                         sub1 <- if matchEigen && not inf then
                                       makeSub tm sub' $
                                       foldl (\ x (Right y) -> App x (EigenVar y)) kid' vs
                                  else return sub'

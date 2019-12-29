@@ -20,7 +20,7 @@ data SimulateError =
   NotSupported String
   | AssertionErr Variable Bool Bool
   | WrapGates [Gate] SimulateError
-  
+  deriving Show
 instance Disp Bool where
   display _ True = text "1"
   display _ False = text "0"

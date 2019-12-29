@@ -78,8 +78,8 @@ negateAnd a x y =
 box_negateAnd :: Circ(Qubit * Qubit * Qubit, Qubit * Qubit * Qubit * Qubit * Qubit * Qubit)
 box_negateAnd = box (Qubit * Qubit * Qubit) $ uncurry $ uncurry negateAnd
 
-negateOn2 :: ! (Qubit -> Qubit -> WithGarbage Qubit)
-negateOn2 a x =
+-- negateOn2 :: ! (Qubit -> Qubit -> WithGarbage Qubit)
+negateOn2 (a x :: Qubit) =
   do let (a, x1, x2, z) = negateOn a x
      dispose a
      dispose x1

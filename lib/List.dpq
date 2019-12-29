@@ -53,3 +53,10 @@ lengthL l = case l of
 	      Cons x xs ->
 	        let (xs', n) = lengthL xs in
 		(Cons x xs', S n)
+
+
+lengthL' c . (l :: List c) =
+           case l of
+              Nil -> (Nil, Z) 
+	      Cons x xs -> 
+	        let (xs', n) = lengthL' xs in (Cons x xs', S n)

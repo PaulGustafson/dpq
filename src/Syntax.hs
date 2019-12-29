@@ -90,20 +90,20 @@ data Exp =
 
 -- | Gate <name> <params> <in> <out> <ctrls>
 data Gate = Gate Id [Exp] Exp Exp Exp
-          deriving (Eq, Generic, NominalSupport, NominalShow, Nominal)
+          deriving (Eq, Generic, NominalSupport, NominalShow, Nominal, Show)
 
 type Gates = [Gate]
 
 -- | (a, Cs, b)
 data Morphism = Morphism Exp Gates Exp
-              deriving (Eq, Generic, NominalSupport, NominalShow, Nominal)
+              deriving (Eq, Generic, NominalSupport, NominalShow, Nominal, Show)
 
 data Branches = B [Bind Pattern Exp]
               deriving (Eq, Generic, Show, NominalSupport, NominalShow, Nominal)
 
 -- | patterns bind only term variables
 data Pattern = PApp Id [Either (NoBind Exp) Variable] 
-             deriving (Eq, Generic, NominalShow, NominalSupport, Nominal, Bindable)
+             deriving (Eq, Generic, NominalShow, NominalSupport, Nominal, Bindable, Show)
 
 
 

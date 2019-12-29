@@ -56,19 +56,19 @@ data TypeError = Unhandle Exp
                | TConstrErr Id
                | TyAmbiguous (Maybe Id) Exp               
                | BangErr Exp Exp
-               | PfErrWrapper Exp TypeError
+               | PfErrWrapper Exp TypeError Exp
                | TensorExpErr Exp Exp
                | NotUnit
                | ImplicitCase Variable Exp
                | ImplicitVarErr Variable Exp
-               
+               deriving Show
 data EvalError = MissBranch Id Exp
                | UndefinedId Id 
                | PatternMismatch Pattern Exp
                | TupleMismatch [Variable] Exp
                | ErrWrapper TypeError
                | SimulationErr SimulateError
-                 
+               deriving Show                 
 instance Disp EvalError where
   display flag (MissBranch id e) =
     text "missing branch for:" <+> display flag id $$
@@ -352,6 +352,12 @@ instance Disp TypeError where
     nest 2 (display flag ty) 
 
 
+  display flag (TyAmbiguous (Just f) ty) =
+    text "infer a type that contains free variables:" $$
+    nest 2 (display flag ty) $$
+    text "for the definition:" <+> display flag f
+
+
   display flag (BangErr t b) =
     text "the term:" $$
     nest 2 (display flag t) $$
@@ -378,4 +384,4 @@ instance Disp TypeError where
     text "is used explicitly in the annotated program:" $$
     nest 2 (display flag a)
 
-    
+  display flag a = error $ "from display TypeError:" ++ show a 

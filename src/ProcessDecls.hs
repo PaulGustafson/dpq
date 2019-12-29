@@ -124,24 +124,39 @@ process (Defn pos f Nothing def) =
      addNewId f fp
 
 process (Defn pos f (Just tt) def) =
-  do let (Forall (Abst [r] ty') Set) = tt
-     ty <- preprocess ty'
-     checkVacuous pos ty
-     tmp <- kindChecking (Forall (abst [r] ty) Set) Set True
-            `catchError` \ e -> throwError $ ErrPos pos e
-     let (Forall (Abst [r'] tk) _) = tmp
-     -- Here we cannot remove vacuousPi because we don't know which one
-     -- will be.
-     (tk', _) <- typeChecking f (Pos pos def) (erasePos tk) True
-     ty' <- kindChecking tk' Set True `catchError` \ e -> throwError $ ErrPos pos (KindErr tk' e)
-     let ty2 = erasePos $ removeVacuousPi ty'
-     (ty2', a) <- typeChecking f (Pos pos def) ty2 True    
-     -- checkVacuous pos ty'
-     let fp = Pkg {classifier = ty2',
-                   identification = DefinedFunction a
-                   }
-     insertNewConst f fp
+  do (_, tt') <- typeChecking True tt Set 
+                `catchError` \ e -> throwError $ ErrPos pos e
+     let (Forall (Abst [r] ty') Set) = tt'
+         ty'' = erasePos ty'
+     let info1 = Info { classifier = ty'',
+                        identification = DefinedFunction Nothing}
+     addNewId f info1
+     -- the first check obtain the type information 
+     (tk', def0) <- typeChecking''' False (Pos pos def) ty''
+     -- error $ "infer type:" ++ (show $ dispRaw def0)
+     let tk1 = erasePos $ removeVacuousPi tk' 
+     let fvs = getVars AllowEigen tk1
+     when (not $ S.null fvs) $ throwError $ ErrPos pos $ TyAmbiguous (Just f) tk1
+     checkVacuous pos tk1
+     p <- isParam tk1
+     when (not p && not (isConst def)) $
+       throwError (ErrPos pos $ NotParam (Const f) tk1)
 
+     let info2 = Info { classifier = tk1,
+                        identification = DefinedFunction Nothing}
+     addNewId f info2
+     -- the second check
+     (tk', def') <- typeChecking False (Pos pos def) tk1
+     a' <- erasure def'
+     proofChecking False def' tk1
+     v <- evaluation a'
+     b <- isBasicValue v
+     v' <- if b then typeChecking False v tk1 >>= \ x -> return $ snd x
+           else if isCirc v then return v else return def'
+     let fp = Info {classifier = tk1,
+                   identification = DefinedFunction (Just (def', v, v'))
+                   }
+     addNewId f fp
 
 process (Data pos d kd cons) =
   do let constructors = map (\ (_, id, _) -> id) cons
@@ -595,7 +610,7 @@ typeChecking b exp ty =
      ty'' <- resolveGoals ty' >>= updateWithSubst
      return (unEigen ty'', unEigen r)
 
--- | a version of type checking for elaborateInstance
+-- a version of type checking for elaborateInstance that avoid checking forall param
 typeChecking' b exp ty =
   do setCheckBound False
      (ty', exp') <- typeCheck b exp ty
@@ -604,6 +619,7 @@ typeChecking' b exp ty =
      r <- resolveGoals exp''
      return (unEigen r)
 
+-- a version of typeChecking that uses unEigenBound instead of unEigen
 typeChecking'' vars b exp ty =
   do (ty', exp') <- typeCheck b exp ty
      exp'' <- resolveGoals exp'
@@ -611,8 +627,18 @@ typeChecking'' vars b exp ty =
      ty'' <- resolveGoals ty' >>= updateWithSubst
      return (unEigenBound vars ty'', unEigenBound vars r)
 
+-- a version of typeChecking for infer mode
+typeChecking''' b exp ty =
+  do setInfer True
+     (ty', exp') <- typeCheck b exp ty
+     setInfer False
+     exp'' <- updateWithSubst exp'
+     r <- resolveGoals exp''
+     ty'' <- resolveGoals ty' >>= updateWithSubst
+     return (unEigen ty'', unEigen r)
+
 proofChecking b exp ty =
-  proofCheck b exp ty `catchError` \ e -> throwError $ PfErrWrapper exp e
+  proofCheck b exp ty `catchError` \ e -> throwError $ PfErrWrapper exp e ty
 
 typeInfering b exp =
   do (ty', exp') <- typeInfer b exp

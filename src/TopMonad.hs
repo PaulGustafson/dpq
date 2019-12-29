@@ -49,11 +49,13 @@ instance Disp Error where
                                   (vcat $ map text sources)
   display flag (ParseErr e) = display flag e
   display flag (ScopeErr e) = display flag e
-  display flag (CompileErr (PfErrWrapper a e)) =
+  display flag (CompileErr (PfErrWrapper a e t)) =
     text "proof checking error:" $$
     dispRaw e $$
     text "when checking the following annotated term:" $$
     dispRaw a $$
+    text "against the type:" $$
+    dispRaw t $$
     text "*************************" $$
     text "this is a bug, please send bug report. Thanks!"
     
