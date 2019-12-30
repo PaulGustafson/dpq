@@ -1,0 +1,430 @@
+module Hex2 where
+
+import "lib/Prelude.dpq"
+
+-- This case study show case the use of dependently typed vector zipper.
+
+-- update_focus generates garbage size 1
+update_focus (n m :: Nat) . (b :: Bool) (l :: Vec Qubit n) (q :: Qubit) (r :: Vec Qubit m) =
+  let q' = initQubit b in dispose q >> return (VZ l q' r)
+  
+
+-- test_focus generates garbage size 10.
+-- test_focus update the focus of newmap depends on its
+-- neighbors' values.
+test_focus (n m :: Nat) . (maskmap bitmap newmap :: VecZipper Qubit n m) =
+  do let VZ maskl ma maskr = maskmap
+         VZ bitl b bitr = bitmap
+         VZ newl o newr = newmap
+         (o1, o2) = copy o
+         (b1, b2) = copy b
+         (ma1, ma2) = copy ma
+         o' = initQubit True
+     r <- [|band [|band (bnot ma1) (bnot b1)|] (bnot o1)|]
+     o'' <- bif r o' o2
+     let newmap' = VZ newl o'' newr
+         bitmap' = VZ bitl b2 bitr
+         maskmap' = VZ maskl ma2 maskr
+     return (maskmap', bitmap', newmap')
+  
+-- box_test_focus (n m :: Nat) = 
+--  boxGarbage -- ((Vec Qubit n * Qubit * Vec Qubit m) *
+--             --    (Vec Qubit n * Qubit * Vec Qubit m) *
+--  	    --    (Vec Qubit n * Qubit * Vec Qubit m))
+--             --   ((Vec Qubit n * Qubit * Vec Qubit m) *
+--             --    (Vec Qubit n * Qubit * Vec Qubit m) *
+--  	    --    (Vec Qubit n * Qubit * Vec Qubit m)) 
+--  		   $ uncurry $ uncurry test_focus
+
+-- box_test_focus_t1 = box_test_focus 9 9
+
+-- move the focus *forward*(from left to right) x_max step, apply test_focus on the focus,
+-- then move back to original position. 
+-- test_move_focus :: ! (n m x_max :: Nat) -> (Eq Bool (x_max <= n) True) ->
+--     (Vec Qubit n * Qubit * Vec Qubit m) -> (Vec Qubit n * Qubit * Vec Qubit m) ->
+--     (Vec Qubit n * Qubit * Vec Qubit m) -> WithGarbage (Vec Qubit n * Qubit * Vec Qubit m) 
+test_forward_focus (n m x_max :: Nat) (pf :: Eq Bool (x_max <= n) True)
+  (maskmap bitmap newmap :: VecZipper Qubit n m) =     
+       		    let go_newmap = goForward Qubit n m x_max pf newmap
+  		        go_maskmap = goForward Qubit n m x_max pf maskmap
+  			go_bitmap = goForward Qubit n m x_max pf bitmap
+  		    in do (mask', bit', new') <- test_focus go_maskmap go_bitmap go_newmap
+	                  return (goBackward Qubit n m x_max pf mask',
+                                  goBackward Qubit n m x_max pf bit',
+                                  goBackward Qubit n m x_max pf new'
+                             )
+
+
+box_move (n m x_max :: Nat) (pf :: Eq Bool (x_max <= n) True) =
+  boxGarbage $ uncurry $ uncurry (\ x . test_forward_focus n m x_max pf x) 
+               
+		   
+
+-- move the focus *backward*(from right to left) x_max step, apply test_focus on the focus,
+-- then move forward to original position
+-- test_backward_focus :: ! (n m x_max :: Nat) -> (Eq Bool (x_max <= m) True) ->
+--     (Vec Qubit n * Qubit * Vec Qubit m) -> (Vec Qubit n * Qubit * Vec Qubit m) ->
+--     (Vec Qubit n * Qubit * Vec Qubit m) -> WithGarbage (Vec Qubit n * Qubit * Vec Qubit m) 
+test_backward_focus (n m x_max :: Nat) (pf :: Eq Bool (x_max <= m) True)
+  (maskmap bitmap newmap :: VecZipper Qubit n m) =     
+       		    let go_newmap = moveBackward Qubit n m x_max pf newmap
+  		        go_maskmap = moveBackward Qubit n m x_max pf maskmap
+  			go_bitmap = moveBackward Qubit n m x_max pf bitmap
+  		    in do (mask', bit', new') <- test_focus go_maskmap go_bitmap go_newmap
+	                  return (moveForward Qubit n m x_max pf mask',
+                          moveForward Qubit n m x_max pf bit',
+                          moveForward Qubit n m x_max pf new'
+                          )
+
+-- Do nothing.
+stay_focus (n m x_max :: Nat) (pf :: Eq Bool (x_max <= n) False)
+  (maskmap bitmap newmap :: VecZipper Qubit n m) =
+  withType WithGarbage (VecZipper Qubit n m *
+                        VecZipper Qubit n m *
+                        VecZipper Qubit n m) :
+                         return (maskmap, bitmap, newmap)    
+-- Do nothing.
+stay_focus' (n m x_max :: Nat) (pf :: Eq Bool (x_max <= m) False)
+  (maskmap bitmap newmap :: VecZipper Qubit n m) =
+    withType WithGarbage (VecZipper Qubit n m *
+                        VecZipper Qubit n m *
+                        VecZipper Qubit n m) :
+                         return (maskmap, bitmap, newmap)    
+
+
+-- test_positions may modify bitmap and newmap
+test_positions (n m :: Nat) (x_max :: Nat) (pf :: Eq Bool (x_max > Z) True)
+  (bitmap newmap maskmap :: VecZipper Qubit n m) = 
+  let VZ bl q br = bitmap
+  in do bitmap' <- update_focus True bl q br
+        (maskmap1, bitmap1, newmap1) <- eitherOr (x_max <= n)
+                                         (\ pf . test_forward_focus n m x_max pf)
+                                          (\ pf . stay_focus n m x_max pf) 
+                                              maskmap bitmap' newmap
+        (maskmap2, bitmap2, newmap2) <- eitherOr (x_max <= m)
+                                         (\ pf . test_backward_focus n m x_max pf)
+                                              (\ pf . stay_focus' n m x_max pf) 
+                                                maskmap1 bitmap1 newmap1             
+        let -- new1 :: WithGarbage ((Vec Qubit n * Qubit * Vec Qubit m) *
+            --               (Vec Qubit n * Qubit * Vec Qubit m) *
+            --               (Vec Qubit n * Qubit * Vec Qubit m))
+            -- in a left based zipper, the current position index is m			  
+            new1 = case mod m x_max > Z of
+                        True ->
+                           do (maskmap3, bitmap3, newmap3) <-
+			            eitherOr (1 <= m)
+                                       (\ pf . test_backward_focus n m 1 pf)
+                                       (\ pf . stay_focus' n m 1 pf) 
+                                       maskmap2 bitmap2 newmap2
+                              eitherOr (pred x_max <= n)
+                                   (\ pf . test_forward_focus n m (pred x_max) pf)
+                                   (\ pf . stay_focus n m (pred x_max) pf) 
+                                   maskmap3 bitmap3 newmap3
+                        False -> return (maskmap2, bitmap2, newmap2)          
+            new2 = new1 >>= \ new1 .
+                       let (maskmap4, bitmap4, newmap4) = new1 in
+                       case mod m x_max < pred x_max of
+                          True ->
+                            do (maskmap5, bitmap5, newmap5) <-
+			          eitherOr (1 <= n)
+                                      (\ pf . test_forward_focus n m 1 pf)
+                                      (\ pf . stay_focus n m 1 pf) 
+                                      maskmap4 bitmap4 newmap4
+                               eitherOr (pred x_max <= m)
+                                    (\ pf . test_backward_focus n m (pred x_max) pf)
+                                    (\ pf . stay_focus' n m (pred x_max) pf) 
+                                    maskmap5 bitmap5 newmap5
+
+                          False -> return (maskmap4, bitmap4, newmap4)
+         in do (maskmap6, bitmap6, newmap6) <- new2
+               let VZ a1 a2 a3  = newmap6
+               newmap6' <- (uncurry $ uncurry (\ x . update_focus False x)) (a1, a2, a3)
+               return (bitmap6, newmap6', maskmap6)
+
+box_test_positions (n m x_max :: Nat) (pf :: Eq Bool (x_max > Z) True) =
+  boxGarbage $ uncurry $ uncurry (\ x . test_positions n m x_max pf x) 
+		  
+
+-- box_test_positions_t1 = box_test_positions 9 9 5 refl
+
+while_for :: ! (n m :: Nat) -> (x_max :: Nat) -> Eq Bool (x_max > Z) True ->
+              VecZipper Qubit n m ->
+              VecZipper Qubit n m -> VecZipper Qubit n m ->
+               WithGarbage ((VecZipper Qubit n m) *
+                              (VecZipper Qubit n m) *
+                              (VecZipper Qubit n m)
+                              )
+while_for n m x_max pf bitmap newmap maskmap =
+  case n of
+    Z ->
+      let (newmap1, newmap2) = copy newmap
+          (newmap2, newmap3) = copy newmap2
+          VZ newl2 q2 newr2 = newmap2
+          (bitmap1, bitmap2) = copy bitmap
+      in do (bitmap1', newmap1', maskmap') <- test_positions n m x_max pf bitmap1 newmap1 maskmap
+            (bitmap', newmap') <- bif q2 (bitmap1', newmap1') (bitmap2, newmap3)
+	    dispose newl2
+	    dispose newr2
+            return (bitmap', newmap', maskmap')
+    S n' ->
+      let (newmap1, newmap2) = copy newmap
+          (newmap2, newmap3) = copy newmap2
+          VZ newl2 q2 newr2 = newmap2
+          (bitmap1, bitmap2) = copy bitmap
+      in do (bitmap1', newmap1', maskmap') <- test_positions n m x_max pf bitmap1 newmap1 maskmap
+            (bitmap', newmap') <- bif q2 (bitmap1', newmap1') (bitmap2, newmap3)
+	    dispose newl2
+	    dispose newr2
+            (bitmap'', newmap'', maskmap'') <-
+                while_for n' (S m) x_max pf
+                    (forward bitmap') (forward newmap') (forward maskmap')
+            return (backward bitmap'', backward newmap'', backward maskmap'')
+
+
+box_while_for (n m x_max :: Nat) (pf :: Eq Bool (x_max > Z) True) =
+  boxGarbage $ uncurry $ uncurry (\ x . while_for n m x_max pf x)
+		   
+
+
+-- while :: ! (n :: Nat) -> Nat -> (x_max :: Nat) -> Eq Bool (x_max > Z) True
+--               -> Vec Qubit (S n) -> Vec Qubit (S n) -> Vec Qubit (S n)
+--                -> WithGarbage ((Vec Qubit (S n)) * (Vec Qubit (S n)) * (Vec Qubit (S n)))
+while (n c x_max :: Nat) (pf :: Eq Bool (x_max > Z) True)
+  (bitmap newmap maskmap :: Vec Qubit (S n)) =                 
+  case c of
+    S c' -> let VCons h1 t1  = maskmap
+                VCons b bs = bitmap
+                VCons new news = newmap
+            in
+            do (bit, new, mask) <- while_for n Z x_max pf (VZ bs b VNil) (VZ news new VNil)
+                                       (VZ t1 h1 VNil)
+               let VZ bits bit vn = bit
+                   VZ news' new' vn' = new
+                   VZ masks' mask' vn'' = mask
+                   VNil = vn
+                   VNil = vn'
+                   VNil = vn''
+               in while n c' x_max pf (VCons bit bits) (VCons new' news') (VCons mask' masks')
+    Z -> return (bitmap, newmap, maskmap)           
+
+flood_fill (n :: Nat) (x_max :: Nat) (pf :: Eq Bool (x_max > Z) True)
+  (bitmap maskmap :: Vec Qubit (S n)) = do
+  let newmap = initVec (S n) False
+      counter = S $ div (S n) 4
+  -- swapping position of newmap and bitmap.    
+  while n counter x_max pf newmap bitmap maskmap
+   -- in do r <-  mapM (\ x . let (a, b) = x
+   --                             (b1, b2) = copy b
+   --                             (a1, a2) = copy a
+   --                             (a1, a3) = copy a1
+   --                          in bif a1 (swapGate (a3, b1)) (a2, b2)) $ zip bitmap newmap
+   --       let (bitmap', newmap') = unzip r in
+   --       while n counter x_max pf bitmap' newmap' maskmap
+
+
+-- box_flood_fill (m x_max :: Nat) (pf :: Eq Bool (x_max > Z) True) =
+--   box_garbage $ uncurry (flood_fill m x_max pf)
+
+real_flood_fill (m x_max :: Nat) (pf :: Eq Bool (x_max > Z) True)  = 
+  withoutGarbage (uncurry $ (\ x . flood_fill m x_max pf x)) copy            
+
+real_while (n c x_max :: Nat) (pf :: Eq Bool (x_max > Z) True)  = 
+  withoutGarbage (uncurry $ uncurry $ \ x . while n c x_max pf x) copy            
+
+real_while_for (n m x_max :: Nat) (pf :: Eq Bool (x_max > Z) True)  = 
+  withoutGarbage (uncurry $ uncurry $ \ x . while_for n m x_max pf x) copy            
+
+real_test_positions (n m x_max :: Nat) (pf :: Eq Bool (x_max > Z) True)  = 
+  withoutGarbage (uncurry $ uncurry $ \ x . test_positions n m x_max pf x) copy            
+
+
+
+
+-- Some data about dumping the circuit in text form. 
+-- stack exec dpq hex/Hex2.dpq > dump.txt  992.50s user 156.86s system 195% cpu 9:47.07 total
+-- 635M Jan 31 21:06 dump.txt
+
+-- main :: exists n :: Nat .
+--           Circ(Vec Qubit (S (mul 2 7)) * Vec Qubit (S (mul 2 7)),
+--                Vec Qubit n *
+--                (Vec Qubit (S (mul 2 7)) * Vec Qubit (S (mul 2 7)) * Vec Qubit (S (mul 2 7))))
+-- main :: Nat
+-- main = let {n, _} = box_flood_fill (mul 2 7) 5 refl in n
+-- main = box_flood_fill (mul 9 7) 9 refl
+
+checkwin_red' :: ! (n :: Nat) -> (Vec Qubit n) -> WithGarbage Qubit
+checkwin_red' n v =
+  case v of
+    VNil -> return $ initQubit True 
+    VCons x xs -> do
+      r <- foldM bor x xs
+      bnot r
+
+checkwin_red (m x_max :: Nat) (pf1 :: Eq Bool (x_max > Z) True)
+  (pf2 :: Eq Bool (x_max <= m) True) (redboard :: Vec Qubit (S m)) = do
+  let VCons x xs = redboard
+      VZ begin q res = moveBackward Qubit Z m x_max pf2 (VZ VNil x xs)
+      (begin1, begin2) = copy begin
+      n = minus m x_max
+      tail_blue = initVec n False
+      q' = initQubit False
+      VZ vnr x' xs' = moveForward Qubit Z m x_max pf2 (VZ begin1 q res)
+      VNil = vnr
+      red = VCons x' xs'
+  begin_blue <- mapM bnot begin2
+  let VZ vnb y ys = moveForward Qubit Z m x_max pf2 (VZ begin_blue q' tail_blue)
+      VNil = vnb
+      blue = VCons y ys 
+  (bits, new, mask) <- flood_fill m x_max pf1 blue red
+  let VCons b bs = reverse bits
+      VZ bl bit br = moveBackward Qubit Z m x_max pf2 (VZ VNil b bs)
+  dispose new
+  dispose mask
+  dispose $ VCons bit br
+  checkwin_red' (add x_max Z) bl
+
+
+real_checkwin_red (m x_max :: Nat) (pf1 :: Eq Bool (x_max > Z) True)
+  (pf2 :: Eq Bool (x_max <= m) True) (r :: Qubit) = 
+  withoutGarbage (\ x . checkwin_red m x_max pf1 pf2 x)            
+        (CNot r)
+
+box_checkwin_red (m x_max :: Nat) (pf1 :: Eq Bool (x_max > Z) True)
+  (pf2 :: Eq Bool (x_max <= m) True) = box (Qubit * Vec Qubit (S m)) $ uncurry (\ x . real_checkwin_red m x_max pf1 pf2 x)
+
+-- A thunk of small_board to prevent immediate evaluation.
+small_board (x :: Unit) = box_checkwin_red (mul 2 7) 5 refl refl
+
+test_small_board :: ! (Bool * Vec Bool (S (mul 2 7)) ->
+                        Bool * Vec Bool (S (mul 2 7)))
+test_small_board x = runCirc (small_board ()) x
+
+a_small_board_blue =
+  VCons True $ VCons True $ VCons False $ VCons False $ VCons False
+  $ VCons False $ VCons True $ VCons True $ VCons True $ VCons True
+  $ VCons False $ VCons False $ VCons False $ VCons False $ VCons False VNil
+
+  -- [ True, True , False , False , False
+  -- , False , True , True , True , True
+  -- , False , False , False , False , False]
+
+
+a_small_board_red =
+  VCons False $ VCons True $ VCons False $ VCons True $ VCons False
+  $ VCons False $ VCons True $ VCons True $ VCons True $ VCons False
+  $ VCons True $ VCons True $ VCons True $ VCons True $ VCons False VNil
+
+  -- [ False, True, False, True, False,
+  --  False, True, True, True, False,
+  --  True, True, True, True, False]
+
+-- testWhile :: Vec Bool (S $ mul 2 7) * Vec Bool (S $ mul 2 7) *
+--               Vec Bool (S $ mul 2 7) *
+-- 	      (Vec Bool (S $ mul 2 7) * Vec Bool (S $ mul 2 7) *
+-- 	        Vec Bool (S $ mul 2 7))
+-- testWhile =  runCirc (boxCirc $ real_while (mul 2 7) (S $ S four) 5 refl)
+--                 (makeBools (S $ mul 2 7) False, a_small_board_red, a_small_board_blue)
+
+-- seems like the last element of bitmap and newmap are both flipped.
+{-
+testWhileFor :: Vec Bool ( mul 2 7) * Bool * Vec Bool Z *
+                 (Vec Bool ( mul 2 7) * Bool * Vec Bool Z)
+                  * (Vec Bool ( mul 2 7) * Bool * Vec Bool Z)
+                         *
+                   (Vec Bool ( mul 2 7) * Bool * Vec Bool Z *
+                        (Vec Bool ( mul 2 7) * Bool * Vec Bool Z)
+                         * (Vec Bool ( mul 2 7) * Bool * Vec Bool Z))
+testWhileFor =
+  let VCons r rs = a_small_board_red
+      VCons b bs = a_small_board_blue
+      VCons f fs = makeBools (S $ mul 2 7) False
+      fz :: Vec Bool ( mul 2 7) * Bool * Vec Bool Z
+      fz = (fs, f, VNil)
+      rz :: Vec Bool ( mul 2 7) * Bool * Vec Bool Z
+      rz = (rs, r, VNil)
+      bz :: Vec Bool ( mul 2 7) * Bool * Vec Bool Z
+      bz = (bs, b, VNil)
+  in runCirc (boxCirc $ real_while_for (mul 2 7) Z 5 refl)
+              (fz , rz , bz)  
+
+-- testPositions seems correct. What the hell is happening???
+testPositions :: Vec Bool Z * Bool * Vec Bool (mul 2 7) *
+                 (Vec Bool ( Z) * Bool * Vec Bool (mul 2 7))
+                  * (Vec Bool ( Z) * Bool * Vec Bool (mul 2 7))
+                         *
+                   (Vec Bool (Z) * Bool * Vec Bool (mul 2 7) *
+                        (Vec Bool ( Z) * Bool * Vec Bool (mul 2 7))
+                         * (Vec Bool ( Z) * Bool * Vec Bool (mul 2 7)))
+testPositions =
+  let VCons r rs = a_small_board_red
+      VCons b bs = a_small_board_blue
+      VCons f fs = makeBools (S $ mul 2 7) False
+      fz :: Vec Bool (Z) * Bool * Vec Bool (mul 2 7)
+      fz = goForward' (mul 2 7) (mul 2 7) refl (fs, f, VNil)
+      rz :: Vec Bool (Z) * Bool * Vec Bool (mul 2 7)
+      rz = goForward' (mul 2 7) (mul 2 7) refl (rs, r, VNil)
+      bz :: Vec Bool (Z) * Bool * Vec Bool (mul 2 7)
+      bz = goForward' (mul 2 7) (mul 2 7) refl (bs, b, VNil)
+  in runCirc (boxCirc $ real_test_positions Z  (mul 2 7) 5 refl)
+              (fz , rz , bz)  
+-}
+-- testPositions :: Vec Bool (minus (mul 2 7) 7) * Bool * Vec Bool (add 7 Z) *
+--                  (Vec Bool (minus (mul 2 7) 7) * Bool * Vec Bool (add 7 Z))
+--                   * (Vec Bool (minus (mul 2 7) 7) * Bool * Vec Bool (add 7 Z))
+--                          *
+--                    (Vec Bool (minus (mul 2 7) 7) * Bool * Vec Bool (add 7 Z) *
+--                         (Vec Bool (minus (mul 2 7) 7) * Bool * Vec Bool (add 7 Z))
+--                          * (Vec Bool (minus (mul 2 7) 7) * Bool * Vec Bool (add 7 Z)))
+-- testPositions =
+--   let VCons r rs = a_small_board_red
+--       VCons b bs = a_small_board_blue
+--       VCons f fs = makeBools (S $ mul 2 7) False
+--       fz :: Vec Bool (minus (mul 2 7) 7) * Bool * Vec Bool (add 7 Z)
+--       fz = goForward' (mul 2 7) 7 refl (fs, f, VNil)
+--       rz :: Vec Bool (minus (mul 2 7) 7) * Bool * Vec Bool (add 7 Z)
+--       rz = goForward' (mul 2 7) 7 refl (rs, r, VNil)
+--       bz :: Vec Bool (minus (mul 2 7) 7) * Bool * Vec Bool (add 7 Z)
+--       bz = goForward' (mul 2 7) 7 refl (bs, b, VNil)
+--   in runCirc (boxCirc $ real_test_positions (minus (mul 2 7) 7) (add 7 Z) 5 refl)
+--               (fz , rz , bz)  
+
+
+
+-- testFlood :: Vec Bool (S $ mul 2 7) * Vec Bool (S $ mul 2 7) *
+--               Vec Bool (S $ mul 2 7) * (Vec Bool (S $ mul 2 7)* Vec Bool (S $ mul 2 7))
+-- testFlood =  runCirc (boxCirc $ real_flood_fill (mul 2 7) 5 refl)
+--                 (a_small_board_red, a_small_board_blue)             
+
+-- testFlood = withType Vec Bool (S $ mul 2 7) * Vec Bool (S $ mul 2 7) *
+--                       Vec Bool (S $ mul 2 7) *
+--                        (Vec Bool (S $ mul 2 7) *
+--                          Vec Bool (S $ mul 2 7)) :
+--              runCirc (boxCirc $ real_flood_fill (mul 2 7) 5 refl)
+--                (a_small_board_red, a_small_board_blue)
+
+-- [True,  True, False, False, True,
+--   False, True, False, True, False,
+--    False, True, True, True, False]
+
+-- main = test_small_board (False, a_small_board_red)
+large_board (x :: Unit) = box_checkwin_red (5 @ 7 - 1) 7 refl refl
+large_board' (x :: Unit) = box_checkwin_red (9 @ 7 - 1) 9 refl refl
+-- main = large_board' ()
+-- large_board ()
+-- large_board ()
+
+-- some performance statistics:
+-- 0. box_checkwin_red (mul 2 7 - one) 5 refl refl
+-- 25s, 4% Mem on a 16g desktop
+-- printing circuit 36s, 7%Mem, ~9%
+-- 1. box_checkwin_red (mul 5 7 - one) 7 refl refl 
+-- 5m35s, 6m20s, at least 45%Mem on a 16g desktop
+-- after optimization of linear variable
+-- 4m 5, 66%Mem
+-- printing circuit out of Mem. Hmmm
+
+-- printing the circuit seems to be the bottleneck currently
+-- due to large memory usage.
+-- 2. box_checkwin_red (mul 9 7 - one) 9 refl refl
+-- 25m+ out of memory
+

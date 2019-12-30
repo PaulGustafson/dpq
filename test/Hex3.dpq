@@ -1,0 +1,239 @@
+module Hex3 where
+
+import "lib/Prelude.dpq"
+
+
+-- update_focus generates garbage size 1
+type ZipperMaps :: Nat -> Nat -> Type where
+  ZipperMaps n m = VecZipper Qubit n m * VecZipper Qubit n m * VecZipper Qubit n m
+  
+update_focus (n m :: Nat) (b :: Bool) (input :: VecZipper Qubit n m) =
+  do let (l, q, r) = input
+         q' = initQubit b 
+     dispose q
+     return (l, q', r)
+
+-- test_focus generates garbage size 10
+-- It test the current state, and update the newmap component
+-- according to the test.
+test_focus (n m :: Nat) . (maskmap bitmap newmap :: VecZipper Qubit n m) = do
+  let (maskl, ma, maskr) = maskmap
+      (bitl, b, bitr) = bitmap
+      (newL, o, newR) = newmap
+      (o1, o2) = copy o
+      (b1, b2) = copy b
+      (ma1, ma2) = copy ma
+      o' = initQubit True
+  r <- [| band [|band (bnot ma1) (bnot b1) |] (bnot o1)|]
+  o'' <- bif r o' o2
+  let newmap' = (newL, o'', newR)
+      bitmap' = (bitl, b2, bitr)
+      maskmap' = (maskl, ma2, maskr)
+  return (maskmap', bitmap', newmap')
+
+test_move_focus (n m x_max :: Nat) (pf :: Eq Bool (x_max <= n) True)
+   = update $ \ input . input >>= \ ins . do
+       		    let (maskmap, bitmap, newmap) = ins
+                        go_newmap = goForward Qubit n m x_max pf newmap
+  		        go_maskmap = goForward Qubit n m x_max pf maskmap
+  			go_bitmap = goForward Qubit n m x_max pf bitmap
+  		    (mask', bit', new') <- test_focus go_maskmap go_bitmap go_newmap
+	            return (goBackward Qubit n m x_max pf mask',
+                                  goBackward Qubit n m x_max pf bit',
+                                  goBackward Qubit n m x_max pf new'
+                             )
+
+
+test_move_focus' (n m x_max :: Nat) (pf :: Eq Bool (x_max <= m) True)
+   = update $ \ input . input >>= \ ins . do
+       		    let (maskmap, bitmap, newmap) = ins
+       		        go_newmap = moveBackward Qubit n m x_max pf newmap
+  		        go_maskmap = moveBackward Qubit n m x_max pf maskmap
+  			go_bitmap = moveBackward Qubit n m x_max pf bitmap
+  		    (mask', bit', new') <- test_focus go_maskmap go_bitmap go_newmap
+	            return (moveForward Qubit n m x_max pf mask',
+                          moveForward Qubit n m x_max pf bit',
+                          moveForward Qubit n m x_max pf new'
+                          )
+
+test_positions (n m :: Nat) (x_max :: Nat) (pf :: Eq Bool (x_max > Z) True) =
+  do update $ \ input . do
+         (maskmap, bitmap, newmap) <- input
+         bitmap' <- update_focus n m True bitmap
+         return (maskmap, bitmap', newmap)
+     eitherOr (x_max <= n) (\ pf . test_move_focus n m x_max pf)
+                           (\ pf . update id) 
+     eitherOr (x_max <= m) (\ pf . test_move_focus' n m x_max pf)
+                           (\ pf . update id)
+     let act1 :: State (WithGarbage (ZipperMaps n m)) Unit
+         act1 =
+          case mod n x_max > Z of
+             False -> update id
+             True -> do eitherOr (one <= m) (\ pf . test_move_focus' n m one pf)
+                           (\ pf . update id) 
+                        eitherOr (pred x_max <= n)
+                             (\ pf . test_move_focus n m (pred x_max) pf)
+                             (\ pf . update id)
+         act2 :: State (WithGarbage (ZipperMaps n m)) Unit
+         act2 = case mod n x_max < pred x_max of
+                      False -> update id
+                      True -> do eitherOr (one <= n) (\ pf . test_move_focus n m one pf)
+                                          (\ pf . update id)
+                                 eitherOr (pred x_max <= m)
+                                          (\ pf . test_move_focus' n m (pred x_max) pf)
+                                          (\ pf . update id)
+     act1 >> act2
+     update $ \ input . do                                                              
+              (maskmap, bitmap, newmap) <- input
+              newmap' <- update_focus n m False newmap
+              return (maskmap, bitmap, newmap')              
+         
+
+while_for :: ! (n m :: Nat) -> (x_max :: Nat) -> Eq Bool (x_max > Z) True -> 
+               State (WithGarbage (ZipperMaps n m)) Unit
+while_for n m x_max pf  =
+  case m of
+    Z -> update id
+    S m' -> do
+      test_positions n m x_max pf
+      update $ \ input . do
+         (maskmap, bitmap, newmap) <- input
+         let (newmap1, newmap2) = copy newmap
+             (newl, q, newr) = newmap2
+             (q1, q2) = copy q
+             (bitmap1, bitmap2) = copy bitmap
+         (bitmap', newmap') <- bif q1 (bitmap1, newmap1) (bitmap2, (newl, q2, newr))
+         return (maskmap, bitmap', newmap')
+      update $ \ input . do
+            (maskmap, bitmap, newmap) <- input
+            let input' = return (backward maskmap, backward bitmap, backward newmap)
+                (_, wg) = runState input' $ while_for (S n) m' x_max pf 
+            (maskmap, bitmap, newmap) <- wg
+            return (forward maskmap, forward bitmap, forward newmap)
+
+-- FIXME, when inlining the argument 'st' as an lambda expression,
+-- it raises a bug.
+box_while_for_h (n m x_max :: Nat) (pf :: Eq Bool (x_max > Z) True) =
+\ st :: ZipperMaps n m .
+ snd $ runState (return st) $ while_for n m x_max pf
+
+box_while_for (n m x_max :: Nat) (pf :: Eq Bool (x_max > Z) True) =
+   box_garbage -- ((Vec Qubit n * Qubit * Vec Qubit m) *
+               --  (Vec Qubit n * Qubit * Vec Qubit m) *
+	       --    (Vec Qubit n * Qubit * Vec Qubit m))
+	       --   ((Vec Qubit n * Qubit * Vec Qubit m) *
+               --     (Vec Qubit n * Qubit * Vec Qubit m) *
+               --     (Vec Qubit n * Qubit * Vec Qubit m)) $
+		   $ \ x .  box_while_for_h n m x_max pf x
+
+
+type TripleVec :: (n :: Nat) -> Type where
+  TripleVec n = Vec Qubit n  * Vec Qubit n * Vec Qubit n
+
+-- while :: ! (m :: Nat) -> Nat -> (x_max :: Nat) -> Eq Bool (x_max > Z) True
+--               -> Vec Qubit (S m) -> Vec Qubit (S m) -> Vec Qubit (S m)
+--                -> WithGarbage (TripleVec (S m))
+while (m c x_max :: Nat) (pf :: Eq Bool (x_max > Z) True)
+  (bitmap newmap maskmap :: Vec Qubit (S m)) =                 
+  case c of
+    Z -> return (bitmap, newmap, maskmap)
+    S c' -> do
+            let VCons h1 t1  = maskmap
+                VCons b bs = bitmap
+                VCons new news = newmap
+                init = return ((VNil, h1, t1), (VNil, b, bs), (VNil, new, news))
+                (_, res) = runState init $ while_for Z m x_max pf 
+            (mask, bit, new) <- res
+            let (vn, bit, bits) = bit
+                (vn', new', news') = new
+                (vn'', mask', masks') = mask
+                VNil = vn
+                VNil = vn'
+                VNil = vn''
+            while m c' x_max pf (VCons bit bits) (VCons new' news') (VCons mask' masks')
+               
+
+flood_fill (m :: Nat) (x_max :: Nat) (pf :: Eq Bool (x_max > Z) True)
+  (bitmap maskmap :: Vec Qubit (S m)) = do
+  let newmap = initVec (S m) False
+      counter = S $ fst $ div (S m) four
+  r <-  mapM (\ x . let (a, b) = x
+                        (b1, b2) = copy b
+                        (a1, a2) = copy a
+                        (a1, a3) = copy a1
+                    in bif a1 (b1, a3) (a2, b2)) $ zip bitmap newmap
+  let (bitmap', newmap') = unzip r 
+  while m counter x_max pf bitmap' newmap' maskmap
+
+
+
+box_flood_fill (m x_max :: Nat) (pf :: Eq Bool (x_max > Z) True) =
+  box_garbage
+  -- ((Vec Qubit (S m)) * (Vec Qubit (S m)))
+  --             (TripleVec (S m))
+              $ uncurry (\ x . flood_fill m x_max pf x)
+		   
+
+checkwin_red' :: ! (n :: Nat) -> (Vec Qubit n) -> WithGarbage Qubit
+checkwin_red' n v =
+  case v of
+    VNil -> return $ initQubit True 
+    VCons x xs -> do
+      r <- foldM bor x xs
+      bnot r
+
+checkwin_red (m x_max :: Nat) (pf1 :: Eq Bool (x_max > Z) True)
+  (pf2 :: Eq Bool (x_max <= m) True) (redboard :: Vec Qubit (S m)) = do
+  let VCons x xs = redboard
+      (begin, q, res) = moveBackward Qubit Z m x_max pf2 (VNil, x, xs)
+      (begin1, begin2) = copy begin
+      n = minus m x_max
+      tail_blue = initVec n False
+      q' = initQubit False
+      (vnr, x', xs') = moveForward Qubit Z m x_max pf2 (begin1, q, res)
+      VNil = vnr
+      red = VCons x' xs'
+  begin_blue <- mapM bnot begin2
+  let (vnb, y, ys) = moveForward Qubit Z m x_max pf2 (begin_blue, q', tail_blue)
+      VNil = vnb
+      blue = VCons y ys 
+  (bits, new, mask) <- flood_fill m x_max pf1 blue red
+  let VCons b bs = bits
+      (bl, bit, br) = moveBackward Qubit Z m x_max pf2 (VNil, b , bs)
+  dispose new
+  dispose mask
+  dispose $ VCons bit bl
+  checkwin_red' n br
+
+
+
+real_checkwin_red (m x_max :: Nat) (pf1 :: Eq Bool (x_max > Z) True)
+  (pf2 :: Eq Bool (x_max <= m) True) (r :: Qubit) = 
+  without_garbage (\ x . checkwin_red m x_max pf1 pf2 x)            
+        (CNot r)
+
+box_checkwin_red (m x_max :: Nat) (pf1 :: Eq Bool (x_max > Z) True)
+  (pf2 :: Eq Bool (x_max <= m) True) = box (Qubit * Vec Qubit (S m)) $ uncurry (\ x . real_checkwin_red m x_max pf1 pf2 x)
+
+-- A thunk of small_board to prevent immediate evaluation.
+small_board (x :: Unit) = box_checkwin_red (mul two seven) five refl refl
+
+test_small_board :: ! (Bool * Vec Bool (S (mul two seven)) ->
+                        Bool * Vec Bool (S (mul two seven)))
+test_small_board x = runCirc (small_board ()) x
+
+a_small_board_blue =
+  VCons False $ VCons False $ VCons False $ VCons False $ VCons False
+  $ VCons False $ VCons False $ VCons False $ VCons False $ VCons False
+  $ VCons False $ VCons False $ VCons False $ VCons False $ VCons False VNil
+
+a_small_board_red =
+  VCons True $ VCons True $ VCons True $ VCons True $ VCons True
+  $ VCons True $ VCons True $ VCons True $ VCons True $ VCons True
+  $ VCons True $ VCons True $ VCons True $ VCons True $ VCons True VNil
+
+
+-- main = test_small_board (False, a_small_board_blue)
+
+  
+        
