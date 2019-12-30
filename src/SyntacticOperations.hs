@@ -116,7 +116,10 @@ getVars b (AppDict t t') =
   getVars b t `S.union` getVars b t'    
 getVars b (AppTm t t') =
   getVars b t `S.union` getVars b t'
-  
+
+getVars b (WithType t t') =
+  getVars b t `S.union` getVars b t'
+
 getVars b (Tensor ty tm) =
   getVars b ty `S.union` getVars b tm
 getVars b (Arrow ty tm) =
@@ -348,6 +351,7 @@ erasePos (AppDep e1 e2) = AppDep (erasePos e1) (erasePos e2)
 erasePos (AppDep' e1 e2) = AppDep' (erasePos e1) (erasePos e2)
 erasePos (AppDict e1 e2) = AppDict (erasePos e1) (erasePos e2)
 erasePos (Tensor e1 e2) = Tensor (erasePos e1) (erasePos e2)
+erasePos (WithType e1 e2) = WithType (erasePos e1) (erasePos e2)
 erasePos (Pair e1 e2) = Pair (erasePos e1) (erasePos e2)
 erasePos (Pack e1 e2) = Pack (erasePos e1) (erasePos e2)
 erasePos (Arrow e1 e2) = Arrow (erasePos e1) (erasePos e2)
@@ -422,7 +426,12 @@ unEigenBound vars (App' e1 e2) =
   let e1' = (unEigenBound vars e1)
       e2' = (unEigenBound vars e2)
   in App' e1' e2'
-  
+
+unEigenBound vars (WithType e1 e2) =
+  let e1' = (unEigenBound vars e1)
+      e2' = (unEigenBound vars e2)
+  in WithType e1' e2'
+
 unEigenBound vars (AppType e1 e2) =
   let e1' = (unEigenBound vars e1)
       e2' = (unEigenBound vars e2)
@@ -694,6 +703,9 @@ toBool _ = error "unknown boolean format, bools should be comming from the Prelu
 
 isExplicit s (App t tm) =
    (isExplicit s t) || (isExplicit s tm)
+
+isExplicit s (WithType t tm) =
+  (isExplicit s t) 
 
 isExplicit s (Arrow t tm) =
    (isExplicit s t) || (isExplicit s tm)

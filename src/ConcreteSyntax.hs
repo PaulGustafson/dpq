@@ -36,6 +36,7 @@ data Exp =
   | Case Exp Branches
   | Wild
   | Pos Position Exp
+  | WithAnn Exp Exp
   deriving (Show, Eq)
 
 type Branches = [(String, [Exp], Exp)]

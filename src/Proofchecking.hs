@@ -310,6 +310,12 @@ proofInfer flag a@(Pair t1 t2) =
 proofInfer flag (Pos p e) = 
   proofInfer flag e `catchError` \ e -> throwError $ collapsePos p e
 
+proofInfer flag (WithType a t) =
+  do proofCheck True t Set
+     let t' = toEigen t
+     proofCheck False a t'
+     return t'
+
 proofInfer flag e = throwError $ Unhandle e
 
 proofCheck flag (Pos p e) t = 

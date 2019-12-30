@@ -36,6 +36,7 @@ instance forall a (n :: Nat) . (QuantumOp a, Simple a) => QuantumOp (Vec a n) wh
 	in (VCons x1 xs1, VCons y1 ys1)    
 
 
+
 instance forall a (n :: Nat) . (Equal a, Parameter a) => Equal (Vec a n) where
   (==) l1 l2 =
     case l1 of
@@ -188,6 +189,24 @@ unPack l = let VP n v = l in {n, v}
 simple VecZipper a :: Nat -> Nat -> Type where
   VecZipper a n m = VZ (Vec a n) a (Vec a m)
 
+instance forall a (n m :: Nat) . (QuantumOp a, Simple a) => QuantumOp (VecZipper a n m) where
+  unary g v =
+    let VZ v1 v2 v3 = v in VZ (unary g v1) (unary g v2) (unary g v3)
+  copy l =
+    let VZ v1 v2 v3 = l
+        (a1, a2) = copy v1
+        (b1, b2) = copy v2
+        (c1, c2) = copy v3
+    in (VZ a1 b1 c1, VZ a2 b2 c2)
+
+  cnots l1 l2 =
+    let VZ a1 a2 a3 = l1
+        VZ b1 b2 b3 = l2
+        (a1', b1') = cnots a1 b1
+        (a2', b2') = cnots a2 b2
+        (a3', b3') = cnots a3 b3
+     in (VZ a1' a2' a3', VZ b1' b2' b3')
+        
 forward :: !forall a (n m :: Nat) . VecZipper a (S n) m -> VecZipper a n (S m)
 forward v =
   let VZ l q r = v

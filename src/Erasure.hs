@@ -98,6 +98,8 @@ erasure a@(LamDict (Abst xs m)) =
   do m' <- erasure m
      return $ Lam (abst xs m') 
 
+erasure (WithType ann t) = erasure ann
+
 erasure (LamDep (Abst ys m)) =
   do m' <- erasure m
      return $ Lam (abst ys m') 

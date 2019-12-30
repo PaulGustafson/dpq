@@ -36,6 +36,14 @@ mapM f l =
          xs' <- mapM f xs
 	 return $ VCons x' xs'
 
+foldM :: ! forall a b (m :: Type -> Type) (n :: Nat) .
+           (Monad m) => !(a -> b -> m a) -> a -> Vec b n  -> m a
+foldM f a l =
+  case l of
+    VNil -> return a
+    VCons b bs ->
+      do a <- f a b
+         foldM f a bs
 
 
 revertSimpleFunction :: ! forall b . (a :: Type) -> (Simple a, Simple b) => !(a -> b) -> !(b -> a)
@@ -46,3 +54,4 @@ switch f a = swap $ f (swap a)
 
 boxCirc :: ! {a :: Type} -> forall (b :: Type) . (Simple a, Simple b) => !(a -> b) -> Circ(a, b)
 boxCirc a f = box a f
+

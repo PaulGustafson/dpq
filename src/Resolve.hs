@@ -306,6 +306,11 @@ resolve d (C.Exists v t1 t2) =
      t2' <- resolve d' t2
      return (Exists (abst x t2') t1')
 
+resolve d (C.WithAnn m ty) =
+  do ty' <- resolve d ty
+     m' <- resolve d m
+     return $ WithType m' ty'
+
 resolve d C.Set = return Set
 
 -- | Add a constant to the scope.
@@ -351,7 +356,7 @@ resolveDecl scope (C.Def p f ty args def) =
 
 resolveDecl scope (C.Defn p f [] [] def) =
   do (id, scope') <- addConst p f Const scope
-     let lscope' = toLScope scope
+     let lscope' = toLScope scope'
      def' <- resolve lscope' def
      return (Defn p id Nothing def', scope')
 
