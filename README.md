@@ -3,27 +3,34 @@
 
 
 
-To build dpqi
+Installation
 ============
-Set the environment variable DPQ to the dpq directory.
+
+1. Set the environment variable DPQ.
+-------
+Set the environment variable DPQ to the dpq project directory.
 e.g. add `export DPQ=<path-to-dpq-directory>` to your `.bashrc` file.
 
-Via stack.
+2.1 Install via stack.
 ---------
 `stack install`
 
-Via cabal.
+2.2 Or, Install via cabal (>= 3.0.0.0).
 ---------
-TODO: I have yet to figure out how cabal 3.0 works.
+`cabal v1-sandbox init`
+
+`cabal v1-install --only-dependencies`
+
+`cabal v1-build`
 
 
-For your convenient
-====================
-You may want to add `<path-to-dpqi>` to your `PATH` variable. 
+3. Set the environment variable PATH
+-------------------
+Add `<path-to-dpqi>` to your `PATH` variable. 
 
 
-To use dpq-mode and run dpqi
-============
+4. Enable dpq-mode in emacs
+----------------------------
 add the following to your `.emacs` file
 ```
 (load "<path>/dpq-mode.el")
