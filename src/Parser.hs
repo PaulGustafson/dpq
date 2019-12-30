@@ -390,6 +390,7 @@ atomExp = wrapPos (
        <|> vector
        <|> implicitType
        <|> existsExp
+       <|> withAnn
        <|> piType
        <|> impType
        <|> appExp
@@ -400,6 +401,12 @@ atomExp = wrapPos (
 
 manyLines h p = withPos $ h <*/> p
 
+withAnn =
+  do reserved "withType"
+     ty <- typeExp
+     reservedOp ":"
+     t <- term
+     return $ WithAnn t ty
 
 -- | An expression parser for pattern application. 
 patApp :: Parser Exp

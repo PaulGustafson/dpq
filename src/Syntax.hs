@@ -84,6 +84,7 @@ data Exp =
   | AppDep Exp Exp
   | AppDep' Exp Exp
   | PlaceHolder
+  | WithType Exp Exp
   | Pos Position Exp
   deriving (Eq, Generic, Nominal, NominalShow, NominalSupport, Show)
 
@@ -174,6 +175,10 @@ instance Disp Exp where
   display flag a@(App' t t') =
 --    fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+
+  display flag (WithType m t) =
+    fsep [text "withType" <+> display flag t <+> text ":", display flag m]
+
 
   display flag a@(AppDep t t') =
        fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']

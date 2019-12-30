@@ -164,6 +164,49 @@ instance forall a (n :: Nat) . (BooleanLogic a) => BooleanLogic (Vec a n) where
                rs <- bif r2 xs ys
                return $ VCons r rs
 
+instance forall a (n m :: Nat) . (BooleanLogic a) => BooleanLogic (VecZipper a n m) where
+  band x y =
+   do let VZ x1 x2 x3 = x
+          VZ y1 y2 y3 = y
+      r1 <- band x1 y1
+      r2 <- band x2 y2
+      r3 <- band x3 y3
+      return $ VZ r1 r2 r3
+
+  bor x y =
+   do let VZ x1 x2 x3 = x
+          VZ y1 y2 y3 = y
+      r1 <- bor x1 y1
+      r2 <- bor x2 y2
+      r3 <- bor x3 y3
+      return $ VZ r1 r2 r3
+
+  bxor x y =
+   do let VZ x1 x2 x3 = x
+          VZ y1 y2 y3 = y
+      r1 <- bxor x1 y1
+      r2 <- bxor x2 y2
+      r3 <- bxor x3 y3
+      return $ VZ r1 r2 r3
+
+  bnot x =
+    do let VZ x1 x2 x3 = x 
+       r1 <- bnot x1 
+       r2 <- bnot x2
+       r3 <- bnot x3
+       return $ VZ r1 r2 r3
+
+  bif r b c =
+    let (r1, r2) = copy r
+        (r2, r3) = copy r2
+        VZ b1 b2 b3 = b
+        VZ c1 c2 c3 = c
+    in
+       do rs1 <- bif r1 b1 c1
+          rs2 <- bif r2 b2 c2
+          rs3 <- bif r3 b3 c3
+          return $ VZ rs1 rs2 rs3
+  
 
 run_garbage :: !forall a . WithGarbage a -> (exists n :: Nat . (Vec Qubit n) * a)
 run_garbage comp = let WG x a = comp in let {n, v} = x in {n, (v, a)}
@@ -173,6 +216,10 @@ box_garbage :: ! (a b :: Type) -> (Simple a , Simple b) =>
 box_garbage a b f =
   let {n, circ} = existsBox a (\n . Vec Qubit n * b) (\x . run_garbage (f x))
   in {n, circ}
+
+boxGarbage :: ! {a b :: Type} -> (Simple a , Simple b) =>
+               !(a -> WithGarbage b) -> exists n :: Nat . Circ(a, Vec Qubit n * b)
+boxGarbage a b f = box_garbage a b f
 
 with_computed :: ! forall c .  (a b :: Type) -> (Simple a, Simple b) =>
                        !(a -> exists n :: Nat . Vec Qubit n * b) ->
@@ -191,6 +238,10 @@ without_garbage :: ! forall c . (a b :: Type) -> (Simple a , Simple b) =>
                !(a -> WithGarbage b) -> (b -> c * b) -> (a -> c * a)
 without_garbage a b f g =
    with_computed a b (\ x . run_garbage (f x)) g    
+
+withoutGarbage :: ! forall c . {a b :: Type} -> (Simple a , Simple b) =>
+               !(a -> WithGarbage b) -> (b -> c * b) -> (a -> c * a)
+withoutGarbage a b f g = without_garbage a b f g
 
 with_computed2 :: ! forall c d .  (a b :: Type) -> (Simple a, Simple b) =>
                        !(a -> exists n :: Nat . Vec Qubit n * b) ->

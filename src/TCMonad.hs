@@ -343,6 +343,11 @@ shape a@(App t1 t2) =
      t2' <- shape t2
      return $ App' t1' t2'
 
+shape a@(WithType t1 t2) =
+  do t1' <- shape t1
+     t2' <- shape t2
+     return $ WithType t1' t2'
+
 shape a@(App' t1 t2) =
   case flatten a of
     Just (Right k, _) ->

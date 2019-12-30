@@ -54,6 +54,10 @@ substitute s (Arrow t t') =
   let t1' = substitute s t
       t2' = substitute s t'
   in Arrow t1' t2'
+substitute s (WithType t t') =
+  let t1' = substitute s t
+      t2' = substitute s t'
+  in WithType t1' t2'     
 substitute s (Arrow' t t') =
   let t1' = substitute s t
       t2' = substitute s t'

@@ -134,6 +134,21 @@ typeInfer flag a@(Pair t1 t2) =
      (ty2, ann2) <- typeInfer flag t2
      return (Tensor ty1 ty2, Pair ann1 ann2)
 
+typeInfer flag (WithType a t) =
+  do (_, tAnn1) <- typeCheck True t Set
+     let tAnn' = erasePos (unEigen tAnn1)
+     (_, ann) <- typeCheck False a tAnn' 
+     let tAnn'' = toEigen tAnn'
+     return (tAnn'', WithType ann tAnn'')
+
+
+typeInfer flag a@(Case _ _) = freshNames ["#case"] $ \ [n] ->
+  do (t, ann) <- typeCheck flag a (Var n)
+     return (t, WithType ann t)
+
+  
+
+
 typeInfer flag e = throwError $ Unhandle e
 
 
