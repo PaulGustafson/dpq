@@ -6,38 +6,34 @@
 Installation
 ============
 
-1. Set the environment variable DPQ.
--------
-Set the environment variable DPQ to the dpq project directory.
+
+1. Set the environment variable DPQ to the dpq project directory.
 e.g. add `export DPQ=<path-to-dpq-directory>` to your `.bashrc` file.
 
-2.1 Install via stack.
----------
-`stack install`
 
-2.2 Or, Install via cabal (>= 3.0.0.0).
----------
-`cabal v1-sandbox init`
-
-`cabal v1-install --only-dependencies`
-
-`cabal v1-build`
+2. Install via stack: `stack install`
 
 
-3. Set the environment variable PATH
--------------------
-Add `<path-to-dpqi>` to your `PATH` variable. 
+2. Or install via cabal (>= 3.0.0.0):
+
+   `cabal v1-sandbox init`
+
+   `cabal v1-install --only-dependencies`
+
+   `cabal v1-build`
 
 
-4. Enable dpq-mode in emacs
-----------------------------
-add the following to your `.emacs` file
-```
-(load "<path>/dpq-mode.el")
+3. Add `<path-to-dpqi>` to your `PATH` variable. 
 
-(require 'dpq-mode)
-```
-You should now be able to use `C-c C-l` to type check your dpq file.
+
+4. add the following to your `.emacs` file
+
+   ```
+   (load "<path>/dpq-mode.el")
+
+   (require 'dpq-mode)
+   ```
+   You should now be able to use `C-c C-l` to type check your dpq file.
 
 
 Syntax and examples
@@ -48,7 +44,7 @@ FAQ
 =========
 1. Why `export DPQ="~/dpq"` does not work?
 
-   The '~' symbol in double quotes will not get expanded, so if the dpq installation
+   The '\~' symbol in double quotes will not get expanded, so if the dpq installation
    directory is under you home directory, you may want to use `export DPQ=~/dpq` instead.
 
 2. How does the `import` work? Can I try `import "~/lib/Prelude.dpq"` ?

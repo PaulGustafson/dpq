@@ -45,12 +45,12 @@ dispatch Help =
                ":a <fun-name>           show the annotation of a defined function\n" ++
                ":d <expr>               display a circuit in a previewer\n" ++
                ":e <expr>               display an existential circuit in a previewer\n" ++
-               ":p <expr> \"filename\"    print a circuit to a file\n" ++
+               -- ":p <expr> \"filename\"    print a circuit to a file\n" ++
                ":r                      reload the most recent file, clear circuit state\n" ++
-               ":s                      show the current top-level circuit\n" ++
+               -- ":s                      show the current top-level circuit\n" ++
                ":q                      exit interpreter\n" ++
                ":h                      show this list of commands\n" ++
-               ":g <expr>               gate count" ++
+               -- ":g <expr>               gate count" ++
                "\n" 
 
 
