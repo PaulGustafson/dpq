@@ -31,9 +31,8 @@ main = do
        dispatch (Load True $ p </> "test/Hex.dpq")
        dispatch (Load True $ p </> "test/Hex0.dpq")
        dispatch (Load True $ p </> "test/HexVerbose.dpq")
-       dispatch (Load True $ p </> "hex/Hex2.dpq")
-       -- dispatch (Load True $ p </> "hex/Hex3.dpq")
-       -- dispatch (Load True $ p </> "hex/Hex4.dpq")
+       dispatch (Load True $ p </> "test/Hex2.dpq")
+       dispatch (Load True $ p </> "test/Hex3.dpq")
        return () 
    where error_handler e = 
           do top_display_error e
