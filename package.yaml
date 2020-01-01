@@ -48,6 +48,16 @@ executables:
     dependencies:
     - dpq
 
+  dpq:
+    main:                Main.hs
+    source-dirs:         executable
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - dpq
+
 tests:
   dpq-test:
     main:                Spec.hs

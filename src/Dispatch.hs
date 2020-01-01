@@ -45,7 +45,7 @@ dispatch Help =
                ":a <fun-name>           show the annotation of a defined function\n" ++
                ":d <expr>               display a circuit in a previewer\n" ++
                ":e <expr>               display an existential circuit in a previewer\n" ++
-               -- ":p <expr> \"filename\"    print a circuit to a file\n" ++
+               ":p <expr> \"filename\"    print a circuit to a file\n" ++
                ":r                      reload the most recent file, clear circuit state\n" ++
                -- ":s                      show the current top-level circuit\n" ++
                ":q                      exit interpreter\n" ++
@@ -105,6 +105,26 @@ dispatch (Display e) =
             liftIO $ system_pdf_viewer 100 pdffile
             liftIO $ removeFile pdffile            
             return True
+       ty -> 
+         do liftIO $ print (text "not a circuit")
+            return True
+
+dispatch (Print e file) =
+  do e' <- topResolve e
+     (t', et') <- topTypeInfer e'
+     et <- tcTop $ erasure et'
+     case t' of
+       A.Circ _ _ ->
+         do res <- tcTop $ evaluation et
+            (ioTop $ printCirc res file)
+            return True
+       A.Exists (Abst n (A.Circ _ _)) _ ->
+         do res <- tcTop $ evaluation et
+            case res of
+              A.Pair n circ -> 
+                do -- liftIO $ print (text "input size:" $$ disp n)
+                   liftIO $ printCirc circ file
+                   return True
        ty -> 
          do liftIO $ print (text "not a circuit")
             return True
@@ -176,10 +196,20 @@ dispatch (Load verbose file) =
      putPState pst'
      decls' <- resolution decls
      tcTop $ mapM process decls'
+     installMain
      ioTop $ hClose h
      when verbose $ liftIO $ putStrLn ("loaded: "++ takeFileName file)
      return True
        where
+         installMain =
+           do st <- getInterpreterState
+              let cxt = context st
+              case Map.lookup (Id "main") cxt of
+                Nothing -> return ()
+                Just info ->
+                  let DefinedFunction (Just (_,v,_)) = identification info
+                      t = classifier info
+                  in putMain v t
          resolution [] = return []
          resolution (d:ds) =
            do sc <- getScope

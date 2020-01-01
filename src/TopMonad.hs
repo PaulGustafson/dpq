@@ -313,3 +313,11 @@ getCurrentImported =
      let intp = interpreterstate s
      return (importedFiles intp)
 
+getMain = do
+  s <- getInterpreterState
+  return (mainExp s)
+
+putMain v t = do
+  s <- getInterpreterState
+  let s' = s {mainExp = Just (v, t)}
+  putInterpreterState s'

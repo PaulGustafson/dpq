@@ -11,7 +11,7 @@ Installation
 e.g. add `export DPQ=<path-to-dpq-directory>` to your `.bashrc` file.
 
 
-2. Install via stack: `stack install`
+2. Install via stack: `stack install`. 
 
 
 2. Or install via cabal (>= 3.0.0.0):
@@ -22,8 +22,8 @@ e.g. add `export DPQ=<path-to-dpq-directory>` to your `.bashrc` file.
 
    `cabal v1-build`
 
-
-3. Add `<path-to-dpqi>` to your `PATH` variable. 
+3. Once 2 is done, you should have two executables, i.e., `dpq` and `dpqi` somewhere in
+   you computer. Add `<path-to-dpqi>, <path-to-dpq>` to your `PATH` variable. 
 
 
 4. add the following to your `.emacs` file
@@ -35,6 +35,14 @@ e.g. add `export DPQ=<path-to-dpq-directory>` to your `.bashrc` file.
    ```
    You should now be able to use `C-c C-l` to type check your dpq file.
 
+Upgrade dpq
+===========
+Assuming you have managed to install dpqi. run `git pull` first, then redo the second
+step in the installation guide.
+
+Using dpq executable
+===========
+In command line, run `dpq` to see further instructions. 
 
 Syntax and examples
 =================

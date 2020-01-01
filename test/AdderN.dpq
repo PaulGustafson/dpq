@@ -40,11 +40,11 @@ nAdderRev n = box (Qubit * Vec Qubit n * Vec Qubit n) $ \ x .
   in c x
 
 
-nAdderRev_test1 :: Circ(Qubit * Vec Qubit 4 * Vec Qubit 4,
-                                   Vec Qubit 4 * Qubit *
-				     (Qubit * Vec Qubit 4 * Vec Qubit 4))
+-- nAdderRev_test1 :: Circ(Qubit * Vec Qubit 4 * Vec Qubit 4,
+--                                    -- Vec Qubit 4 * Qubit *
+-- 				   --   (Qubit * Vec Qubit 4 * Vec Qubit 4))
 nAdderRev_test1 = nAdderRev 4
-
+main = nAdderRev_test1
 -- nAdderRev_test2 = nAdderRev nine
 
 adding ::  Bool * Vec Bool 4 * Vec Bool 4
@@ -79,7 +79,7 @@ res = fst $ fst testAdd
 -- (binaryToNat res)
 
 -- use the adder's result to construct circuits
-resCirc :: Circ(Vec Qubit 4, Vec Qubit 4)
+--  :: Circ(Vec Qubit 4, Vec Qubit 4)
 resCirc = idCirc (binaryToNat res)
 
 -- res2 :: Bool
