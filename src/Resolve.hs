@@ -360,7 +360,7 @@ resolveDecl scope (C.Defn p f [] [] def) =
      def' <- resolve lscope' def
      return (Defn p id Nothing def', scope')
 
-resolveDecl scope (C.Defn p f qs args def) =
+resolveDecl scope (C.Defn p f qs args def) | not $ null args =
   do (id, scope') <- addConst p f Const scope
      let lscope' = toLScope scope'
          pi = toPi args (C.Var "#r") 
@@ -368,8 +368,7 @@ resolveDecl scope (C.Defn p f qs args def) =
                                   Left _ -> []
                                   Right (vs, _) -> vs
                                   ) args
-         ty = if null args then C.Forall [(["#r"], C.Set)] pi
-              else C.Forall [(["#r"], C.Set)] $ C.Bang $ toForall qs pi 
+         ty = C.Forall [(["#r"], C.Set)] $ C.Bang $ toForall qs pi 
      ty' <- resolve lscope' ty
      lscopeVars lscope' args' $ \ d xs ->
        do def' <- resolve d def
