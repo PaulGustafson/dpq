@@ -12,6 +12,16 @@ toExist a l = case l of
 	          let {n, vs} = toExist a xs in
 		   {S n, VCons x vs}
 
+-- toExist' :: ! (a :: Type) -> List a -> exists n :: Nat . Vec a n
+-- toExist' a l = case l of
+--                 Nil -> {Z , VNil}
+-- 	        Cons x xs ->
+-- 	          let {n, vs} = toExist a xs in
+-- 		  case n of
+-- 		    Z -> vs
+		    -- {Z, vs}
+	            -- S n' -> {S n, vs}
+
 
 mapHadarmad :: ! (Unit -> exists n :: Nat . Vec Qubit n)
 mapHadarmad x = toExist Qubit $ Cons (initQubit True) (Cons (initQubit False) Nil)

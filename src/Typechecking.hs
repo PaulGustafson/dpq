@@ -542,7 +542,8 @@ typeCheck flag (LetEx m bd) goal =
             open p $ \ x1 b' ->
            do addVar x t1
               addVar y (apply [(x1, EigenVar x)] b')
-              (goal', ann2) <- typeCheck flag b goal
+              let b'' = apply [(x, EigenVar x)] b
+              (goal', ann2) <- typeCheck flag b'' goal
               ann2' <- updateWithSubst ann2
               ann3 <- resolveGoals ann2'
               checkUsage y b

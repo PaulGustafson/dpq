@@ -405,7 +405,7 @@ proofCheck flag (LetEx m bd) goal = open bd $ \ (x, y) t ->
          do addVar x t1
             let t2' = apply [(z, EigenVar x)] t2
             addVar y t2'
-            proofCheck flag t goal
+            proofCheck flag (apply [(x, EigenVar x)] t) goal
             when (not flag) $ checkUsage x t >> checkUsage y t 
             removeVar x
             removeVar y
