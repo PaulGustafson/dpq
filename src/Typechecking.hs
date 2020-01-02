@@ -597,10 +597,11 @@ typeCheck flag (LetPat m bd) goal =
        do funPac <- lookupId kid
           let dt = classifier funPac
           (isSemi, index) <- isSemiSimple kid
-          (head, axs, ins, kid') <- extendEnv vs dt (Const kid)
+          (head, axs, ins, kid', eigen) <- extendEnv vs dt (Const kid)
           inf <- getInfer
           let matchEigen = isEigenVar m
               isDpm = (isSemi || matchEigen) && not inf
+              eSub = map (\ x -> (x, EigenVar x)) eigen
           unifRes <- patternUnif m isDpm index head t'
           case unifRes of
             Nothing ->
@@ -613,7 +614,8 @@ typeCheck flag (LetPat m bd) goal =
                  let sub'' = sub1 `mergeSub` ss
                  updateSubst sub''
                  let goal' = substitute sub'' goal
-                 (goal'', ann2) <- typeCheck flag n goal'
+                     n' = apply eSub n
+                 (goal'', ann2) <- typeCheck flag n' goal'
                  subb <- getSubst
                  mapM (\ (Right v) -> checkUsage v n >>= \ r -> (return (v, r))) vs
                  mapM_ (\ (Right v) -> removeVar v) vs
@@ -679,9 +681,10 @@ typeCheck flag a@(Case tm (B brs)) goal =
                   let dt = classifier funPac
                   updateCountWith (\ c -> nextCase c kid)
                   (isSemi, index) <- isSemiSimple kid
-                  (head, axs, ins, kid') <- extendEnv vs dt (Const kid)
+                  (head, axs, ins, kid', eigen) <- extendEnv vs dt (Const kid)
                   inf <- getInfer
                   let matchEigen = isEigenVar tm
+                      eSub = map (\ x -> (x, EigenVar x)) eigen
                       -- infer mode over-write dependent pattern matching
                       isDpm = (isSemi || matchEigen) && not inf
                   ss <- getSubst
@@ -696,8 +699,9 @@ typeCheck flag a@(Case tm (B brs)) goal =
                          let sub'' = sub1 `mergeSub` ss
                          updateSubst sub''
                          -- We use special substitution for goal
-                         let goal' = substitute sub'' goal 
-                         (goal'', ann2) <- typeCheck flag m goal'
+                         let goal' = substitute sub'' goal
+                             m' = apply eSub m
+                         (goal'', ann2) <- typeCheck flag m' goal'
                          subb <- getSubst 
                          mapM (\ (Right v) -> checkUsage v m >>=
                                                           \ r -> return (v, r)) vs
@@ -819,19 +823,19 @@ extendEnv xs (Forall bind ty) kid | isKind ty =
       \ ys t' ->
       do mapM_ (\ x -> addVar x ty) ys
          let kid' = foldl AppType kid (map Var ys)
-         (h, vs, ins, kid'') <- extendEnv xs t' kid'
+         (h, vs, ins, kid'', eigen) <- extendEnv xs t' kid'
          let vs' = map Right ys ++ vs
-         return (h, vs', ins, kid'')
+         return (h, vs', ins, kid'', eigen)
 
 extendEnv xs (Forall bind ty) kid | otherwise =
   open bind $
       \ ys t' ->
       do mapM_ (\ x -> addVar x ty) ys
          let kid' = foldl AppTm kid (map Var ys)
-         (h, vs, ins, kid'') <- extendEnv xs t' kid'
+         (h, vs, ins, kid'', eigen) <- extendEnv xs t' kid'
          let vs' = (map Right ys)++vs
                -- if isSemi then (map Right ys)++vs else vs
-         return (h, vs', ins, kid'')
+         return (h, vs', ins, kid'', eigen)
 
 extendEnv xs (Imply bds ty) kid =
   do let ns1 = take (length bds) (repeat "#inst")
@@ -839,15 +843,15 @@ extendEnv xs (Imply bds ty) kid =
      freshNames ns $ \ ns ->
        do mapM_ (\ (x, y) -> insertLocalInst x y) (zip ns bds)
           let kid' = foldl AppDict kid (map Var ns)
-          (h, vs, ins, kid'') <- extendEnv xs ty kid'
-          return (h, (map Right ns)++vs, ns++ins, kid'')
+          (h, vs, ins, kid'', eigen) <- extendEnv xs ty kid'
+          return (h, (map Right ns)++vs, ns++ins, kid'', eigen)
 
-extendEnv [] t kid = return (t, [], [], kid)
+extendEnv [] t kid = return (t, [], [], kid, [])
 
 extendEnv (Right x:xs) (Arrow t1 t2) kid =
   do addVar x t1
-     (h, ys, ins, kid') <- extendEnv xs t2 kid
-     return (h,  Right x : ys, ins, kid')
+     (h, ys, ins, kid', eigen) <- extendEnv xs t2 kid
+     return (h,  Right x : ys, ins, kid', eigen)
 
 extendEnv (Right x : xs) (Pi bind ty) kid
   | not (isKind ty) =
@@ -856,10 +860,10 @@ extendEnv (Right x : xs) (Pi bind ty) kid
            t'' = apply [(y , EigenVar x)] t'  -- note that Pi is existential
        addVar x ty
        if null (tail ys)
-         then do (h, ys, ins, kid') <- extendEnv xs t'' kid
-                 return (h, (Right x : ys), ins, kid')
-         else do (h, ys, ins, kid') <- extendEnv xs (Pi (abst (tail ys) t'') ty) kid
-                 return (h, (Right x : ys), ins, kid')
+         then do (h, ys, ins, kid', eigen) <- extendEnv xs t'' kid
+                 return (h, (Right x : ys), ins, kid', x:eigen)
+         else do (h, ys, ins, kid', eigen) <- extendEnv xs (Pi (abst (tail ys) t'') ty) kid
+                 return (h, (Right x : ys), ins, kid', x:eigen)
 
      
 extendEnv a b kid = throwError $ ExtendEnvErr a b

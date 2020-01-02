@@ -417,9 +417,10 @@ proofCheck flag (LetPat m bd) goal  = open bd $ \ (PApp kid args) n ->
      funPac <- lookupId kid
      let dt = classifier funPac
      (isSemi, index) <- isSemiSimple kid
-     (head, vs, kid') <- inst dt args (Const kid)
+     (head, vs, kid', eigen) <- inst dt args (Const kid)
      -- tt' <- normalize tt
      let matchEigen = isEigenVar m
+         eSub = map (\ x -> (x, EigenVar x)) eigen
          isDpm = isSemi || matchEigen
      unifRes <- dependentUnif index isDpm head tt
      ss <- getSubst
@@ -437,7 +438,8 @@ proofCheck flag (LetPat m bd) goal  = open bd $ \ (PApp kid args) n ->
             let sub'' = sub1 `mergeSub` ss
             updateSubst sub''
             let goal' = substitute sub'' goal
-            proofCheck flag n goal'
+                n' = apply eSub n
+            proofCheck flag n' goal'
             mapM_ (\ v ->
                     case v of
                       Right x ->
@@ -475,8 +477,9 @@ proofCheck flag a@(Case tm (B brs)) goal =
              let dt = classifier funPac
              updateCountWith (\ x -> nextCase x kid)
              (isSemi, index) <- isSemiSimple kid
-             (head, vs, kid') <- inst dt args (Const kid)
+             (head, vs, kid', eigen) <- inst dt args (Const kid)
              let matchEigen = isEigenVar tm
+                 eSub = map (\ x -> (x, EigenVar x)) eigen
                  isDpm = isSemi || matchEigen
              ss <- getSubst
              unifRes <- dependentUnif index isDpm head t
@@ -495,7 +498,8 @@ proofCheck flag a@(Case tm (B brs)) goal =
                  let sub'' = sub1 `mergeSub` ss
                  updateSubst sub''
                  let goal' = substitute sub'' goal
-                 proofCheck flag m goal'
+                     m' = apply eSub m
+                 proofCheck flag m' goal'
                  mapM_ (\ v ->
                          case v of
                            Right x ->
@@ -584,29 +588,29 @@ handleAbs flag lam prefix bd1 bd2 ty fl =
 
 inst (Arrow t1 t2) (Right x : xs) kid =
   do addVar x t1
-     (h, vs, kid') <- inst t2 xs kid
-     return (h, Right x : vs, kid')
+     (h, vs, kid', eigen) <- inst t2 xs kid
+     return (h, Right x : vs, kid', eigen)
 
 inst (Imply [t1] t2) (Right x : xs) kid =
   do addVar x t1
-     (h, vs, kid') <- inst t2 xs kid
-     return (h, Right x : vs, kid')
+     (h, vs, kid', eigen) <- inst t2 xs kid
+     return (h, Right x : vs, kid', eigen)
 
 inst (Imply (t1:ts) t2) (Right x : xs) kid =
   do addVar x t1
-     (h, vs, kid') <- inst (Imply ts t2) xs kid
-     return (h, Right x : vs, kid')
+     (h, vs, kid', eigen) <- inst (Imply ts t2) xs kid
+     return (h, Right x : vs, kid', eigen)
 
 inst (Pi bd t) (Right x:xs) kid | not (isKind t) = open bd $ \ ys t' ->
   do let y = head ys
          t'' = apply [(y, EigenVar x)] t' 
      if null (tail ys)
        then do addVar x t
-               (h, xs', kid') <- inst t'' xs kid 
-               return (h, Right x:xs', kid')
+               (h, xs', kid', eigen) <- inst t'' xs kid 
+               return (h, Right x:xs', kid', x:eigen)
        else do addVar x t
-               (h, xs', kid') <- inst (Pi (abst (tail ys) t'') t) xs kid
-               return (h, Right x:xs', kid')
+               (h, xs', kid', eigen) <- inst (Pi (abst (tail ys) t'') t) xs kid
+               return (h, Right x:xs', kid', x:eigen)
 
 -- inst isSemi (Forall bd ty) xs kid | isKind ty = open bd $ \ ys t' -> 
 --   do mapM_ (\ x -> addVar x ty) ys
@@ -627,11 +631,11 @@ inst (Forall bd t) (Right x:xs) kid = open bd $ \ ys t' ->
          t'' = apply [(y, EigenVar x)] t'
      if null (tail ys)
        then do addVar x t
-               (h, xs', kid') <- inst t'' xs kid
-               return (h, Right x:xs', kid')
+               (h, xs', kid', eigen) <- inst t'' xs kid
+               return (h, Right x:xs', kid', eigen)
        else do addVar x t
-               (h, xs', kid') <- inst (Forall (abst (tail ys) t'') t) xs kid
-               return (h, Right x:xs', kid')
+               (h, xs', kid', eigen) <- inst (Forall (abst (tail ys) t'') t) xs kid
+               return (h, Right x:xs', kid', eigen)
 
 inst (Forall bd t) (Left (NoBind x):xs) kid = open bd $ \ ys t' ->
   do let y = head ys
@@ -641,10 +645,10 @@ inst (Forall bd t) (Left (NoBind x):xs) kid = open bd $ \ ys t' ->
          x' = apply sub x
          t'' = apply [(y, x')] t' 
      if null (tail ys)
-       then do (h, xs', kid') <- inst t'' xs kid
-               return (h, Left (NoBind x'):xs', kid')
-       else do (h, xs', kid') <- inst (Forall (abst (tail ys) t'') t) xs kid
-               return (h, Left (NoBind x'):xs', kid')
+       then do (h, xs', kid', eigen) <- inst t'' xs kid
+               return (h, Left (NoBind x'):xs', kid', eigen)
+       else do (h, xs', kid', eigen) <- inst (Forall (abst (tail ys) t'') t) xs kid
+               return (h, Left (NoBind x'):xs', kid', eigen)
 
-inst t [] kid = return (t, [], kid)            
+inst t [] kid = return (t, [], kid, [])            
 -- inst flag a b kid = throwError $ InstEnvErr a b
