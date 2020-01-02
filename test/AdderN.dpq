@@ -39,6 +39,16 @@ nAdderRev n = box (Qubit * Vec Qubit n * Vec Qubit n) $ \ x .
             copy 
   in c x
 
+-- nAdderRev :: ! (n :: Nat) -> Circ(Qubit * Vec Qubit n * Vec Qubit n,
+--                                    Vec Qubit n * Qubit *
+-- 				     (Qubit * Vec Qubit n * Vec Qubit n))
+
+nAdderRev' (n :: Nat) = boxCirc $ \ x .
+  let c = withoutGarbage
+            (\ x . let (carry_in, a, b) = x in nAdder n carry_in a b) 
+            copy 
+  in c x
+
 
 -- nAdderRev_test1 :: Circ(Qubit * Vec Qubit 4 * Vec Qubit 4,
 --                                    -- Vec Qubit 4 * Qubit *

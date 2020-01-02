@@ -347,7 +347,8 @@ funDef =
              do ans <- many1 (try annotation <|> classExp)
                 reservedOp "."
                 return ans
-     args <- many (try explicitAnnotation <|> classExp)
+     args <- if null qs then many (try explicitAnnotation <|> classExp)
+             else many1 (try explicitAnnotation <|> classExp)
      reservedOp "="
      def <- term
      return $ Defn (P p) f qs args def
