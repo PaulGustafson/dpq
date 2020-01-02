@@ -885,6 +885,7 @@ handleTypeApp ann t' t1 t2 =
            let k2 = if null (tail vs) then b''
                       else Pi (abst (tail vs) b'') ty
            return (k2, App' ann ann2)
+           
     a -> throwError $ KAppErr t1 (App t1 t2) a  
 
 -- | The handleTermApp function produces
