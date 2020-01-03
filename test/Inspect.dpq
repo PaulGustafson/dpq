@@ -1,0 +1,30 @@
+module Inspect where
+
+import "lib/Prelude.dpq"
+
+-- data Singleton {a} {A : Set a} (x : A) : Set a where
+--   _with≡_ : (y : A) → x ≡ y → Singleton x
+
+-- inspect : ∀ {a} {A : Set a} (x : A) → Singleton x
+-- inspect x = x with≡ refl
+
+-- filter : {A : Set} → (A → Bool) → List A → List A
+-- filter p [] = []
+-- filter p (x ∷ xs) with inspect (p x)
+-- ...                  | true  with≡ eq = {! eq : p x ≡ true !}
+-- ...                  | false with≡ eq = {! eq : p x ≡ false !}
+
+data (Parameter a) => Singleton a (x :: a) = WithEq (y :: a) (Eq a x y)
+
+inspect a (Parameter a) . (x :: a) = WithEq x refl
+
+filter :: ! forall a . (Parameter a) => !(a -> Bool) -> List a -> List a
+filter p l = case l of
+               Nil -> Nil
+	       Cons x xs -> case inspect (p x) of
+	                        WithEq r e ->
+				  case r of
+				    True -> Cons x (filter p xs) -- e :: p x == True
+				    False -> filter p xs -- e :: p x == False
+				    
+				    
