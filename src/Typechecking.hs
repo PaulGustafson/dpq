@@ -106,7 +106,7 @@ typeInfer False t@(RunCirc) = freshNames ["a", "b", "c", "d"] $ \ [a, b, c, d] -
          res = Forall (abst [a, b, c, d] t1') Set
      return (res, t)
 
-typeInfer flag t@(ExBox) =
+typeInfer False t@(ExBox) =
   freshNames ["a", "b", "p", "n"] $ \ [a, b, p, n] ->
   do let va = Var a
          vb = Var b
