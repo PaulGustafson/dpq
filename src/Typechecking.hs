@@ -898,6 +898,10 @@ handleTermApp flag ann pos t' t1 t2 =
          do (_, ann2) <- typeCheck flag t2 ty1
             let res = if flag then App' a1' ann2 else App a1' ann2
             return (ty2, res)
+       Arrow' ty1 ty2 ->
+         do (_, ann2) <- typeCheck True t2 ty1
+            let res = App' a1' ann2
+            return (ty2, res)            
        b@(Pi bind ty) ->
          -- Note that here updateWithSubst is necessary
          -- as we do not want variables in bind to escape
@@ -934,8 +938,9 @@ handleTermApp flag ann pos t' t1 t2 =
 addAnn flag e a (Pos _ t) env = addAnn flag e a t env
 
 addAnn flag e a (Bang t) env =
-  let force = if flag then Force' else Force
-  in addAnn flag e (force a) t env
+  do let force = if flag then Force' else Force
+     t' <- if flag then shape t else return t
+     addAnn flag e (force a) t' env
 
 addAnn flag e a (Forall bd ty) env | isKind ty = open bd $ \ xs t ->
        let a' = foldl AppType a (map Var xs)

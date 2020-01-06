@@ -32,6 +32,7 @@ g' x = case x of
          Nil -> VNil
          Cons y zs -> VCons y (g' zs)
 
+
 -- This is because the interaction of shape and polymorphism.
 -- Nil @ Qubit is categorically equiv to Nil Unit, but this is
 -- hard to enforce in the language. So we would get the following

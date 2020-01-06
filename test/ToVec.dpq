@@ -1,37 +1,43 @@
 module ToVec where
--- import "lib2/Vec.dpq"
-data Bool = True | False
-object Qubit
+import "lib/Prelude.dpq"
+-- data Bool = True | False
+-- object Qubit
 
-data Nat = Z | S Nat
+-- data Nat = Z | S Nat
 
-simple Vec a :: Nat -> Type where
-  Vec a Z = VNil
-  Vec a (S n) = VCons a (Vec a n)
+-- simple Vec a :: Nat -> Type where
+--   Vec a Z = VNil
+--   Vec a (S n) = VCons a (Vec a n)
 
-data List a = Nil | Cons a (List a)
+-- data List a = Nil | Cons a (List a)
 
 
-simple Vec' a :: List Unit -> Type where
-   Vec' a Nil = VNil'
-   Vec' a (Cons x xs) = VCons' a (Vec' a xs)
+-- simple Vec' a :: List Unit -> Type where
+--    Vec' a Nil = VNil'
+--    Vec' a (Cons x xs) = VCons' a (Vec' a xs)
     
 
 
-h1 :: Vec' Nat (Cons () (Cons () Nil))
-h1 = VCons' Z (VCons' Z VNil')
--- -- h1 x --
+-- h1 :: Vec' Nat (Cons () (Cons () Nil))
+-- h1 = VCons' Z (VCons' Z VNil')
+-- -- -- h1 x --
 
-toNat :: ! (List Unit -> Nat)
-toNat x = case x of
-            Nil -> Z
-            Cons y qs -> S (toNat qs)
+-- toNat :: ! (List Unit -> Nat)
+-- toNat x = case x of
+--             Nil -> Z
+--             Cons y qs -> S (toNat qs)
 
 g' :: ! (x :: List Qubit) -> Vec Qubit (toNat x)
 g' x = case x of
          Nil -> VNil
          Cons y zs -> VCons y (g' zs)
 
+main  = box Unit $ \ y . [Init0 ()]
+
+f :: !(Unit -> Vec Qubit (toNat (Cons (Init0 ()) Nil)))
+f y = g' (Cons (Init0()) Nil)
+-- main'  = box Unit f -- (\ y . g' (Cons (Init0()) Nil))
+-- g' (Cons (Init0()) Nil)
 -- This is because the interaction of shape and polymorphism.
 -- Nil @ Qubit is categorically equiv to Nil Unit, but this is
 -- hard to enforce in the language. So we would get the following

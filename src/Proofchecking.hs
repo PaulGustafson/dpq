@@ -189,10 +189,11 @@ proofInfer True a@(AppDep' t1 t2) =
             let vs = S.toList $ getVars NoEigen t2
                 su = zip vs (map EigenVar vs)
                 t2' = apply su t2
-            m' <- betaNormalize (apply [(head xs, t2')] m) 
+            m' <- betaNormalize (apply [(head xs, t2')] m)
+            m'' <- if isKind ty then shape m' else return m'
             if null (tail xs)
-              then return m'
-              else return $ Pi' (abst (tail xs) m') ty  
+              then return m''
+              else return $ Pi' (abst (tail xs) m'') ty  
        b -> throwError $ ArrowErr t1 b
 
 proofInfer flag a@(App t1 t2) =
@@ -227,12 +228,12 @@ proofInfer flag a@(AppDict t1 t2) =
        b -> throwError $ ArrowErr t1 b
 
 proofInfer flag a@(AppType t1 t2) =
-  proofInfer flag t1 >>= \ t' -> handleForallApp flag t' t1 t2
+  proofInfer flag t1 >>= \ t' -> handleForallApp2 flag t' t1 t2
 
 proofInfer flag a@(AppTm t1 t2) =
-  proofInfer flag t1 >>= \ t' -> handleForallApp flag t' t1 t2
+  proofInfer flag t1 >>= \ t' -> handleForallApp1 flag t' t1 t2
 
-proofInfer flag Revert =
+proofInfer False Revert =
   freshNames ["a", "b"] $ \ [a, b] ->
   let va = Var a
       vb = Var b
@@ -240,7 +241,7 @@ proofInfer flag Revert =
       ty = Forall (abst [a, b] t1) Set
   in return ty
 
-proofInfer flag UnBox =
+proofInfer False UnBox =
   freshNames ["a", "b"] $ \ [a, b] ->
   let va = Var a
       vb = Var b
@@ -248,7 +249,7 @@ proofInfer flag UnBox =
       ty = Forall (abst [a, b] t1) Set
   in return ty
 
-proofInfer flag t@(Box) = freshNames ["a", "b"] $ \ [a, b] ->
+proofInfer False t@(Box) = freshNames ["a", "b"] $ \ [a, b] ->
   do let va = Var a
          vb = Var b
          simpClass = Id "Simple"
@@ -257,7 +258,7 @@ proofInfer flag t@(Box) = freshNames ["a", "b"] $ \ [a, b] ->
          boxType = Pi (abst [a] (Forall (abst [b] t1') Set)) Set
      return boxType
 
-proofInfer flag t@(RunCirc) = freshNames ["a", "b", "c", "d"] $ \ [a, b, c, d] ->
+proofInfer False t@(RunCirc) = freshNames ["a", "b", "c", "d"] $ \ [a, b, c, d] ->
   do let va = Var a
          vb = Var b
          vc = Var c
@@ -268,7 +269,7 @@ proofInfer flag t@(RunCirc) = freshNames ["a", "b", "c", "d"] $ \ [a, b, c, d] -
          res = Forall (abst [a, b, c, d] t1') Set
      return res
 
-proofInfer flag t@(ExBox) =
+proofInfer False t@(ExBox) =
   freshNames ["a", "b", "p", "n"] $ \ [a, b, p, n] ->
   do let va = Var a
          vb = Var b
@@ -543,11 +544,26 @@ dependentUnif index isDpm head t =
         helper subst [] eSub = return $ Just subst
 
 
-handleForallApp flag t' t1 t2 = 
+handleForallApp1 flag t' t1 t2 = 
      case erasePos t' of
        b@(Forall bd kd) -> helper bd kd
        b -> throwError $ ArrowErr t1 b
      where helper bd kd =
+             open bd $ \ xs m ->
+              do let vs = S.toList $ getVars NoEigen t2
+                     su = zip vs (map EigenVar vs)
+                     t2' = apply su t2
+                 proofCheck True t2 kd
+                 m' <- betaNormalize (apply [(head xs,  t2')] m)
+                 if null (tail xs)
+                   then return m'
+                   else return $ Forall (abst (tail xs) m') kd
+
+handleForallApp2 flag t' t1 t2 = 
+     case erasePos t' of
+       b@(Forall bd kd) | isKind kd -> helper flag bd kd
+       b -> throwError $ ArrowErr t1 b
+     where helper flag bd kd =
              open bd $ \ xs m ->
               do let vs = S.toList $ getVars NoEigen t2
                      su = zip vs (map EigenVar vs)
