@@ -63,3 +63,8 @@ FAQ
    `import "lib/Prelude.dpq"` will import the file at `$DPQ/lib/Prelude.dpq`.
    On the other hand, `import "/home/username/lib/Prelude.dpq"` will import the file at
    `/home/username/lib/Prelude.dpq`.
+
+3. Why `C-c C-l` does not work for my emacs?
+
+   One possible reason is that you forget to restart emacs if you just modified your
+   `.emacs` file, or restart the terminal if you just modified your `.bashrc` file. 
