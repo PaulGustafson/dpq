@@ -505,3 +505,19 @@ main'' =
        n = 2
        vs = unsafe_to_vec 4 $ qrwbwt (orthodox_oracle n f g) s
    in vs
+
+-- main =
+--   box Unit $ \ u .
+--    let  -- $ Cons True $ Cons False Nil
+--        f = Cons True $ Cons False Nil
+--        g = Cons False $ Cons True Nil -- $ Cons False $ Cons True Nil
+--        s = 1
+--        n = 2
+--        vs = listToVec (qrwbwt (orthodox_oracle n f g) s)
+--    in vs
+
+main =
+  box Unit $
+    \ u . listToVec (qrwbwt
+                      (orthodox_oracle 2 (Cons True (Cons False Nil))
+                         (Cons False (Cons True Nil))) 1)
