@@ -27,12 +27,12 @@ typeInfer flag (Pos p e) =
   do (ty, ann) <- typeInfer flag e `catchError` \ e -> throwError $ addErrPos p e
      return (ty, (Pos p ann))
 
-typeInfer flag Set = return (Sort, Set)
+typeInfer True Set = return (Sort, Set)
 
-typeInfer flag a@(Base kid) =
+typeInfer True a@(Base kid) =
   lookupId kid >>= \ x -> return (classifier x, a)
 
-typeInfer flag a@(LBase kid) =
+typeInfer True a@(LBase kid) =
   lookupId kid >>= \ x -> return (classifier x, a)
 
 typeInfer flag a@(Var x) =
@@ -64,11 +64,11 @@ typeInfer flag a@(App t1 t2) =
        then handleTypeApp ann t' t1 t2 
        else handleTermApp flag ann t1 t' t1 t2
 
-typeInfer True a@(App' t1 t2) =
-  do (t', ann) <- typeInfer True t1
-     if isKind t'
-       then handleTypeApp ann t' t1 t2
-       else error "from typeInfer App'"
+-- typeInfer True a@(App' t1 t2) =
+--   do (t', ann) <- typeInfer True t1
+--      if isKind t'
+--        then handleTypeApp ann t' t1 t2
+--        else error "from typeInfer App'"
 
 typeInfer False a@(UnBox) =
   freshNames ["a", "b"] $ \ [a, b] ->
@@ -106,7 +106,7 @@ typeInfer False t@(RunCirc) = freshNames ["a", "b", "c", "d"] $ \ [a, b, c, d] -
          res = Forall (abst [a, b, c, d] t1') Set
      return (res, t)
 
-typeInfer flag t@(ExBox) =
+typeInfer False t@(ExBox) =
   freshNames ["a", "b", "p", "n"] $ \ [a, b, p, n] ->
   do let va = Var a
          vb = Var b
