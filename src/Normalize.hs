@@ -32,12 +32,12 @@ betaNormalize a@(LamDep' bd) = return a
 betaNormalize a@(LamDep bd) = return a
 betaNormalize a@(LamType bd) = return a
 betaNormalize a@(LamTm bd) = return a
-betaNormalize a@(Box) = return a
-betaNormalize a@(ExBox) = return a
-betaNormalize a@(UnBox) = return a
-betaNormalize a@(Revert) = return a
-betaNormalize a@(RunCirc) = return a
-betaNormalize a@(Wired y) = return a
+-- betaNormalize a@(Box) = return a
+-- betaNormalize a@(ExBox) = return a
+-- betaNormalize a@(UnBox) = return a
+-- betaNormalize a@(Revert) = return a
+-- betaNormalize a@(RunCirc) = return a
+-- betaNormalize a@(Wired y) = return a
 
 betaNormalize a@(Lift x) = 
   do x' <- betaNormalize x
@@ -269,6 +269,9 @@ normalize a@(Const k) =
             if b then shape e' else shape a
        DefinedMethod e _ -> shape e
        DefinedInstFunction e _ -> shape e
+       -- Does not reduce defined gate during type checking. 
+       _ -> return a
+       -- a -> error $ "from normalize const:" ++ (show a)
 
        
 normalize a@(LBase k) = return a
@@ -421,10 +424,10 @@ normalize (LetPat m bd) =
 normalize b@(Unit) = return b
 normalize b@(Set)  = return b
 normalize b@(Star) = return b
-normalize b@(Box) = return b
-normalize b@(Revert) = return b
-normalize b@(ExBox) = return b
-normalize b@(UnBox) = return b
+-- normalize b@(Box) = return b
+-- normalize b@(Revert) = return b
+-- normalize b@(ExBox) = return b
+-- normalize b@(UnBox) = return b
 
 normalize (Tensor e1 e2) =
   do e1' <- normalize e1 

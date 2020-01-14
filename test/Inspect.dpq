@@ -28,6 +28,7 @@ filter p l = case l of
 				    True -> Cons x (filter p xs) -- e :: p x == True
 				    False -> filter p xs -- e :: p x == False
 				    
+
  -- data Graph (f : ∀ x → B x) (x : A) (y : B x) : Set b where
  --    ingraph : f x ≡ y → Graph f x y
 
@@ -36,3 +37,4 @@ filter p l = case l of
 
 data (Parameter a) => Graph a (x :: a)  =
          GEq (b :: a -> Type) (y :: b x) (f :: !(x :: a) -> b x) (Eq (b x) (f x) y)
+

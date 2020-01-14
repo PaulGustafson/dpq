@@ -8,6 +8,7 @@ simple Vec a :: Nat -> Type where
   Vec a Z = VNil
   Vec a (S n) = VCons a (Vec a n)
 
+
 instance forall a (n :: Nat) . (QuantumOp a, Simple a) => QuantumOp (Vec a n) where
   unary g v =
     case v of

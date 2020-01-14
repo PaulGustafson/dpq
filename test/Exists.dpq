@@ -33,3 +33,4 @@ test5 = let {n, circ} = existsBox Unit (\ x . Vec Qubit x) mapHadarmad
 -- should fail here because existential hiding.
 -- show5 :: Circ(Unit, Vec Qubit 2)
 -- show5 = let {h, circ} = test5 in circ
+

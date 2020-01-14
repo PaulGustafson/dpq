@@ -407,7 +407,12 @@ shape (Pi (Abst x t) t2) =
   do t' <- shape t
      t2' <- shape t2
      return $ Pi' (abst x t') t2'
-  
+
+shape (PiImp (Abst x t) t2) =
+  do t' <- shape t
+     t2' <- shape t2
+     return $ PiImp' (abst x t') t2'
+
 shape (Label x) = return Star
 
 shape (Lam (Abst x t)) = 
@@ -430,7 +435,7 @@ shape (LamDict (Abst x t)) =
   do t' <- shape t
      return $ LamDict (abst x t')
 
-shape RunCirc = return RunCirc
+-- shape RunCirc = return RunCirc
 shape Box = return Box
 shape UnBox = return UnBox
 shape Revert = return Revert
