@@ -1,0 +1,11 @@
+module Demo where
+import "lib/Prelude.dpq"
+
+f = withType ! forall a. a -> a : \ x . x
+
+g = let f = withType ! forall a. a -> a : \ x . x in f (f 5)
+
+g1 = let f = \ (x :: Nat) . x in (f 5)
+g2 = let f = \ x :: Nat . x in (f 5)
+g3 = let f = (\ a . \ x . x) :: (a :: Type) -> a -> a in (f Nat 5)
+g4 = let f = \(a :: Type) . \(x :: a) . x in (f Nat 5)
