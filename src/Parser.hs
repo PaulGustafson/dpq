@@ -48,9 +48,9 @@ initialParserState = ParserState{
 
 -- | The precedence is in descending order (See Text.Parsec.Expr for
 -- further information). Currently, we have the following build-in type operators:
--- !(precedence 5), *(precedence 7), -> (precedence 10).
-initialOpTable = [[], [], [], [], [], [unaryOp "!" Bang], [], [binOp AssocLeft "*" Tensor] , [], [], [binOp AssocRight "->" Arrow], [], [], []]
-  where binOp assoc op f = Infix (reservedOp op >> return f) assoc  
+-- '!' (precedence 5), '*' (precedence 7), '->' (precedence 10), '::'(16).
+initialOpTable = [[], [], [], [], [], [unaryOp "!" Bang], [], [binOp AssocLeft "*" Tensor] , [], [], [binOp AssocRight "->" Arrow], [], [], [], [], [], [binOp AssocLeft "::" WithAnn]]
+  where binOp assoc op f = Infix (reservedOp op >> return f) assoc
         unaryOp op f = Prefix (reservedOp op >> return f) 
 
         
@@ -287,8 +287,8 @@ dataDecl =
      where br = manyLines (do{p <- getPosition;
                               c <- const;
                               return $ \ ps -> (P p, c, ps)}) arg
-           arg = try (singleExp >>= \ x -> return $ Right x) <|>
-                     (ann >>= \ x -> return $ Left x)
+           arg = try (ann >>= \ x -> return $ Left x) <|>
+                     (singleExp >>= \ x -> return $ Right x) 
            -- prefix = try annotation <|> classExp
            annotation = try ann <|> impAnn
              -- do x <- 
@@ -397,6 +397,7 @@ atomExp = wrapPos (
        <|> piType
        <|> impType
        <|> appExp
+--       <|> withAnn'
        <?> "expression")
 
 -- | A function for constructing a parser that parse h and many p, they can be across many lines,
@@ -404,6 +405,12 @@ atomExp = wrapPos (
 
 manyLines h p = withPos $ h <*/> p
 
+withAnn' =
+  do t <- term
+     reservedOp "::"
+     ty <- typeExp
+     return $ WithAnn t ty
+     
 withAnn =
   do reserved "withType"
      ty <- typeExp
@@ -541,16 +548,19 @@ unit = reservedOp "()" >> return Star
 unitTy = reserved "Unit" >> return Unit
 
 lamAnn = do
-  v <-  try $
-        do reservedOp "\\"
-           v <- var
-           reservedOp "::"
-           return v
-  ty <- typeExp
+  (v, ty) <-  try $
+              do reservedOp "\\"
+                 parens ann <|> ann
   reservedOp "."
   t <- term
   return $ LamAnn v ty t
-     
+  where ann =
+          do{v <- var;
+             reservedOp "::";
+             ty <- typeExp;
+             return (v, ty)}
+
+
 lam =
  do reservedOp "\\"
     vs <- many1 var
