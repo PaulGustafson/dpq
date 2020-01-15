@@ -315,8 +315,29 @@ proofInfer flag a@(Pair t1 t2) =
      ty2 <- proofInfer flag t2
      return $ (Tensor ty1 ty2)
 
+
 proofInfer flag (Pos p e) = 
   proofInfer flag e `catchError` \ e -> throwError $ collapsePos p e
+
+proofInfer False (LamAnn ty (Abst x m)) =
+  do if isKind ty then proofCheck True ty Sort else proofCheck True ty Set
+     let -- annVars = S.toList $ free_vars NoEigen ty
+         -- eigenVars = map EigenVar annVars
+         -- eigenSub = zip annVars eigenVars
+         ty1 = toEigen ty
+     addVar x ty1
+     ty' <- proofInfer False m
+     p <- isParam ty1
+     if x `S.member` getVars AllowEigen ty'
+       then
+       do -- when (not p) $ throwError (NotParam (Var x) ty1)
+          removeVar x
+          return $ Pi (abst [x] ty') ty1
+       else
+       do when (not p) $ checkUsage x m >> return ()
+          removeVar x
+          return (Arrow ty1 ty')
+
 
 proofInfer flag (WithType a t) =
   do proofCheck True t Set

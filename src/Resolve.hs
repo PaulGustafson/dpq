@@ -150,6 +150,13 @@ resolve d (C.Base s) =
    Nothing -> throwError $ NotInScope s
    Just (x, _) -> return x
 
+resolve d (C.LamAnn vs ty m) =
+  lscopeVars d [vs] $ \d' [xs] -> 
+  do m' <- resolve d' m
+     ty' <- resolve d' ty
+     return $ LamAnn ty' (abst xs m') 
+
+
 resolve d (C.Lam vs m) =
   lscopeVars d vs $ \d' xs -> 
   do m' <- resolve d' m

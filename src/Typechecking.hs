@@ -134,6 +134,27 @@ typeInfer flag a@(Pair t1 t2) =
      (ty2, ann2) <- typeInfer flag t2
      return (Tensor ty1 ty2, Pair ann1 ann2)
 
+typeInfer False a@(LamAnn ty (Abst x m)) =
+  do (_, tyAnn1) <- if isKind ty then typeCheck True ty Sort else typeCheck True ty Set
+--     tyAnn <- betaNormalize tyAnn1
+     let -- tyAnn' = erasePos $ unEigenBound [] tyAnn
+         -- annVars = S.toList $ free_vars NoEigen tyAnn'
+         -- eigenVars = map EigenVar annVars
+         -- eigenSub = zip annVars eigenVars
+         tyAnn'' = toEigen tyAnn1
+     addVar x tyAnn''
+     p <- isParam tyAnn''
+     (ty', ann) <- typeInfer False m
+     if x `S.member` getVars AllowEigen ty'
+       then
+       do -- when (not p) $ throwError (NotParam (Var x) ty)
+          removeVar x
+          return (Pi (abst [x] ty') tyAnn'', LamAnn tyAnn'' (abst x ann))
+       else
+       do when (not p) $ checkUsage x m >> return ()
+          removeVar x
+          return (Arrow tyAnn'' ty', LamAnn tyAnn'' (abst x ann))
+
 typeInfer flag (WithType a t) =
   do (_, tAnn1) <- typeCheck True t Set
      let tAnn' = erasePos (unEigen tAnn1)
@@ -152,6 +173,7 @@ typeInfer flag a@(Let _ _) = freshNames ["#let"] $ \ [n] ->
   
 
 typeInfer flag a@(Lam _) = throwError $ LamInferErr a
+
 
 typeInfer flag e = throwError $ Unhandle e
 

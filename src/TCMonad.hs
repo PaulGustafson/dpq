@@ -419,6 +419,12 @@ shape (Lam (Abst x t)) =
   do t' <- shape t
      return $ Lam' (abst x t')
 
+shape (LamAnn ty (Abst x t)) = 
+  do t' <- shape t
+     ty' <- shape ty
+     return $ LamAnn' ty' (abst x t')
+
+
 shape (LamDep (Abst x t)) =
   do t' <- shape t
      return $ LamDep' (abst x t')

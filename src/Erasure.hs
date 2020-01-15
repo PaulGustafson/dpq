@@ -89,6 +89,14 @@ erasure a@(Lam (Abst xs m)) =
   do m' <- erasure m
      return $ Lam (abst xs m') 
 
+erasure a@(LamAnn _ (Abst xs m)) =
+  do m' <- erasure m
+     return $ Lam (abst [xs] m') 
+
+erasure a@(LamAnn' _ (Abst xs m)) =
+  do m' <- erasure m
+     return $ Lam (abst [xs] m') 
+
 -- Convert lam' to lam
 erasure a@(Lam' (Abst xs m)) =
   do m' <- erasure m
@@ -235,3 +243,4 @@ checkExplicit (Left a :xs) ann = checkExplicit xs ann
 checkExplicit (Right x :xs) ann =
   do when (isExplicit x ann) $ throwError $ ImplicitCase x ann
      checkExplicit xs ann
+

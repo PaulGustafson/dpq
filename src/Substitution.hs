@@ -123,6 +123,14 @@ substitute s (Lam bind) =
   open bind $
   \ ys m -> Lam (abst ys (substitute s m)) 
 
+substitute s (LamAnn ty bind) =
+  open bind $
+  \ ys m -> LamAnn (substitute s ty) (abst ys (substitute s m)) 
+
+substitute s (LamAnn' ty bind) =
+  open bind $
+  \ ys m -> LamAnn' (substitute s ty) (abst ys (substitute s m)) 
+
 substitute s (Lam' bind) =
   open bind $
   \ ys m -> Lam' (abst ys (substitute s m)) 

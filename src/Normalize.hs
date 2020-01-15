@@ -423,6 +423,7 @@ normalize (LetPat m bd) =
         
 normalize b@(Unit) = return b
 normalize b@(Set)  = return b
+normalize b@(Sort)  = return b
 normalize b@(Star) = return b
 -- normalize b@(Box) = return b
 -- normalize b@(Revert) = return b

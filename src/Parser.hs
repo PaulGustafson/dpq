@@ -386,6 +386,7 @@ atomExp = wrapPos (
        <|> letExp
        <|> doExp
        <|> existsType
+       <|> lamAnn
        <|> lam
        <|> idiomExp
        <|> nat
@@ -539,6 +540,16 @@ unit = reservedOp "()" >> return Star
 
 unitTy = reserved "Unit" >> return Unit
 
+lamAnn = do
+  v <-  try $
+        do reservedOp "\\"
+           v <- var
+           reservedOp "::"
+           return v
+  ty <- typeExp
+  reservedOp "."
+  t <- term
+  return $ LamAnn v ty t
      
 lam =
  do reservedOp "\\"

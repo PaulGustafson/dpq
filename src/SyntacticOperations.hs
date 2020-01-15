@@ -146,6 +146,12 @@ getVars b (Exists bind t) =
   (open bind $ \ xs m -> getVars b m `S.difference` S.fromList [xs])
 getVars b (Lam bind) =
   open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs
+getVars b (LamAnn ty bind) =
+  open bind $ \ xs m -> (getVars b m `S.difference` S.fromList [xs]) `S.union`
+                        getVars b ty
+getVars b (LamAnn' ty bind) =
+  open bind $ \ xs m -> (getVars b m `S.difference` S.fromList [xs]) `S.union`
+                        getVars b ty                        
 getVars b (Lam' bind) =
   open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs  
 
@@ -375,6 +381,8 @@ erasePos (Pi' (Abst vs b) e) = Pi' (abst vs (erasePos b)) (erasePos e)
 erasePos (Exists (Abst vs b) e) = Exists (abst vs (erasePos b)) (erasePos e)
 erasePos (Forall (Abst vs b) e) = Forall (abst vs (erasePos b)) (erasePos e)
 erasePos (Lam (Abst vs b)) = Lam (abst vs (erasePos b))
+erasePos (LamAnn ty (Abst vs b)) = LamAnn (erasePos ty) (abst vs (erasePos b))
+erasePos (LamAnn' ty (Abst vs b)) = LamAnn' (erasePos ty) (abst vs (erasePos b))
 erasePos (Lam' (Abst vs b)) = Lam' (abst vs (erasePos b)) 
 erasePos (LamTm (Abst vs b)) = LamTm (abst vs (erasePos b))
 erasePos (LamDep (Abst vs b)) = LamDep (abst vs (erasePos b)) 
@@ -565,6 +573,18 @@ unEigenBound vars (Lam bd) =
    let m' = unEigenBound (xs ++ vars) m
    in Lam (abst xs m') 
 
+unEigenBound vars (LamAnn ty bd) =
+  open bd $ \ xs m ->
+   let m' = unEigenBound (xs : vars) m
+       ty' = unEigenBound vars ty
+   in LamAnn ty' (abst xs m') 
+
+unEigenBound vars (LamAnn' ty bd) =
+  open bd $ \ xs m ->
+   let m' = unEigenBound (xs : vars) m
+       ty' = unEigenBound vars ty
+   in LamAnn' ty' (abst xs m') 
+
 unEigenBound vars (Lam' bd) =
   open bd $ \ xs m ->
    let m' = unEigenBound (xs ++ vars) m
@@ -728,6 +748,13 @@ isExplicit s (AppDict t tm) =
    (isExplicit s t) || (isExplicit s tm)
 
 isExplicit s (Lam bind) =
+  open bind $
+  \ ys m -> isExplicit s m
+
+isExplicit s (LamAnn ty bind) =
+  open bind $
+  \ ys m -> isExplicit s m
+isExplicit s (LamAnn' ty bind) =
   open bind $
   \ ys m -> isExplicit s m
 
