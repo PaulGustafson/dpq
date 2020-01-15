@@ -24,7 +24,7 @@ data Exp =
   | Exists String Exp Exp
   | Forall [([String], Exp)] Exp
   | Lam [String] Exp
-  | LamAnn String Exp Exp
+  | LamAnn [String] Exp Exp
   | App Exp Exp
   | Pack Exp Exp
   | Pair Exp Exp

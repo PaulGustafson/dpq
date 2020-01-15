@@ -550,15 +550,15 @@ unitTy = reserved "Unit" >> return Unit
 lamAnn = do
   (v, ty) <-  try $
               do reservedOp "\\"
-                 parens ann <|> ann
+                 ann
   reservedOp "."
   t <- term
   return $ LamAnn v ty t
-  where ann =
-          do{v <- var;
-             reservedOp "::";
-             ty <- typeExp;
-             return (v, ty)}
+  -- where ann =
+  --         do{v <- var;
+  --            reservedOp "::";
+  --            ty <- typeExp;
+  --            return (v, ty)}
 
 
 lam =

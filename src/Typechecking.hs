@@ -134,7 +134,7 @@ typeInfer flag a@(Pair t1 t2) =
      (ty2, ann2) <- typeInfer flag t2
      return (Tensor ty1 ty2, Pair ann1 ann2)
 
-typeInfer False a@(LamAnn ty (Abst x m)) =
+typeInfer False a@(LamAnn ty (Abst xs m)) =
   do (_, tyAnn1) <- if isKind ty then typeCheck True ty Sort else typeCheck True ty Set
 --     tyAnn <- betaNormalize tyAnn1
      let -- tyAnn' = erasePos $ unEigenBound [] tyAnn
@@ -142,18 +142,19 @@ typeInfer False a@(LamAnn ty (Abst x m)) =
          -- eigenVars = map EigenVar annVars
          -- eigenSub = zip annVars eigenVars
          tyAnn'' = toEigen tyAnn1
-     addVar x tyAnn''
+     mapM_ (\ x -> addVar x (erasePos tyAnn'')) xs
      p <- isParam tyAnn''
      (ty', ann) <- typeInfer False m
-     if x `S.member` getVars AllowEigen ty'
-       then
-       do -- when (not p) $ throwError (NotParam (Var x) ty)
-          removeVar x
-          return (Pi (abst [x] ty') tyAnn'', LamAnn tyAnn'' (abst x ann))
-       else
-       do when (not p) $ checkUsage x m >> return ()
-          removeVar x
-          return (Arrow tyAnn'' ty', LamAnn tyAnn'' (abst x ann))
+     foldM (helper p tyAnn'') (ty', ann) xs
+       where helper p tyAnn'' (ty', ann) x =
+               if x `S.member` getVars AllowEigen ty'
+               then
+                 do removeVar x
+                    return (Pi (abst [x] ty') tyAnn'', LamAnn tyAnn'' (abst [x] ann))
+               else
+                 do when (not p) $ checkUsage x m >> return ()
+                    removeVar x
+                    return (Arrow tyAnn'' ty', LamAnn tyAnn'' (abst [x] ann))
 
 typeInfer flag (WithType a t) =
   do (_, tAnn1) <- typeCheck True t Set
@@ -921,6 +922,10 @@ handleTermApp flag ann pos t' t1 t2 =
      mapM (\ (x, t) -> addVar x t) anEnv
      rt' <- updateWithSubst rt
      case rt' of
+       Arrow ty1 ty2 | isKind ty1 ->
+         do (_, ann2) <- typeCheck True t2 ty1
+            let res = App a1' ann2
+            return (ty2, res)
        Arrow ty1 ty2 ->
          do (_, ann2) <- typeCheck flag t2 ty1
             let res = if flag then App' a1' ann2 else App a1' ann2

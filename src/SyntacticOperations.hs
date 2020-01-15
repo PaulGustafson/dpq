@@ -147,10 +147,10 @@ getVars b (Exists bind t) =
 getVars b (Lam bind) =
   open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs
 getVars b (LamAnn ty bind) =
-  open bind $ \ xs m -> (getVars b m `S.difference` S.fromList [xs]) `S.union`
+  open bind $ \ xs m -> (getVars b m `S.difference` S.fromList xs) `S.union`
                         getVars b ty
 getVars b (LamAnn' ty bind) =
-  open bind $ \ xs m -> (getVars b m `S.difference` S.fromList [xs]) `S.union`
+  open bind $ \ xs m -> (getVars b m `S.difference` S.fromList xs) `S.union`
                         getVars b ty                        
 getVars b (Lam' bind) =
   open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs  
@@ -575,13 +575,13 @@ unEigenBound vars (Lam bd) =
 
 unEigenBound vars (LamAnn ty bd) =
   open bd $ \ xs m ->
-   let m' = unEigenBound (xs : vars) m
+   let m' = unEigenBound (xs ++ vars) m
        ty' = unEigenBound vars ty
    in LamAnn ty' (abst xs m') 
 
 unEigenBound vars (LamAnn' ty bd) =
   open bd $ \ xs m ->
-   let m' = unEigenBound (xs : vars) m
+   let m' = unEigenBound (xs ++ vars) m
        ty' = unEigenBound vars ty
    in LamAnn' ty' (abst xs m') 
 

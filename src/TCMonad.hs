@@ -336,6 +336,7 @@ shape a@(GoalVar _) = return a
 shape a@(Bang _) = return a
 shape a@(Lift _) = return a
 shape a@(Circ _ _) = return a
+
 shape a@(Force' m) = return a
 shape (Force m) = shape m >>= \ x -> return (Force' x)
 shape a@(App t1 t2) =

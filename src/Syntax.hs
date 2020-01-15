@@ -72,8 +72,8 @@ data Exp =
   | Pi' (Bind [Variable] Exp) Exp
   | PiImp (Bind [Variable] Exp) Exp
   | PiImp' (Bind [Variable] Exp) Exp
-  | LamAnn Exp (Bind Variable Exp)
-  | LamAnn' Exp (Bind Variable Exp) 
+  | LamAnn Exp (Bind [Variable] Exp)
+  | LamAnn' Exp (Bind [Variable] Exp) 
   | Exists (Bind Variable Exp) Exp
   | Forall (Bind [Variable] Exp) Exp
   | Wired (Bind [Variable] Morphism)
@@ -145,11 +145,11 @@ instance Disp Exp where
     fsep [text "\\" , (hsep $ map (display flag) vs), text ".", nest 2 $ display flag b]
   display flag (LamAnn ty bds) =
     open bds $ \ vs b ->
-    fsep [text "\\" , display flag vs, text "::", display flag ty,  text ".", nest 2 $ display flag b]
+    fsep [text "\\" , parens (hsep $ map (display flag) vs), text "::", display flag ty,  text ".", nest 2 $ display flag b]
 
   display flag (LamAnn' ty bds) =
     open bds $ \ vs b ->
-    fsep [text "\\'" , display flag vs, text "::", display flag ty,  text ".", nest 2 $ display flag b]
+    fsep [text "\\'" , parens (hsep $ map (display flag) vs), text "::", display flag ty,  text ".", nest 2 $ display flag b]
 
   display flag (Lam' bds) =
     open bds $ \ vs b ->

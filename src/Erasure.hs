@@ -91,11 +91,11 @@ erasure a@(Lam (Abst xs m)) =
 
 erasure a@(LamAnn _ (Abst xs m)) =
   do m' <- erasure m
-     return $ Lam (abst [xs] m') 
+     return $ Lam (abst xs m') 
 
 erasure a@(LamAnn' _ (Abst xs m)) =
   do m' <- erasure m
-     return $ Lam (abst [xs] m') 
+     return $ Lam (abst xs m') 
 
 -- Convert lam' to lam
 erasure a@(Lam' (Abst xs m)) =
