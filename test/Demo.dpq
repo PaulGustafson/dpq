@@ -15,3 +15,26 @@ import "lib/Prelude.dpq"
 reverseGeneric :: ! forall b . {a :: Type} -> (Simple a, Simple b) => !(a -> b) -> !(b -> a)
 reverseGeneric a f = unbox (revert (box a f))
 
+---- x----------------
+---- |-----x----------
+---- |-----|-----x----
+---- Not---Not---Not--
+ands :: ! forall (n :: Nat). Vec Qubit n -> Qubit -> Vec Qubit n * Qubit
+ands v a =
+   case v of
+       VNil -> (VNil, a)
+       VCons x xs ->
+         let (xs', a') = ands xs a
+	     (a'', x') = CNot a' x
+	 in (VCons x' xs', a'')
+
+test1 = box (Vec Qubit 3 * Qubit) (uncurry ands)
+
+ands' (n :: Nat) (v :: Vec Qubit n) = let a = Init0 () in ands v a
+
+ands'' (n :: Nat) = reverseGeneric (\ x . ands' n x)
+
+test2 = boxCirc (\ x . ands' 3 x)
+
+test3 = boxCirc (\ x . ands'' 3 x)
+
