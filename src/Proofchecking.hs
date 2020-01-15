@@ -129,8 +129,15 @@ proofInfer flag ty@(Forall bd t) =
             mapM_ removeVar xs
             case tm of
               Set -> return Set
-              _ -> throwError (NotEq m Set tm)
-       _ -> throwError (NotEq t Set a)
+       Sort ->
+         open bd $ \ xs m ->
+         do mapM_ (\ x -> addVar x t) xs
+            tm <- proofInfer True m
+            mapM_ removeVar xs
+            case tm of
+              Set -> return Set
+
+
 
 proofInfer flag a@(Var x) =
   do (t, _) <- lookupVar x

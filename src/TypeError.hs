@@ -61,7 +61,9 @@ data TypeError = Unhandle Exp
                | NotUnit
                | ImplicitCase Variable Exp
                | ImplicitVarErr Variable Exp
+               | LamInferErr Exp
                deriving Show
+
 data EvalError = MissBranch Id Exp
                | UndefinedId Id 
                | PatternMismatch Pattern Exp
@@ -110,7 +112,8 @@ instance Disp TypeError where
 
   display flag (Unhandle t) =
     text "there is no type inference rule to infer a type for the expresson:" $$
-    nest 2 (display flag t)
+    nest 2 (display flag t) $$
+    text "suggestion: use withType to add a type annotation"
 
   display flag (NoDef t) =
     text "no definition for the identifier:" $$ nest 2 (display flag t)
@@ -383,5 +386,11 @@ instance Disp TypeError where
     <+> display flag x $$
     text "is used explicitly in the annotated program:" $$
     nest 2 (display flag a)
+
+  display flag (LamInferErr a) =
+    text "cannot infer a type for lambda abstraction: "
+    <+> display flag a $$
+    text "suggestion: add a type annotation" 
+
 
   display flag a = error $ "from display TypeError:" ++ show a 

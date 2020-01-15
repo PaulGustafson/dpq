@@ -80,14 +80,15 @@ parseCommand s st = runIndent $ runParserT command st "" s
 -- *  A parser for command line
 command :: Parser Command
 command =
-   showCirc <|>  quit <|>  help <|> typing <|>  reload <|>  load <|>  printing <|>
-   displaying <|>  displayEx <|>  annotation <|> gateC <|> evaluation 
+  do whiteSpace 
+     quit <|>  help <|> typing <|>  reload <|>  load <|>  printing <|>
+       displaying <|>  displayEx <|>  annotation <|> evaluation
      
-     
-showCirc =
-  do reserved ":s"
-     eof
-     return ShowCirc
+-- showCirc =
+--   do whiteSpace
+--      reserved ":s"
+--      eof
+--      return ShowCirc
 
 quit =
   do reserved ":q"
@@ -141,11 +142,11 @@ load =
      eof
      return $ Load True path
 
-gateC =
-  do reserved ":g"
-     t <- term
-     eof
-     return $ GateCount t
+-- gateC =
+--   do reserved ":g"
+--      t <- term
+--      eof
+--      return $ GateCount t
 
 evaluation =
   do t <- term
@@ -159,7 +160,7 @@ decls = do
   reserved "module"
   name <- const
   reserved "where"
-  bs <- many 
+  bs <- block
         (simpleDecl <|> importDecl
         <|> classDecl <|> instanceDecl
         <|> controlDecl <|>  gateDecl <|>  objectDecl <|>  dataDecl
