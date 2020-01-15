@@ -1,12 +1,17 @@
 module Demo where
 import "lib/Prelude.dpq"
 
-f = withType ! forall a. a -> a : \ x . x
+-- some random annotation test
+-- f = withType ! forall a. a -> a : \ x . x
 
-g = let f = withType ! forall a. a -> a : \ x . x in f (f 5)
+-- g = let f = withType ! forall a. a -> a : \ x . x in f (f 5)
 
-g1 = let f = \ (x :: Nat) . x in (f 5)
+-- g1 = let f = \ (x :: Nat) . x in (f 5)
 
--- g2 = let f = \ (x y z :: Nat) . x in (f 5)
-g3 = let f = (\ a . \ x . x) :: (a :: Type) -> a -> a in (f Nat 5)
-g4 = let f = \(a b :: Type) . \(x :: a) . x in (f Nat Nat 5)
+-- -- g2 = let f = \ (x y z :: Nat) . x in (f 5)
+-- g3 = let f = (\ a . \ x . x) :: (a :: Type) -> a -> a in (f Nat 5)
+-- g4 = let f = \(a b :: Type) . \(x :: a) . x in (f Nat Nat 5) 
+
+reverseGeneric :: ! forall b . {a :: Type} -> (Simple a, Simple b) => !(a -> b) -> !(b -> a)
+reverseGeneric a f = unbox (revert (box a f))
+
