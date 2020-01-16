@@ -110,6 +110,8 @@ getVars b (AppType t t') =
   getVars b t `S.union` getVars b t'
 getVars b (AppDep t t') =
   getVars b t `S.union` getVars b t'
+getVars b (AppDepTy t t') =
+  getVars b t `S.union` getVars b t'  
 getVars b (AppDep' t t') =
   getVars b t `S.union` getVars b t'  
 getVars b (AppDict t t') =
@@ -314,6 +316,9 @@ flatten (App' t1 t2) =
 flatten (AppDep t1 t2) =
   do (id, args) <- flatten t1
      return (id, args ++ [t2])
+flatten (AppDepTy t1 t2) =
+  do (id, args) <- flatten t1
+     return (id, args ++ [t2])     
 flatten (AppDict t1 t2) =
   do (id, args) <- flatten t1
      return (id, args ++ [t2])          
@@ -354,6 +359,7 @@ erasePos (App' e1 e2) = App' (erasePos e1) (erasePos e2)
 erasePos (AppType e1 e2) = AppType (erasePos e1) (erasePos e2)
 erasePos (AppTm e1 e2) = AppTm (erasePos e1) (erasePos e2)
 erasePos (AppDep e1 e2) = AppDep (erasePos e1) (erasePos e2)
+erasePos (AppDepTy e1 e2) = AppDepTy (erasePos e1) (erasePos e2)
 erasePos (AppDep' e1 e2) = AppDep' (erasePos e1) (erasePos e2)
 erasePos (AppDict e1 e2) = AppDict (erasePos e1) (erasePos e2)
 erasePos (Tensor e1 e2) = Tensor (erasePos e1) (erasePos e2)
@@ -459,6 +465,11 @@ unEigenBound vars (AppDep' e1 e2) =
   let e1' = (unEigenBound vars e1)
       e2' = (unEigenBound vars e2)
   in AppDep' e1' e2'  
+
+unEigenBound vars (AppDepTy e1 e2) =
+  let e1' = (unEigenBound vars e1)
+      e2' = (unEigenBound vars e2)
+  in AppDepTy e1' e2'  
 
 unEigenBound vars (AppDict e1 e2) =
   let e1' = (unEigenBound vars e1)
@@ -739,6 +750,9 @@ isExplicit s (AppTm t tm) =
    (isExplicit s t)
 
 isExplicit s (AppDep t tm) =
+   (isExplicit s t) || (isExplicit s tm)
+
+isExplicit s (AppDepTy t tm) =
    (isExplicit s t) || (isExplicit s tm)
 
 isExplicit s (AppDep' t tm) =

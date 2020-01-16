@@ -935,9 +935,6 @@ handleTermApp flag ann pos t' t1 t2 =
             let res = App' a1' ann2
             return (ty2, res)            
        b@(Pi bind ty) ->
-         -- Note that here updateWithSubst is necessary
-         -- as we do not want variables in bind to escape
-         -- the current scope.
          open bind $
          \ xs m -> 
                 -- typecheck or kind check t2
@@ -950,19 +947,24 @@ handleTermApp flag ann pos t' t1 t2 =
                     t2' = erasePos $ apply su kann
                 t2'' <- if not flag' then shape t2' else return t2'
                 m' <- betaNormalize (apply [(head xs, t2'')] m)
-                m'' <- if flag && flag' then shape m' else return m'
-                let res = if flag then AppDep' a1' kann
-                          else AppDep a1' kann
+                -- m'' <- if flag && flag' then shape m' else return m'
+                let res =
+                      case (flag, flag') of
+                        (False, False) -> AppDep a1' kann
+                        (False, True) -> AppDepTy a1' kann
+                        (True, False) -> AppDep' a1' kann
+                        (True, True) -> AppDepTy a1' kann
                 if null (tail xs)
                   then
-                  do m''' <- updateWithSubst m''
+                  do m'' <- updateWithSubst m'
                      res' <- updateWithSubst res
-                     return (m''', res')
+                     return (m'', res')
                   else
-                  do m''' <- updateWithSubst m''
+                  do m'' <- updateWithSubst m'
                      ty' <- updateWithSubst ty
                      res' <- updateWithSubst res
-                     return (Pi (abst (tail xs) m''') ty', res')
+                     return (Pi (abst (tail xs) m'') ty', res')
+                     
        b -> throwError $ ArrowErr t1 b
 
 

@@ -28,12 +28,12 @@ proofInfer :: Bool -> Exp -> TCMonad Exp
 
 
 
-proofInfer flag (LBase kid) =
+proofInfer True (LBase kid) =
   lookupId kid >>= \ x -> return $ (classifier x)
-proofInfer flag (Base kid) =
+proofInfer True (Base kid) =
   lookupId kid >>= \ x -> return $ (classifier x)
-proofInfer flag Unit = return Set
-proofInfer flag Set = return Sort
+proofInfer True Unit = return Set
+proofInfer True Set = return Sort
 -- proofInfer flag (Bang ty) =
 --   do a <- proofInfer True ty
 --      case a of
@@ -42,7 +42,7 @@ proofInfer flag Set = return Sort
 
 
 
-proofInfer flag ty@(Arrow t1 t2) =
+proofInfer True ty@(Arrow t1 t2) =
   do a1 <- proofInfer True t1
      a2 <- proofInfer True t2
      case (a1, a2) of
@@ -52,40 +52,40 @@ proofInfer flag ty@(Arrow t1 t2) =
        (b1, b2) -> throwError (NotEq ty Set (Arrow b1 b2))
 
 
-proofInfer flag ty@(Circ t1 t2) =
+proofInfer True ty@(Circ t1 t2) =
   do a1 <- proofInfer True t1
      a2 <- proofInfer True t2
      case (a1, a2) of
        (Set, Set) -> return Set
        (b1, b2) -> throwError (NotEq ty Set (Circ b1 b2))
 
-proofInfer flag a@(Imply [] t) =
+proofInfer True a@(Imply [] t) =
   do ty <- proofInfer True t
      case ty of
        Set -> return Set
        _ -> throwError (NotEq t Set ty)
        
-proofInfer flag a@(Imply (x:xs) t) =
+proofInfer True a@(Imply (x:xs) t) =
   do ty <- proofInfer True x
      updateParamInfo [x]
      case ty of
        Set -> proofInfer True (Imply xs t)
        _ -> throwError (NotEq x Set ty)
 
-proofInfer flag (Bang ty) =
+proofInfer True (Bang ty) =
   do a <- proofInfer True ty
      case a of
        Set -> return Set
        b -> throwError (NotEq ty Set b)
 
-proofInfer flag ty@(Tensor t1 t2) =
+proofInfer True ty@(Tensor t1 t2) =
   do a1 <- proofInfer True t1
      a2 <- proofInfer True t2
      case (a1, a2) of
        (Set, Set) -> return Set
        (b1, b2) -> throwError (NotEq ty Set (Tensor b1 b2))
 
-proofInfer flag ty@(Exists bd t) =
+proofInfer True ty@(Exists bd t) =
   do a <- proofInfer True t
      case a of
        Set ->
@@ -98,7 +98,7 @@ proofInfer flag ty@(Exists bd t) =
               _ -> throwError (NotEq m Set tm)
        _ -> throwError (NotEq t Set a)
        
-proofInfer flag ty@(Pi bd t) =
+proofInfer True ty@(Pi bd t) =
   do a <- proofInfer True t
      case a of
        Set ->
@@ -119,7 +119,7 @@ proofInfer flag ty@(Pi bd t) =
               _ -> throwError (NotEq m Set tm)
        _ -> throwError (NotEq t Set a)
 
-proofInfer flag ty@(Forall bd t) =
+proofInfer True ty@(Forall bd t) =
   do a <- proofInfer True t
      case a of
        Set ->
