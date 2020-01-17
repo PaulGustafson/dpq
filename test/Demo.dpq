@@ -20,13 +20,12 @@ reverseGeneric a f = unbox (revert (box a f))
 ---- |-----|-----x----
 ---- Not---Not---Not--
 ands :: ! forall (n :: Nat). Vec Qubit n -> Qubit -> Vec Qubit n * Qubit
-ands v a =
-   case v of
-       VNil -> (VNil, a)
-       VCons x xs ->
-         let (xs', a') = ands xs a
-	     (a'', x') = CNot a' x
-	 in (VCons x' xs', a'')
+ands v a = case v of
+             VNil -> (VNil, a)
+             VCons x xs ->
+                let (xs', a') = ands xs a
+	            (a'', x') = CNot a' x
+         	 in (VCons x' xs', a'')
 
 test1 = box (Vec Qubit 3 * Qubit) (uncurry ands)
 
