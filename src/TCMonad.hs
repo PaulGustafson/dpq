@@ -324,6 +324,7 @@ updateCount x =
 
      
 shape a | isKind a = return a
+
 shape Unit = return Unit
 shape (LBase x) | getName x == "Qubit" = return Unit
 shape a@(LBase x) | otherwise = return a
@@ -338,7 +339,10 @@ shape a@(Lift _) = return a
 shape a@(Circ _ _) = return a
 
 shape a@(Force' m) = return a
-shape (Force m) = shape m >>= \ x -> return (Force' x)
+shape (Force m) =
+  do m' <- shape m
+     return (Force' m)
+     
 shape a@(App t1 t2) =
   do t1' <- shape t1
      t2' <- shape t2
@@ -349,17 +353,17 @@ shape a@(WithType t1 t2) =
      t2' <- shape t2
      return $ WithType t1' t2'
 
-shape a@(App' t1 t2) =
-  case flatten a of
-    Just (Right k, _) ->
-      do p <- isParam a
-         if p then return a
-           else shapeApp t1 t2
-    _ -> shapeApp t1 t2
-  where shapeApp t1 t2 = 
-          do t1' <- shape t1
-             t2' <- shape t2
-             return (App' t1' t2')         
+shape a@(App' t1 t2) = return a
+  -- case flatten a of
+  --   Just (Right k, _) ->
+  --     do p <- isParam a
+  --        if p then return a
+  --          else shapeApp t1 t2
+  --   _ -> shapeApp t1 t2
+  -- where shapeApp t1 t2 = 
+  --         do t1' <- shape t1
+  --            t2' <- shape t2
+  --            return (App' t1' t2')         
 
 shape a@(AppDep t1 t2) =
   case erasePos t1 of
@@ -371,6 +375,14 @@ shape a@(AppDep t1 t2) =
 
 shape a@(AppDep' _ _) = return a
 
+shape (AppDepTy t t') =
+  do t1 <- shape t
+     return (AppDepTy t1 t')
+
+shape (LamDepTy (Abst xs t)) =
+  do t' <- shape t
+     return $ LamDepTy (abst xs t')
+     
 shape (AppDict t1 t2) =
   do t1' <- shape t1
      return $ AppDict t1' t2
@@ -383,14 +395,17 @@ shape (AppTm t1 t2) =
   do t1' <- shape t1
      return $ AppTm t1' t2
      
-shape (Tensor t1 t2) = Tensor <$> shape t1 <*> shape t2
+shape (Tensor t1 t2) =
+  Tensor <$> shape t1 <*> shape t2
 
-shape (Pair t1 t2) = Pair <$> shape t1 <*> shape t2
+shape (Pair t1 t2) =
+  Pair <$> shape t1 <*> shape t2
 
-shape (Arrow t1 t2) = Arrow' <$> shape t1 <*> shape t2
+shape (Arrow t1 t2) =
+  Arrow' <$> shape t1 <*> shape t2
 
-shape (Imply bds h) = Imply <$> return bds <*> shape h
-
+shape (Imply bds h) =
+  Imply <$> return bds <*> shape h
 
 shape (Exists (Abst x t) t2) =
   do t' <- shape t
@@ -402,7 +417,9 @@ shape (Forall (Abst x t) t2) =
      return $ Forall (abst x t') t2
 
 shape a@(Arrow' _ _) = return a
+
 shape a@(Lam' _) = return a
+shape a@(LamDep' _) = return a
 
 shape (Pi (Abst x t) t2) =
   do t' <- shape t

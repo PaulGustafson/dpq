@@ -905,9 +905,7 @@ handleTypeApp ann t' t1 t2 =
     Pi b ty ->
       open b $ \ vs b' ->
         do (_, ann2) <- typeCheck True t2 ty
-           let fvs = S.toList $ getVars NoEigen ann2
-               su = zip fvs (map EigenVar fvs)
-               t2' = erasePos $ apply su ann2
+           let t2' = erasePos $ toEigen ann2
            b'' <- betaNormalize (apply [(head vs, t2')]  b')
            let k2 = if null (tail vs) then b''
                       else Pi (abst (tail vs) b'') ty
@@ -986,7 +984,12 @@ addAnn flag e a (Forall bd ty) env | otherwise = open bd $ \ xs t ->
            new = map (\ x -> (x, ty)) xs
        in addAnn flag e a' t (new ++ env)
 
-addAnn flag e a (PiImp bd ty) env = open bd $ \ xs t ->
+addAnn flag e a (PiImp bd ty) env | isKind ty = open bd $ \ xs t ->
+       let a' = foldl AppDepTy a (map Var xs)
+           new = map (\ x -> (x, ty)) xs
+       in addAnn flag e a' t (new ++ env)          
+
+addAnn flag e a (PiImp bd ty) env | otherwise = open bd $ \ xs t ->
        let app = if flag then AppDep' else AppDep
            a' = foldl app a (map Var xs)
            new = map (\ x -> (x, ty)) xs
