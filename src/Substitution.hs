@@ -114,6 +114,9 @@ substitute s (AppTm t tm) =
 
 substitute s (AppDep t tm) =
   AppDep (substitute s t) (substitute s tm)
+substitute s (AppDepTy t tm) =
+  AppDepTy (substitute s t) (substitute s tm)
+  
 substitute s (AppDep' t tm) =
   AppDep' (substitute s t) (substitute s tm)  
 substitute s (AppDict t tm) =
@@ -151,6 +154,10 @@ substitute s (LamDict bind) =
 substitute s (LamDep bind) =
   open bind $
   \ ys m -> LamDep (abst ys (substitute s m)) 
+
+substitute s (LamDepTy bind) =
+  open bind $
+  \ ys m -> LamDepTy (abst ys (substitute s m)) 
 
 substitute s (LamDep' bind) =
   open bind $

@@ -34,60 +34,89 @@ data Exp =
   Var Variable
   | Label Variable
   | EigenVar Variable
-  | GoalVar Variable 
+  | GoalVar Variable
+    -- User defined constant
   | Const Id
   | LBase Id
-  | Base Id 
+  | Base Id
+    -- Arrows
   | Lam (Bind [Variable] Exp) 
   | Lam' (Bind [Variable] Exp)
+
+  | Arrow Exp Exp
+  | Arrow' Exp Exp
+    
   | App Exp Exp
-  | App' Exp Exp 
+  | App' Exp Exp
+
+  -- Dictionary abstraction and application.  
   | AppDict Exp Exp
+  | Imply [Exp] Exp
+  | LamDict (Bind [Variable] Exp)
+
+  -- Pair and existential  
+  | Tensor Exp Exp 
   | Pair Exp Exp
   | Pack Exp Exp
   | Let Exp (Bind Variable Exp) 
   | LetPair Exp (Bind [Variable] Exp)
   | LetEx Exp (Bind (Variable, Variable) Exp) 
-  | LetPat Exp (Bind Pattern Exp) 
-  | Star
+  | LetPat Exp (Bind Pattern Exp)
+  | Exists (Bind Variable Exp) Exp
+  | Case Exp Branches
+
+  -- Lift and force  
+  | Bang Exp
   | Force Exp
   | Force' Exp
   | Lift Exp
+  -- Circuit operations  
   | Box
   | ExBox
   | UnBox
   | RunCirc
   | Revert 
-  | Case Exp Branches
-  | Arrow Exp Exp
-  | Arrow' Exp Exp
-  | Imply [Exp] Exp
-  | Tensor Exp Exp 
+  | Circ Exp Exp
+  | Wired (Bind [Variable] Morphism)
+    
+  -- constants  
+  | Star
   | Unit
   | Set 
   | Sort
-  | Bang Exp
-  | Circ Exp Exp
+
+  -- Dependent abstraction    
   | Pi (Bind [Variable] Exp) Exp
   | Pi' (Bind [Variable] Exp) Exp
+    
   | PiImp (Bind [Variable] Exp) Exp
   | PiImp' (Bind [Variable] Exp) Exp
-  | LamAnn Exp (Bind [Variable] Exp)
-  | LamAnn' Exp (Bind [Variable] Exp) 
-  | Exists (Bind Variable Exp) Exp
-  | Forall (Bind [Variable] Exp) Exp
-  | Wired (Bind [Variable] Morphism)
-  | LamType (Bind [Variable] Exp)
-  | LamTm (Bind [Variable] Exp)
-  | LamDict (Bind [Variable] Exp)
+
   | LamDep (Bind [Variable] Exp)
   | LamDep' (Bind [Variable] Exp)
-  | AppType Exp Exp 
-  | AppTm Exp Exp  
+
   | AppDep Exp Exp
   | AppDep' Exp Exp
-  | PlaceHolder
+
+  -- explicit type abstraction and application
+  | LamDepTy (Bind [Variable] Exp)
+  | AppDepTy Exp Exp
+
+  -- Annotated lambda, this is equivalence to infer mode.
+  | LamAnn Exp (Bind [Variable] Exp)
+  | LamAnn' Exp (Bind [Variable] Exp)
+
+  -- Annotated term  
   | WithType Exp Exp
+
+  -- Irrelavent quantification  
+  | Forall (Bind [Variable] Exp) Exp    
+  | LamType (Bind [Variable] Exp)
+  | LamTm (Bind [Variable] Exp)
+  | AppType Exp Exp 
+  | AppTm Exp Exp  
+  -- others.  
+  | PlaceHolder
   | Pos Position Exp
   deriving (Eq, Generic, Nominal, NominalShow, NominalSupport, Show)
 
@@ -145,11 +174,11 @@ instance Disp Exp where
     fsep [text "\\" , (hsep $ map (display flag) vs), text ".", nest 2 $ display flag b]
   display flag (LamAnn ty bds) =
     open bds $ \ vs b ->
-    fsep [text "\\" , parens (hsep $ map (display flag) vs), text "::", display flag ty,  text ".", nest 2 $ display flag b]
+    fsep [text "\\(" , hsep $ map (display flag) vs, text "::", display flag ty,  text ").", nest 2 $ display flag b]
 
   display flag (LamAnn' ty bds) =
     open bds $ \ vs b ->
-    fsep [text "\\'" , parens (hsep $ map (display flag) vs), text "::", display flag ty,  text ".", nest 2 $ display flag b]
+    fsep [text "\\'(" , hsep $ map (display flag) vs, text "::", display flag ty,  text ").", nest 2 $ display flag b]
 
   display flag (Lam' bds) =
     open bds $ \ vs b ->
@@ -164,6 +193,10 @@ instance Disp Exp where
   display flag (LamDep bds) =
     open bds $ \ vs b ->
     fsep [text "\\dep" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
+
+  display flag (LamDepTy bds) =
+    open bds $ \ vs b ->
+    fsep [text "\\depTy" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
 
   display flag (LamDep' bds) =
     open bds $ \ vs b ->
@@ -183,6 +216,7 @@ instance Disp Exp where
   display flag a@(AppType t t') =
     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
 --    fsep [dParen flag (precedence a - 1) t, text "@2", dParen flag (precedence a) t']
+
   display flag a@(App' t t') =
     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
   -- display False a@(App' t t') =
@@ -195,6 +229,9 @@ instance Disp Exp where
   display flag a@(AppDep t t') =
        fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
 --    fsep [text "@0", dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+  display flag a@(AppDepTy t t') =
+       fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+
   display flag a@(AppDep' t t') =
     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
 --    fsep [dParen flag (precedence a - 1) t, text "@", dParen flag (precedence a) t']

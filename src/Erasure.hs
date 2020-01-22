@@ -51,6 +51,11 @@ erasure (AppDep e1 e2) =
      e2' <- erasure e2
      return $ App e1' e2'
 
+erasure (AppDepTy e1 e2) =
+  do e1' <- erasure e1
+     e2' <- erasure e2
+     return $ App e1' e2'
+
 erasure (AppDep' e1 e2) =
   do e1' <- erasure e1
      e2' <- erasure e2
@@ -109,6 +114,10 @@ erasure a@(LamDict (Abst xs m)) =
 erasure (WithType ann t) = erasure ann
 
 erasure (LamDep (Abst ys m)) =
+  do m' <- erasure m
+     return $ Lam (abst ys m') 
+
+erasure (LamDepTy (Abst ys m)) =
   do m' <- erasure m
      return $ Lam (abst ys m') 
 

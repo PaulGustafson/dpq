@@ -38,6 +38,7 @@ instance Equal Nat where
                Z -> False
                S y' -> x' == y'
 
+
 instance Num Nat where
   (+) = add
   (-) = minus

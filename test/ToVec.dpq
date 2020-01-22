@@ -36,7 +36,8 @@ main  = box Unit $ \ y . [Init0 ()]
 
 f :: !(Unit -> Vec Qubit (toNat (Cons (Init0 ()) Nil)))
 f y = g' (Cons (Init0()) Nil)
--- main'  = box Unit f -- (\ y . g' (Cons (Init0()) Nil))
+
+main'  = box Unit f -- (\ y . g' (Cons (Init0()) Nil))
 -- g' (Cons (Init0()) Nil)
 -- This is because the interaction of shape and polymorphism.
 -- Nil @ Qubit is categorically equiv to Nil Unit, but this is
