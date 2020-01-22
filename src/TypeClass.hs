@@ -45,8 +45,8 @@ resolveGoals a =
 
 resolution :: Exp -> [(Variable, Exp)] -> [(Id, Exp)] -> TCMonad Exp
 resolution goal localEnv globalEnv =
-  do goal' <- normalize goal
-     (t, newGoals) <- rewrite goal' localEnv globalEnv
+  do -- goal' <- normalize goal
+     (t, newGoals) <- rewrite goal localEnv globalEnv
      helper t newGoals
        where helper t [] = return t
              helper t ((x, subGoal):res) =
