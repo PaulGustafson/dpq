@@ -373,7 +373,7 @@ shape a@(AppDep t1 t2) =
          t2' <- shape t2
          return (AppDep' t1' t2')         
 
-shape a@(AppDep' _ _) = return a
+-- shape a@(AppDep' _ _) = return a
 
 shape (AppDepTy t t') =
   do t1 <- shape t
@@ -416,10 +416,11 @@ shape (Forall (Abst x t) t2) =
   do t' <- shape t
      return $ Forall (abst x t') t2
 
-shape a@(Arrow' _ _) = return a
+shape a@(Arrow' a1 a2) = 
+  Arrow' <$> shape a1 <*> shape a2
 
-shape a@(Lam' _) = return a
-shape a@(LamDep' _) = return a
+-- shape a@(Lam' _) = return a
+-- shape a@(LamDep' _) = return a
 
 shape (Pi (Abst x t) t2) =
   do t' <- shape t

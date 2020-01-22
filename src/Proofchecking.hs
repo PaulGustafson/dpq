@@ -201,6 +201,9 @@ proofInfer True a@(AppDep' t1 t2) =
 proofInfer flag a@(AppDepTy t1 t2) =
   do t' <- proofInfer flag t1
      case t' of
+       (Arrow ty1 ty2) | isKind ty1 ->
+         do proofCheck True t2 ty1
+            return ty2
        b@(Pi bd ty) | not flag -> open bd $ \ xs m ->
          do proofCheck True t2 ty
             let t2' = toEigen t2

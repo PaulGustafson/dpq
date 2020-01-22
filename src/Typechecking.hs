@@ -926,7 +926,7 @@ handleTermApp flag ann pos t' t1 t2 =
      case rt' of
        Arrow ty1 ty2 | isKind ty1 ->
          do (_, ann2) <- typeCheck True t2 ty1
-            let res = App a1' ann2
+            let res = AppDepTy a1' ann2
             return (ty2, res)
        Arrow ty1 ty2 ->
          do (_, ann2) <- typeCheck flag t2 ty1

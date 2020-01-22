@@ -174,11 +174,11 @@ instance Disp Exp where
     fsep [text "\\" , (hsep $ map (display flag) vs), text ".", nest 2 $ display flag b]
   display flag (LamAnn ty bds) =
     open bds $ \ vs b ->
-    fsep [text "\\" , parens (hsep $ map (display flag) vs), text "::", display flag ty,  text ".", nest 2 $ display flag b]
+    fsep [text "\\(" , hsep $ map (display flag) vs, text "::", display flag ty,  text ").", nest 2 $ display flag b]
 
   display flag (LamAnn' ty bds) =
     open bds $ \ vs b ->
-    fsep [text "\\'" , parens (hsep $ map (display flag) vs), text "::", display flag ty,  text ".", nest 2 $ display flag b]
+    fsep [text "\\'(" , hsep $ map (display flag) vs, text "::", display flag ty,  text ").", nest 2 $ display flag b]
 
   display flag (Lam' bds) =
     open bds $ \ vs b ->
