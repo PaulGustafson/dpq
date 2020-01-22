@@ -217,10 +217,10 @@ instance Disp Exp where
     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
 --    fsep [dParen flag (precedence a - 1) t, text "@2", dParen flag (precedence a) t']
   display True a@(App' t t') =
-    fsep [dParen True (precedence a - 1) t, text "@", dParen True (precedence a) t']
+    fsep [dParen True (precedence a - 1) t, dParen True (precedence a) t']
     
   display False a@(App' t t') =
-    fsep [dParen False (precedence a - 1) t, text "@", dParen False (precedence a) t']
+    fsep [dParen False (precedence a - 1) t, dParen False (precedence a) t']
 
   display flag (WithType m t) =
     fsep [text "withType" <+> display flag t <+> text ":", display flag m]
@@ -230,7 +230,7 @@ instance Disp Exp where
        fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
 --    fsep [text "@0", dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
   display flag a@(AppDepTy t t') =
-       fsep [dParen flag (precedence a - 1) t, text "@", dParen flag (precedence a) t']
+       fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
 
   display flag a@(AppDep' t t') =
     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
