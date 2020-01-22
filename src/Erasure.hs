@@ -117,6 +117,10 @@ erasure (LamDep (Abst ys m)) =
   do m' <- erasure m
      return $ Lam (abst ys m') 
 
+erasure (LamDepTy (Abst ys m)) =
+  do m' <- erasure m
+     return $ Lam (abst ys m') 
+
 
 erasure (LamDep' (Abst ys m)) =
   do m' <- erasure m

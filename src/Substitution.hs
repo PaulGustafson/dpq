@@ -155,6 +155,10 @@ substitute s (LamDep bind) =
   open bind $
   \ ys m -> LamDep (abst ys (substitute s m)) 
 
+substitute s (LamDepTy bind) =
+  open bind $
+  \ ys m -> LamDepTy (abst ys (substitute s m)) 
+
 substitute s (LamDep' bind) =
   open bind $
   \ ys m -> LamDep' (abst ys (substitute s m)) 

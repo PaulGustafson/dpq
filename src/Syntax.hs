@@ -194,6 +194,10 @@ instance Disp Exp where
     open bds $ \ vs b ->
     fsep [text "\\dep" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
 
+  display flag (LamDepTy bds) =
+    open bds $ \ vs b ->
+    fsep [text "\\depTy" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
+
   display flag (LamDep' bds) =
     open bds $ \ vs b ->
     fsep [text "\\dep'" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
@@ -226,7 +230,7 @@ instance Disp Exp where
        fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
 --    fsep [text "@0", dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
   display flag a@(AppDepTy t t') =
-       fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+       fsep [dParen flag (precedence a - 1) t, text "@", dParen flag (precedence a) t']
 
   display flag a@(AppDep' t t') =
     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']

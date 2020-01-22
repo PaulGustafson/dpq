@@ -443,11 +443,13 @@ typeCheck False c@(Lam bind) t =
                         ann2 <- updateWithSubst ann
                         ann' <- resolveGoals ann2
                         t' <- updateWithSubst t
-                        let res = LamDep (abst xs ann') 
+                        let lamDep = if isKind ty then LamDepTy else LamDep
+                            res = lamDep (abst xs ann') 
                             t'' = Pi (abst xs t') ty
                         return (t'', res)
                    else
-                     do let sub1 = zip ys (map EigenVar xs)
+                     do let lamDep = if isKind ty then LamDepTy else LamDep
+                            sub1 = zip ys (map EigenVar xs)
                             b' = apply sub1 b
                             (vs, rs) = splitAt (length ys) xs
                             sub2 = zip xs $ take (length ys) (map EigenVar xs)
@@ -461,7 +463,7 @@ typeCheck False c@(Lam bind) t =
                         ann1 <- updateWithSubst ann
                         t' <- updateWithSubst t
                         ann' <- resolveGoals ann1
-                        let res = LamDep (abst vs ann') 
+                        let res = lamDep (abst vs ann') 
                         return (Pi (abst vs t') ty, res)
          pty@(PiImp bd ty) -> 
            open bind $ \ xs m -> open bd $ \ ys b ->
@@ -483,7 +485,8 @@ typeCheck False c@(Lam bind) t =
                         ann2 <- updateWithSubst ann
                         ann' <- resolveGoals ann2
                         t' <- updateWithSubst t
-                        let res = LamDep (abst xs ann') 
+                        let lamDep = if isKind ty then LamDepTy else LamDep
+                            res = lamDep (abst xs ann') 
                             t'' = PiImp (abst xs t') ty
                         return (t'', res)
                    else
@@ -500,7 +503,8 @@ typeCheck False c@(Lam bind) t =
                         ann1 <- updateWithSubst ann
                         t' <- updateWithSubst t
                         ann' <- resolveGoals ann1
-                        let res = LamDep (abst vs ann') 
+                        let lamDep = if isKind ty then LamDepTy else LamDep
+                            res = LamDep (abst vs ann') 
                         return (PiImp (abst vs t') ty, res)
          b -> throwError $ LamErr c b
 
@@ -940,12 +944,9 @@ handleTermApp flag ann pos t' t1 t2 =
                 -- normalize [[t2]/x]m
              do let flag' = isKind ty
                 (_, kann) <- typeCheck flag' t2 ty
-                let vs = S.toList $ getVars NoEigen kann
-                    su = zip vs (map EigenVar vs)
-                    t2' = erasePos $ apply su kann
+                let t2' = erasePos $ toEigen kann
                 t2'' <- if not flag' then shape t2' else return t2'
                 m' <- betaNormalize (apply [(head xs, t2'')] m)
-                -- m'' <- if flag && flag' then shape m' else return m'
                 let res =
                       case (flag, flag') of
                         (False, False) -> AppDep a1' kann

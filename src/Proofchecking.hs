@@ -40,8 +40,6 @@ proofInfer True Set = return Sort
 --        Set -> return Set
 --        b -> throwPfError (NotEq ty Set b)
 
-
-
 proofInfer True ty@(Arrow t1 t2) =
   do a1 <- proofInfer True t1
      a2 <- proofInfer True t2
@@ -164,44 +162,74 @@ proofInfer False a@(AppDep t1 t2) =
   do t' <- proofInfer False t1
      case t' of
        b@(Pi bd ty) -> open bd $ \ xs m ->
-         do let isK = isKind ty
-            proofCheck isK t2 ty
-            let vs = S.toList $ getVars NoEigen t2
-                su = zip vs (map EigenVar vs)
-                t2' = apply su t2
-            t2'' <- if isK then return t2' else shape t2'
+         do proofCheck False t2 ty
+            let t2' = toEigen t2
+            t2'' <- shape t2'
             m' <- betaNormalize (apply [(head xs, t2'')] m) 
             if null (tail xs)
               then return m'
               else return $ Pi (abst (tail xs) m') ty
        b@(PiImp bd ty) -> open bd $ \ xs m ->
-         do let isK = isKind ty
-            proofCheck isK t2 ty
-            let vs = S.toList $ getVars NoEigen t2
-                su = zip vs (map EigenVar vs)
-                t2' = apply su t2
-            t2'' <- if isK then return t2' else shape t2'
+         do proofCheck False t2 ty
+            let t2' = toEigen t2
+            t2'' <- shape t2'
             m' <- betaNormalize (apply [(head xs, t2'')] m) 
             if null (tail xs)
               then return m'
               else return $ PiImp (abst (tail xs) m') ty  
-                   
-       b -> throwError $ ArrowErr t1 b
+
+
 
 proofInfer True a@(AppDep' t1 t2) =
   do t' <- proofInfer True t1
      case t' of
        b@(Pi' bd ty) -> open bd $ \ xs m ->
          do proofCheck True t2 ty
-            let vs = S.toList $ getVars NoEigen t2
-                su = zip vs (map EigenVar vs)
-                t2' = apply su t2
+            let t2' = toEigen t2
             m' <- betaNormalize (apply [(head xs, t2')] m)
-            m'' <- if isKind ty then shape m' else return m'
             if null (tail xs)
-              then return m''
-              else return $ Pi' (abst (tail xs) m'') ty  
-       b -> throwError $ ArrowErr t1 b
+              then return m'
+              else return $ Pi' (abst (tail xs) m') ty  
+       b@(PiImp' bd ty) -> open bd $ \ xs m ->
+         do proofCheck True t2 ty
+            let t2' = toEigen t2
+            m' <- betaNormalize (apply [(head xs, t2')] m)
+            if null (tail xs)
+              then return m'
+              else return $ PiImp' (abst (tail xs) m') ty  
+
+proofInfer flag a@(AppDepTy t1 t2) =
+  do t' <- proofInfer flag t1
+     case t' of
+       b@(Pi bd ty) | not flag -> open bd $ \ xs m ->
+         do proofCheck True t2 ty
+            let t2' = toEigen t2
+            m' <- betaNormalize (apply [(head xs, t2')] m) 
+            if null (tail xs)
+              then return m'
+              else return $ Pi (abst (tail xs) m') ty
+       b@(PiImp bd ty) | not flag -> open bd $ \ xs m ->
+         do proofCheck True t2 ty
+            let t2' = toEigen t2
+            m' <- betaNormalize (apply [(head xs, t2')] m) 
+            if null (tail xs)
+              then return m'
+              else return $ PiImp (abst (tail xs) m') ty  
+       b@(Pi' bd ty) | flag -> open bd $ \ xs m ->
+         do proofCheck True t2 ty
+            let t2' = toEigen t2
+            m' <- betaNormalize (apply [(head xs, t2')] m) >>= shape
+            if null (tail xs)
+              then return m'
+              else return $ Pi' (abst (tail xs) m') ty
+       b@(PiImp' bd ty) | flag -> open bd $ \ xs m ->
+         do proofCheck True t2 ty
+            let t2' = toEigen t2
+            m' <- betaNormalize (apply [(head xs, t2')] m) >>= shape
+            if null (tail xs)
+              then return m'
+              else return $ PiImp' (abst (tail xs) m') ty
+
 
 proofInfer flag a@(App t1 t2) =
   do t' <- proofInfer flag t1
@@ -218,9 +246,7 @@ proofInfer flag a@(App' t1 t2) =
        b@(Pi bd ty) | isKind b -> open bd $ \ xs m ->
          do
             proofCheck True t2 ty
-            let vs = S.toList $ getVars NoEigen t2
-                su = zip vs (map EigenVar vs)
-                t2' = apply su t2
+            let t2' = toEigen t2
             m' <- betaNormalize (apply [(head xs, t2')]  m) 
             if null (tail xs)
               then return m'
@@ -315,16 +341,12 @@ proofInfer flag a@(Pair t1 t2) =
      ty2 <- proofInfer flag t2
      return $ (Tensor ty1 ty2)
 
-
 proofInfer flag (Pos p e) = 
   proofInfer flag e `catchError` \ e -> throwError $ collapsePos p e
 
 proofInfer False (LamAnn ty (Abst xs m)) =
   do if isKind ty then proofCheck True ty Sort else proofCheck True ty Set
-     let -- annVars = S.toList $ free_vars NoEigen ty
-         -- eigenVars = map EigenVar annVars
-         -- eigenSub = zip annVars eigenVars
-         ty1 = toEigen ty
+     let ty1 = toEigen ty
      mapM_ (\ x -> addVar x (erasePos ty1)) xs
      ty' <- proofInfer False m
      p <- isParam ty1
@@ -360,7 +382,7 @@ proofCheck True a@(Lam' bd) (Arrow' t1 t2) = open bd $ \ xs m ->
   do addVar (head xs) t1
      proofCheck True (if (null $ tail xs) then m else (Lam' (abst (tail xs) m))) t2
 
-proofCheck flag a@(Lam' bd) b@(Arrow t1 t2) | isKind b = open bd $ \ xs m ->
+proofCheck True a@(Lam' bd) b@(Arrow t1 t2) | isKind b = open bd $ \ xs m ->
   do addVar (head xs) t1
      proofCheck True (if (null $ tail xs) then m else (Lam' (abst (tail xs) m))) t2
 
@@ -383,6 +405,18 @@ proofCheck False a@(LamDep bd1) exp@(PiImp bd2 ty) =
 
 proofCheck True a@(LamDep' bd1) exp@(Pi' bd2 ty) =
   handleAbs True LamDep' Pi' bd1 bd2 ty False
+
+proofCheck True a@(LamDepTy bd1) exp@(Pi' bd2 ty) =
+  handleAbs True LamDepTy Pi' bd1 bd2 ty False
+
+proofCheck False a@(LamDepTy bd1) exp@(Pi bd2 ty) =
+  handleAbs False LamDepTy Pi bd1 bd2 ty False
+
+proofCheck True a@(LamDepTy bd1) exp@(PiImp' bd2 ty) =
+  handleAbs True LamDepTy PiImp' bd1 bd2 ty False
+
+proofCheck False a@(LamDepTy bd1) exp@(PiImp bd2 ty) =
+  handleAbs False LamDepTy PiImp bd1 bd2 ty False
 
 proofCheck flag (LamTm bd1) exp@(Forall bd2 ty) =
   handleAbs flag LamTm Forall bd1 bd2 ty False
@@ -575,13 +609,9 @@ dependentUnif index isDpm head t =
 
 handleForallApp1 flag t' t1 t2 = 
      case erasePos t' of
-       b@(Forall bd kd) -> helper bd kd
-       b -> throwError $ ArrowErr t1 b
-     where helper bd kd =
+       b@(Forall bd kd) -> 
              open bd $ \ xs m ->
-              do let vs = S.toList $ getVars NoEigen t2
-                     su = zip vs (map EigenVar vs)
-                     t2' = apply su t2
+              do let t2' = toEigen t2
                  proofCheck True t2 kd
                  m' <- betaNormalize (apply [(head xs,  t2')] m)
                  if null (tail xs)
@@ -590,13 +620,9 @@ handleForallApp1 flag t' t1 t2 =
 
 handleForallApp2 flag t' t1 t2 = 
      case erasePos t' of
-       b@(Forall bd kd) | isKind kd -> helper flag bd kd
-       b -> throwError $ ArrowErr t1 b
-     where helper flag bd kd =
+       b@(Forall bd kd) | isKind kd -> 
              open bd $ \ xs m ->
-              do let vs = S.toList $ getVars NoEigen t2
-                     su = zip vs (map EigenVar vs)
-                     t2' = apply su t2
+              do let t2' = toEigen t2
                  proofCheck True t2 kd
                  m' <- betaNormalize (apply [(head xs,  t2')] m)
                  m'' <- if flag then shape m' else return m'

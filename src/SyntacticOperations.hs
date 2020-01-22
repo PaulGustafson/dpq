@@ -161,6 +161,8 @@ getVars b (LamType bind) =
   open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs
 getVars b (LamDep bind) =
   open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs
+getVars b (LamDepTy bind) =
+  open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs                        
 getVars b (LamDep' bind) =
   open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs                          
 getVars b (LamTm bind) =
@@ -391,7 +393,8 @@ erasePos (LamAnn ty (Abst vs b)) = LamAnn (erasePos ty) (abst vs (erasePos b))
 erasePos (LamAnn' ty (Abst vs b)) = LamAnn' (erasePos ty) (abst vs (erasePos b))
 erasePos (Lam' (Abst vs b)) = Lam' (abst vs (erasePos b)) 
 erasePos (LamTm (Abst vs b)) = LamTm (abst vs (erasePos b))
-erasePos (LamDep (Abst vs b)) = LamDep (abst vs (erasePos b)) 
+erasePos (LamDep (Abst vs b)) = LamDep (abst vs (erasePos b))
+erasePos (LamDepTy (Abst vs b)) = LamDepTy (abst vs (erasePos b)) 
 erasePos (LamType (Abst vs b)) = LamType (abst vs (erasePos b))
 erasePos (LamDict (Abst vs b)) = LamDict (abst vs (erasePos b))
 erasePos (Let m (Abst vs b)) = Let (erasePos m) (abst vs (erasePos b)) 
@@ -573,6 +576,11 @@ unEigenBound vars (LamDep bd) =
   open bd $ \ xs m ->
    let m' = unEigenBound (xs ++ vars) m
    in LamDep (abst xs m') 
+
+unEigenBound vars (LamDepTy bd) =
+  open bd $ \ xs m ->
+   let m' = unEigenBound (xs ++ vars) m
+   in LamDepTy (abst xs m') 
 
 unEigenBound vars (LamDep' bd) =
   open bd $ \ xs m ->
@@ -789,6 +797,10 @@ isExplicit s (LamTm bind) =
   \ ys m -> isExplicit s m
 
 isExplicit s (LamDep bind) =
+  open bind $
+  \ ys m -> isExplicit s m
+
+isExplicit s (LamDepTy bind) =
   open bind $
   \ ys m -> isExplicit s m
 
