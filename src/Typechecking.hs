@@ -171,7 +171,15 @@ typeInfer flag a@(Case _ _) = freshNames ["#case"] $ \ [n] ->
 typeInfer flag a@(Let _ _) = freshNames ["#let"] $ \ [n] ->
   do (t, ann) <- typeCheck flag a (Var n)
      return (t, WithType ann t)
-  
+
+typeInfer flag a@(LetPair _ _) = freshNames ["#letPair"] $ \ [n] ->
+  do (t, ann) <- typeCheck flag a (Var n)
+     return (t, WithType ann t)
+
+typeInfer flag a@(LetEx _ _) = freshNames ["#letEx"] $ \ [n] ->
+  do (t, ann) <- typeCheck flag a (Var n)
+     return (t, WithType ann t)
+
 
 typeInfer flag a@(Lam _) = throwError $ LamInferErr a
 
