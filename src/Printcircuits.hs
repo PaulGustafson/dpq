@@ -587,7 +587,7 @@ page_of_ocircuit :: FormatStyle -> Exp -> Document ()
 page_of_ocircuit fs (Wired bd) =
   open bd $ \ ws (Morphism q1 ocirc q2) ->
   let sc = 10
-      (gs, _) = refresh_gates Map.empty ocirc
+      (gs, _) = refresh_gates' Map.empty ocirc []
       -- ws1 = (S.fromList $ getWires q1) `S.union` (wirelist gs)
       -- ws = S.toList ws1
       ws = getWires q1 `List.union` wirelist gs
@@ -638,4 +638,37 @@ refresh_gates m (Gate name vs input output ctrl : gs) =
       ins = getWires newInput
       newMap = m `Map.union` Map.fromList (zip outWires ins)
       (gs', newMap') = refresh_gates newMap gs
-  in (Gate name vs newInput newOutput newCtrl : gs', newMap') -- trace ("map\n" ++ show newMap) $
+  in (Gate name vs newInput newOutput newCtrl : gs', newMap') 
+
+-- A version of refresh_gates that reuse terminals position
+
+refresh_gates' :: Map Variable Variable -> [Gate] -> [Variable] ->
+                      ([Gate], Map Variable Variable)
+refresh_gates' m [] s = ([], m)
+refresh_gates' m (Gate name [] input Star Star : gs) s
+  | getName name == "Term0" || getName name == "Term1" =
+    let newInput = renameTemp input m
+        (gs', newMap') = refresh_gates' m gs (getWires newInput ++ s)
+    in (Gate name [] newInput Star Star : gs', newMap')
+
+refresh_gates' m (Gate name [] Star output Star : gs) []
+  | getName name == "Init0" || getName name == "Init1" =
+    let (gs', newMap') = refresh_gates' m gs []
+    in (Gate name [] Star output Star : gs', newMap')
+
+refresh_gates' m (Gate name [] Star output Star : gs) (h:s)
+  | getName name == "Init0" || getName name == "Init1" =
+    let x:[] = getWires output
+        m' = m `Map.union` Map.fromList [(x, h)]
+        (gs', newMap') = refresh_gates' m' gs s
+    in (Gate name [] Star (Label h) Star : gs', newMap')
+    
+refresh_gates' m (Gate name vs input output ctrl : gs) s =
+  let newInput = renameTemp input m
+      newCtrl = renameTemp ctrl m
+      outWires = getWires output
+      newOutput = newInput
+      ins = getWires newInput
+      newMap = m `Map.union` Map.fromList (zip outWires ins)
+      (gs', newMap') = refresh_gates' newMap gs s
+  in (Gate name vs newInput newOutput newCtrl : gs', newMap') 
