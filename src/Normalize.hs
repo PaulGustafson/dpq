@@ -30,8 +30,11 @@ betaNormalize a@(Lam' bd) = return a
 betaNormalize a@(Lam bd) = return a
 betaNormalize a@(LamDep' bd) = return a
 betaNormalize a@(LamDep bd) = return a
+betaNormalize a@(LamDepTy bd) = return a
 betaNormalize a@(LamType bd) = return a
 betaNormalize a@(LamTm bd) = return a
+betaNormalize a@(LamAnn _ _) = return a
+betaNormalize a@(LamAnn' _ _) = return a
 -- betaNormalize a@(Box) = return a
 -- betaNormalize a@(ExBox) = return a
 -- betaNormalize a@(UnBox) = return a
@@ -189,6 +192,18 @@ betaNormalize (AppDep' t1 t2) =
            t -> return $ LamDep' (abst t (apply [(x, t2')] m))
        b -> return (AppDep' b t2')
 
+betaNormalize (AppDepTy t1 t2) =
+  do t1' <- betaNormalize t1
+     t2' <- betaNormalize t2
+     case t1' of
+       LamDepTy bd -> 
+         open bd $ \ xs m ->
+         let x = head xs in
+         case tail xs of
+           [] -> betaNormalize $ apply [(x, t2')] m
+           t -> return $ LamDepTy (abst t (apply [(x, t2')] m))
+       b -> return (AppDepTy b t2')
+
 betaNormalize (AppDict t1 t2) =
   do t1' <- betaNormalize t1
      t2' <- betaNormalize t2
@@ -301,7 +316,14 @@ normalize (App' m n) =
          let x = head xs in 
          case tail xs of
            [] -> normalize $ apply [(x, n')] b
-           t -> return $ Lam' (abst t (apply [(x, n')] b)) 
+           t -> return $ Lam' (abst t (apply [(x, n')] b))
+       LamAnn' ty bd -> 
+         open bd $ \ xs b ->
+         let x = head xs in 
+         case tail xs of
+           [] -> normalize $ apply [(x, n')] b
+           t -> return $ LamAnn' ty (abst t (apply [(x, n')] b)) 
+           
        _ -> return $ App' m' n'
 
 normalize (AppDep' m n) =
@@ -313,8 +335,32 @@ normalize (AppDep' m n) =
          let x = head xs in 
          case tail xs of
            [] -> normalize $ apply [(x, n')] b
-           t -> return $ LamDep' (abst t (apply [(x, n')] b)) 
+           t -> return $ LamDep' (abst t (apply [(x, n')] b))
+       LamAnn' ty bd -> 
+         open bd $ \ xs b ->
+         let x = head xs in 
+         case tail xs of
+           [] -> normalize $ apply [(x, n')] b
+           t -> return $ LamAnn' ty (abst t (apply [(x, n')] b))            
        _ -> return $ AppDep' m' n'
+
+normalize (AppDepTy m n) =
+  do m' <- normalize m
+     n' <- normalize n
+     case m' of
+       LamDepTy bd -> 
+         open bd $ \ xs b ->
+         let x = head xs in 
+         case tail xs of
+           [] -> normalize $ apply [(x, n')] b
+           t -> return $ LamDepTy (abst t (apply [(x, n')] b))
+       LamAnn' ty bd -> 
+         open bd $ \ xs b ->
+         let x = head xs in 
+         case tail xs of
+           [] -> normalize $ apply [(x, n')] b
+           t -> return $ LamAnn' ty (abst t (apply [(x, n')] b))            
+       _ -> return $ AppDepTy m' n'
 
 normalize (AppDict m n) =
   do m' <- normalize m
@@ -475,11 +521,16 @@ normalize b@(Case m (B bd)) =
         helper (a:args) ((Left (NoBind t)):vs) m =
           helper args vs m
         helper [] [] m = m
+
 normalize a@(Lift _) = return a
+
 normalize a@(Lam' _) = return a
 normalize a@(Lam _) = return a
 normalize a@(LamDep' _) = return a
 normalize a@(LamDep _) = return a
+normalize a@(LamDepTy _) = return a
+normalize a@(LamAnn _ _) = return a
+normalize a@(LamAnn' _ _) = return a
 normalize a@(LamDict _) = return a
 normalize a@(LamType _) = return a
 normalize a@(LamTm _) = return a

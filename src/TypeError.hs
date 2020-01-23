@@ -113,7 +113,7 @@ instance Disp TypeError where
   display flag (Unhandle t) =
     text "there is no type inference rule to infer a type for the expresson:" $$
     nest 2 (display flag t) $$
-    text "suggestion: use withType to add a type annotation"
+    text "suggestion: add a type annotation"
 
   display flag (NoDef t) =
     text "no definition for the identifier:" $$ nest 2 (display flag t)

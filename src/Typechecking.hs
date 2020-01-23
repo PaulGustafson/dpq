@@ -171,7 +171,15 @@ typeInfer flag a@(Case _ _) = freshNames ["#case"] $ \ [n] ->
 typeInfer flag a@(Let _ _) = freshNames ["#let"] $ \ [n] ->
   do (t, ann) <- typeCheck flag a (Var n)
      return (t, WithType ann t)
-  
+
+typeInfer flag a@(LetPair _ _) = freshNames ["#letPair"] $ \ [n] ->
+  do (t, ann) <- typeCheck flag a (Var n)
+     return (t, WithType ann t)
+
+typeInfer flag a@(LetEx _ _) = freshNames ["#letEx"] $ \ [n] ->
+  do (t, ann) <- typeCheck flag a (Var n)
+     return (t, WithType ann t)
+
 
 typeInfer flag a@(Lam _) = throwError $ LamInferErr a
 
@@ -443,11 +451,13 @@ typeCheck False c@(Lam bind) t =
                         ann2 <- updateWithSubst ann
                         ann' <- resolveGoals ann2
                         t' <- updateWithSubst t
-                        let res = LamDep (abst xs ann') 
+                        let lamDep = if isKind ty then LamDepTy else LamDep
+                            res = lamDep (abst xs ann') 
                             t'' = Pi (abst xs t') ty
                         return (t'', res)
                    else
-                     do let sub1 = zip ys (map EigenVar xs)
+                     do let lamDep = if isKind ty then LamDepTy else LamDep
+                            sub1 = zip ys (map EigenVar xs)
                             b' = apply sub1 b
                             (vs, rs) = splitAt (length ys) xs
                             sub2 = zip xs $ take (length ys) (map EigenVar xs)
@@ -461,7 +471,7 @@ typeCheck False c@(Lam bind) t =
                         ann1 <- updateWithSubst ann
                         t' <- updateWithSubst t
                         ann' <- resolveGoals ann1
-                        let res = LamDep (abst vs ann') 
+                        let res = lamDep (abst vs ann') 
                         return (Pi (abst vs t') ty, res)
          pty@(PiImp bd ty) -> 
            open bind $ \ xs m -> open bd $ \ ys b ->
@@ -483,7 +493,8 @@ typeCheck False c@(Lam bind) t =
                         ann2 <- updateWithSubst ann
                         ann' <- resolveGoals ann2
                         t' <- updateWithSubst t
-                        let res = LamDep (abst xs ann') 
+                        let lamDep = if isKind ty then LamDepTy else LamDep
+                            res = lamDep (abst xs ann') 
                             t'' = PiImp (abst xs t') ty
                         return (t'', res)
                    else
@@ -500,7 +511,8 @@ typeCheck False c@(Lam bind) t =
                         ann1 <- updateWithSubst ann
                         t' <- updateWithSubst t
                         ann' <- resolveGoals ann1
-                        let res = LamDep (abst vs ann') 
+                        let lamDep = if isKind ty then LamDepTy else LamDep
+                            res = LamDep (abst vs ann') 
                         return (PiImp (abst vs t') ty, res)
          b -> throwError $ LamErr c b
 
@@ -905,9 +917,7 @@ handleTypeApp ann t' t1 t2 =
     Pi b ty ->
       open b $ \ vs b' ->
         do (_, ann2) <- typeCheck True t2 ty
-           let fvs = S.toList $ getVars NoEigen ann2
-               su = zip fvs (map EigenVar fvs)
-               t2' = erasePos $ apply su ann2
+           let t2' = erasePos $ toEigen ann2
            b'' <- betaNormalize (apply [(head vs, t2')]  b')
            let k2 = if null (tail vs) then b''
                       else Pi (abst (tail vs) b'') ty
@@ -924,7 +934,7 @@ handleTermApp flag ann pos t' t1 t2 =
      case rt' of
        Arrow ty1 ty2 | isKind ty1 ->
          do (_, ann2) <- typeCheck True t2 ty1
-            let res = App a1' ann2
+            let res = AppDepTy a1' ann2
             return (ty2, res)
        Arrow ty1 ty2 ->
          do (_, ann2) <- typeCheck flag t2 ty1
@@ -935,9 +945,6 @@ handleTermApp flag ann pos t' t1 t2 =
             let res = App' a1' ann2
             return (ty2, res)            
        b@(Pi bind ty) ->
-         -- Note that here updateWithSubst is necessary
-         -- as we do not want variables in bind to escape
-         -- the current scope.
          open bind $
          \ xs m -> 
                 -- typecheck or kind check t2
@@ -945,24 +952,26 @@ handleTermApp flag ann pos t' t1 t2 =
                 -- normalize [[t2]/x]m
              do let flag' = isKind ty
                 (_, kann) <- typeCheck flag' t2 ty
-                let vs = S.toList $ getVars NoEigen kann
-                    su = zip vs (map EigenVar vs)
-                    t2' = erasePos $ apply su kann
+                let t2' = erasePos $ toEigen kann
                 t2'' <- if not flag' then shape t2' else return t2'
                 m' <- betaNormalize (apply [(head xs, t2'')] m)
-                m'' <- if flag && flag' then shape m' else return m'
-                let res = if flag then AppDep' a1' kann
-                          else AppDep a1' kann
+                let res =
+                      case (flag, flag') of
+                        (False, False) -> AppDep a1' kann
+                        (False, True) -> AppDepTy a1' kann
+                        (True, False) -> AppDep' a1' kann
+                        (True, True) -> AppDepTy a1' kann
                 if null (tail xs)
                   then
-                  do m''' <- updateWithSubst m''
+                  do m'' <- updateWithSubst m'
                      res' <- updateWithSubst res
-                     return (m''', res')
+                     return (m'', res')
                   else
-                  do m''' <- updateWithSubst m''
+                  do m'' <- updateWithSubst m'
                      ty' <- updateWithSubst ty
                      res' <- updateWithSubst res
-                     return (Pi (abst (tail xs) m''') ty', res')
+                     return (Pi (abst (tail xs) m'') ty', res')
+                     
        b -> throwError $ ArrowErr t1 b
 
 
@@ -984,7 +993,12 @@ addAnn flag e a (Forall bd ty) env | otherwise = open bd $ \ xs t ->
            new = map (\ x -> (x, ty)) xs
        in addAnn flag e a' t (new ++ env)
 
-addAnn flag e a (PiImp bd ty) env = open bd $ \ xs t ->
+addAnn flag e a (PiImp bd ty) env | isKind ty = open bd $ \ xs t ->
+       let a' = foldl AppDepTy a (map Var xs)
+           new = map (\ x -> (x, ty)) xs
+       in addAnn flag e a' t (new ++ env)          
+
+addAnn flag e a (PiImp bd ty) env | otherwise = open bd $ \ xs t ->
        let app = if flag then AppDep' else AppDep
            a' = foldl app a (map Var xs)
            new = map (\ x -> (x, ty)) xs

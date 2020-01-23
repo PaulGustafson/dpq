@@ -110,6 +110,8 @@ getVars b (AppType t t') =
   getVars b t `S.union` getVars b t'
 getVars b (AppDep t t') =
   getVars b t `S.union` getVars b t'
+getVars b (AppDepTy t t') =
+  getVars b t `S.union` getVars b t'  
 getVars b (AppDep' t t') =
   getVars b t `S.union` getVars b t'  
 getVars b (AppDict t t') =
@@ -159,6 +161,8 @@ getVars b (LamType bind) =
   open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs
 getVars b (LamDep bind) =
   open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs
+getVars b (LamDepTy bind) =
+  open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs                        
 getVars b (LamDep' bind) =
   open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs                          
 getVars b (LamTm bind) =
@@ -314,6 +318,9 @@ flatten (App' t1 t2) =
 flatten (AppDep t1 t2) =
   do (id, args) <- flatten t1
      return (id, args ++ [t2])
+flatten (AppDepTy t1 t2) =
+  do (id, args) <- flatten t1
+     return (id, args ++ [t2])     
 flatten (AppDict t1 t2) =
   do (id, args) <- flatten t1
      return (id, args ++ [t2])          
@@ -354,6 +361,7 @@ erasePos (App' e1 e2) = App' (erasePos e1) (erasePos e2)
 erasePos (AppType e1 e2) = AppType (erasePos e1) (erasePos e2)
 erasePos (AppTm e1 e2) = AppTm (erasePos e1) (erasePos e2)
 erasePos (AppDep e1 e2) = AppDep (erasePos e1) (erasePos e2)
+erasePos (AppDepTy e1 e2) = AppDepTy (erasePos e1) (erasePos e2)
 erasePos (AppDep' e1 e2) = AppDep' (erasePos e1) (erasePos e2)
 erasePos (AppDict e1 e2) = AppDict (erasePos e1) (erasePos e2)
 erasePos (Tensor e1 e2) = Tensor (erasePos e1) (erasePos e2)
@@ -385,7 +393,8 @@ erasePos (LamAnn ty (Abst vs b)) = LamAnn (erasePos ty) (abst vs (erasePos b))
 erasePos (LamAnn' ty (Abst vs b)) = LamAnn' (erasePos ty) (abst vs (erasePos b))
 erasePos (Lam' (Abst vs b)) = Lam' (abst vs (erasePos b)) 
 erasePos (LamTm (Abst vs b)) = LamTm (abst vs (erasePos b))
-erasePos (LamDep (Abst vs b)) = LamDep (abst vs (erasePos b)) 
+erasePos (LamDep (Abst vs b)) = LamDep (abst vs (erasePos b))
+erasePos (LamDepTy (Abst vs b)) = LamDepTy (abst vs (erasePos b)) 
 erasePos (LamType (Abst vs b)) = LamType (abst vs (erasePos b))
 erasePos (LamDict (Abst vs b)) = LamDict (abst vs (erasePos b))
 erasePos (Let m (Abst vs b)) = Let (erasePos m) (abst vs (erasePos b)) 
@@ -459,6 +468,11 @@ unEigenBound vars (AppDep' e1 e2) =
   let e1' = (unEigenBound vars e1)
       e2' = (unEigenBound vars e2)
   in AppDep' e1' e2'  
+
+unEigenBound vars (AppDepTy e1 e2) =
+  let e1' = (unEigenBound vars e1)
+      e2' = (unEigenBound vars e2)
+  in AppDepTy e1' e2'  
 
 unEigenBound vars (AppDict e1 e2) =
   let e1' = (unEigenBound vars e1)
@@ -562,6 +576,11 @@ unEigenBound vars (LamDep bd) =
   open bd $ \ xs m ->
    let m' = unEigenBound (xs ++ vars) m
    in LamDep (abst xs m') 
+
+unEigenBound vars (LamDepTy bd) =
+  open bd $ \ xs m ->
+   let m' = unEigenBound (xs ++ vars) m
+   in LamDepTy (abst xs m') 
 
 unEigenBound vars (LamDep' bd) =
   open bd $ \ xs m ->
@@ -741,6 +760,9 @@ isExplicit s (AppTm t tm) =
 isExplicit s (AppDep t tm) =
    (isExplicit s t) || (isExplicit s tm)
 
+isExplicit s (AppDepTy t tm) =
+   (isExplicit s t) || (isExplicit s tm)
+
 isExplicit s (AppDep' t tm) =
    (isExplicit s t) || (isExplicit s tm)
 
@@ -775,6 +797,10 @@ isExplicit s (LamTm bind) =
   \ ys m -> isExplicit s m
 
 isExplicit s (LamDep bind) =
+  open bind $
+  \ ys m -> isExplicit s m
+
+isExplicit s (LamDepTy bind) =
   open bind $
   \ ys m -> isExplicit s m
 
