@@ -514,7 +514,8 @@ render_xarity :: FormatStyle -> Map Wire Y -> Xarity -> X -> Draw ()
 render_xarity fs ys xarity x = do
   sequence_ [ render_typeas fs ys oldx x w | (w, oldx) <- Map.toList xarity ]
 
-wirelist_of_gate (Gate _ _ input output ctrls) = getWires input ++ getWires ctrls
+wirelist_of_gate (Gate _ _ input output ctrls) =
+  getWires input ++ getWires output ++ getWires ctrls
 
 assign_x_coordinates :: FormatStyle -> [Gate] -> X -> (X, [(Gate, X)])
 assign_x_coordinates fs gs x0 =
