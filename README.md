@@ -8,10 +8,10 @@ Installation
 
 
 1. Set the environment variable DPQ to the dpq project directory.
-e.g. add `export DPQ=<path-to-dpq-directory>` to your `.bashrc` file.
+E.g. add `export DPQ=<path-to-dpq-directory>` to your `.bashrc` file.
 
 
-2. Install via stack: `stack install`. 
+2. Install via stack: `stack install`. Please see [here](https://docs.haskellstack.org/en/stable/README/#how-to-install) for instructions on installing stack. We recommend using stack.   
 
 
 2. Or install via cabal (>= 3.0.0.0):
@@ -26,7 +26,7 @@ e.g. add `export DPQ=<path-to-dpq-directory>` to your `.bashrc` file.
    you computer. Add `<path-to-dpqi>, <path-to-dpq>` to your `PATH` variable. 
 
 
-4. add the following to your `.emacs` file
+4. Optional: if you are an emacs user, you may wan to add the following to your `.emacs` file
 
    ```
    (load "<path>/dpq-mode.el")
@@ -35,9 +35,15 @@ e.g. add `export DPQ=<path-to-dpq-directory>` to your `.bashrc` file.
    ```
    You should now be able to use `C-c C-l` to type check your dpq file.
 
+5. Test your installation. Just type `dpq` or `dpqi` in the terminal.  
+
+
+
+
+
 Upgrade dpq
 ===========
-Assuming you have managed to install dpqi. run `git pull` first, then redo the second
+Assuming you have managed to install dpqi and dpq. run `git pull` first, then redo the second
 step in the installation guide.
 
 Using dpq executable
