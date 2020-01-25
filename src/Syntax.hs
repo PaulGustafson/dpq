@@ -351,6 +351,7 @@ data Value =
   | VTensor Value Value
   | VUnit
   | VLBase Id
+  | VBase Id
   | VLam (Bind LEnv (Bind [Variable] Exp)) -- Lambda forms a closure
   | VPair Value Value
   | VStar
@@ -364,6 +365,8 @@ data Value =
   | VExBox
   | VUnBox
   | VRevert
+  | VRunCirc
+  deriving (Show, NominalShow, NominalSupport, Generic)
 
 type LEnv = Map Variable Value
 
@@ -380,13 +383,14 @@ instance Bindable (Map Variable Value) where
           pure ((k',v'):t')  
 
 data Gate = Gate Id [Value] Value Value Value
-
+  deriving (Show, NominalShow, NominalSupport, Generic)
 type Gates = [Gate]
 
 -- | Morphism denotes an incomplete circuit, a completion would be
 -- using the Wired constructor to bind all the free wires variables in it.
 data Morphism = Morphism Value Gates Value
-
+  deriving (Show, NominalShow, NominalSupport, Generic)
+           
 instance Nominal Gate where
   pi • Gate id params v1 v2 ctrl = Gate id (pi • params) (pi • v1) (pi • v2) (pi • ctrl)
 
@@ -400,6 +404,7 @@ instance Nominal Value where
   pi • Wired bd = Wired $ pi • bd
   pi • VConst id = VConst id
   pi • VLBase id = VLBase id
+  pi • VBase id = VBase id
   pi • VUnit = VUnit
   pi • VStar = VStar
   pi • VLift bd = VLift $ pi • bd
@@ -412,6 +417,7 @@ instance Nominal Value where
   pi • VBox = VBox
   pi • VExBox = VExBox
   pi • VRevert = VRevert
+  pi • VRunCirc = VRunCirc 
   pi • VUnBox = VUnBox
 
 
@@ -420,6 +426,7 @@ instance Disp Value where
   display flag (VLabel l) = text $ show l
   display flag (VVar l) = text $ show l
   display flag (VLBase id) = display flag id
+  display flag (VBase id) = display flag id
   display flag (VConst id) = display flag id
   display flag (VTensor x y) = display flag x <+> text "*" <+> display flag y
   display flag (VPair x y) = parens $ display flag x <+> text "," <+> display flag y
@@ -429,6 +436,7 @@ instance Disp Value where
   display flag (VExBox) = text "existsBox"
   display flag (VUnBox) = text "unbox"
   display flag (VRevert) = text "revert"
+  display flag (VRunCirc) = text "runCirc"
   display flag (VCircuit m) = display flag m
   display flag (VLam (Abst env (Abst vs e))) = text "<function>"
     -- text "vlam" <+> braces (display flag env) $$

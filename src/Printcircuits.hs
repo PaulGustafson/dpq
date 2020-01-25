@@ -117,10 +117,8 @@ defaultStyle rf = FormatStyle {
   subroutineshape = True
 }
 
-type Wire = Variable
+type Wire = Label
 
-type Wiretype = Exp
-             
                        
 data Signed a = Signed a Bool
                    deriving (Show) 
@@ -296,7 +294,7 @@ render_multi_genctrl fs x ys ws = render_multi_named_ctrl fs x ys ws names
 
 
 render_gate :: FormatStyle -> Gate -> X -> Map Wire Y -> Y -> (Draw (), Draw ())
-render_gate fs (Gate name [] (Pair (Label w) (Label c)) output Star) x ys maxh
+render_gate fs (Gate name [] (VPair (VLabel w) (VLabel c)) output VStar) x ys maxh
   | getName name == "CNot" =
   let ymap w = ys `mapLookup` w 
       y = ymap w
@@ -307,7 +305,7 @@ render_gate fs (Gate name [] (Pair (Label w) (Label c)) output Star) x ys maxh
   in (s2, t2 >> t3)
 
 
-render_gate fs (Gate name [v] ws@(Pair (Label w) (Label c)) output Star) x ys maxh 
+render_gate fs (Gate name [v] ws@(VPair (VLabel w) (VLabel c)) output VStar) x ys maxh 
   | getName name == "R" || getName name == "R*" =
   let
       r = getName name
@@ -317,37 +315,37 @@ render_gate fs (Gate name [v] ws@(Pair (Label w) (Label c)) output Star) x ys ma
       t3 = render_controldots fs x ys [c']
   in (s2, t2 >> t3)
 
-render_gate fs (Gate name [v] ws@(Pair (Label w) (Label c)) output Star) x ys maxh 
+render_gate fs (Gate name [v] ws@(VPair (VLabel w) (VLabel c)) output VStar) x ys maxh 
   | getName name == "CNotGate" =
   let ymap w = ys `mapLookup` w 
       y = ymap w
-      c' = if toBool v == 1 then positive c else negative c
+      c' = if toBool v then positive c else negative c
       s2 = render_controlwire x ys [w, c] [c']
 --      t2 = render_multi_gate fs x ys ("CNotG" ++ "("++ show (toBool v) ++")") [w]
       t2 = render_not fs x y
       t3 = render_controldots fs x ys [c']
   in (s2, t2 >> t3)
 
-render_gate fs (Gate name [] (Label w) output Star) x ys maxh 
+render_gate fs (Gate name [] (VLabel w) output VStar) x ys maxh 
   | getName name == "QNot" =
   let ymap w = ys `mapLookup` w 
       y = ymap w
       t = render_not fs x y
   in (return (), t)
 
-render_gate fs (Gate name [] Star (Label w) Star) x ys maxh 
+render_gate fs (Gate name [] VStar (VLabel w) VStar) x ys maxh 
   | getName name == "Init0" =
   let y = ys `mapLookup` w
       t = (render_init fs "0" x y)
   in (return (), t)
 
-render_gate fs (Gate name [] Star (Label w) Star) x ys maxh 
+render_gate fs (Gate name [] VStar (VLabel w) VStar) x ys maxh 
   | getName name == "Init1" =
   let y = ys `mapLookup` w
       t = (render_init fs "1" x y)
   in (return (), t)
 
-render_gate fs (Gate name [] (Pair (Label w) (Label c)) output Star) x ys maxh
+render_gate fs (Gate name [] (VPair (VLabel w) (VLabel c)) output VStar) x ys maxh
   | "C_" `isPrefixOf` (getName name) =
   let 
       c' = positive c
@@ -356,37 +354,37 @@ render_gate fs (Gate name [] (Pair (Label w) (Label c)) output Star) x ys maxh
       t3 = render_controldots fs x ys [c']
   in (s2, t2 >> t3)
 
-render_gate fs (Gate name [v] (Pair (Label w) (Label c)) output Star) x ys maxh
+render_gate fs (Gate name [v] (VPair (VLabel w) (VLabel c)) output VStar) x ys maxh
   | "C_" `isPrefixOf` (getName name) && isBool v =
   let 
-      c' = if toBool v == 1 then positive c else negative c
+      c' = if toBool v then positive c else negative c
       s2 = render_controlwire x ys ([w]++[c]) [c']
       t2 = render_multi_gate fs x ys (getName name) [w]
       t3 = render_controldots fs x ys [c']
   in (s2, t2 >> t3)
 
-render_gate fs (Gate name [v] (Pair (Label w) (Label c)) outs Star) x ys maxh
+render_gate fs (Gate name [v] (VPair (VLabel w) (VLabel c)) outs VStar) x ys maxh
   | getName name == "ControlledExpGate" =
   let ymap w = ys `mapLookup` w
       y = ymap w
-      c' = if toBool v == 1 then positive c else negative c
+      c' = if toBool v then positive c else negative c
       s2 = render_controlwire x ys [w, c] [c']
       t2 = render_namedgate fs "Exp" x y
       t3 = render_controldots fs x ys [c']
   in (s2, t2 >> t3)
 
-render_gate fs (Gate name [v1, v2] (Pair (Pair (Label w) (Label c1)) (Label c2)) outs Star) x ys maxh
+render_gate fs (Gate name [v1, v2] (VPair (VPair (VLabel w) (VLabel c1)) (VLabel c2)) outs VStar) x ys maxh
   | getName name == "ToffoliGate" && isBool v1 && isBool v2 =
   let ymap w = ys `mapLookup` w
       y = ymap w
-      c1' = if toBool v1 == 1 then positive c1 else negative c1
-      c2' = if toBool v2 == 1 then positive c2 else negative c2
+      c1' = if toBool v1 then positive c1 else negative c1
+      c2' = if toBool v2 then positive c2 else negative c2
       s2 = render_controlwire x ys [w, c1, c2] [c1', c2']
       t3 = render_controldots fs x ys [c1', c2']
       t4 = render_not fs x y
   in (s2, t3 >> t4)
 
-render_gate fs (Gate name [] (Pair (Pair (Label w) (Label c1)) (Label c2)) outs Star) x ys maxh
+render_gate fs (Gate name [] (VPair (VPair (VLabel w) (VLabel c1)) (VLabel c2)) outs VStar) x ys maxh
   | getName name == "ToffoliGate_01" =
   let ymap w = ys `mapLookup` w
       y = ymap w
@@ -397,7 +395,7 @@ render_gate fs (Gate name [] (Pair (Pair (Label w) (Label c1)) (Label c2)) outs 
       t4 = render_not fs x y
   in (s2, t3 >> t4)
 
-render_gate fs (Gate name [] (Pair (Pair (Label w) (Label c1)) (Label c2)) outs Star) x ys maxh
+render_gate fs (Gate name [] (VPair (VPair (VLabel w) (VLabel c1)) (VLabel c2)) outs VStar) x ys maxh
   | getName name == "ToffoliGate_10" =
   let ymap w = ys `mapLookup` w
       y = ymap w
@@ -409,13 +407,13 @@ render_gate fs (Gate name [] (Pair (Pair (Label w) (Label c1)) (Label c2)) outs 
   in (s2, t3 >> t4)
 
 
-render_gate fs (Gate name [] (Label w) Star Star) x ys maxh 
+render_gate fs (Gate name [] (VLabel w) VStar VStar) x ys maxh 
   | getName name == "Term0" =
   let y = ys `mapLookup` w
       t = render_term fs "0" x y
   in (return (), t)
 
-render_gate fs (Gate name [] (Label w) Star Star) x ys maxh 
+render_gate fs (Gate name [] (VLabel w) VStar VStar) x ys maxh 
   | getName name == "Term1" =
   let y = ys `mapLookup` w
       t = render_term fs "1" x y
@@ -430,7 +428,7 @@ render_gate fs (Gate name [] (Label w) Star Star) x ys maxh
 --       t4 = render_multi_genctrl fs x ys []
 --   in (s2, t2 >> t3 >> t4)
 
--- render_gate fs (Gate name [WrapR (MR l r)] (Pair (Label w) (Label c)) output ctrl) x ys maxh
+-- render_gate fs (Gate name [WrapR (MR l r)] (VPair (VLabel w) (VLabel c)) output ctrl) x ys maxh
 --   | "C_" `isPrefixOf` (getName name) =
 --   let 
 --       c' = positive c
@@ -441,7 +439,7 @@ render_gate fs (Gate name [] (Label w) Star Star) x ys maxh
 --       t3 = render_controldots fs x ys (c':ctrls)
 --   in (s2, t2 >> t3)
 
-render_gate fs (Gate name params (Pair (Label w) (Label c)) output ctrl) x ys maxh
+render_gate fs (Gate name params (VPair (VLabel w) (VLabel c)) output ctrl) x ys maxh
   | "C_" `isPrefixOf` (getName name) =
   let 
       c' = positive c
@@ -584,9 +582,9 @@ wirelist (Gate _ _ input output ctrl : gs) =
 --  in S.union s1 (wirelist gs)
 
 
-page_of_ocircuit :: FormatStyle -> Exp -> Document ()
+page_of_ocircuit :: FormatStyle -> Value -> Document ()
 page_of_ocircuit fs (Wired bd) =
-  open bd $ \ ws (Morphism q1 ocirc q2) ->
+  open bd $ \ ws (VCircuit (Morphism q1 ocirc q2)) ->
   let sc = 10
       (gs, _) = refresh_gates' Map.empty ocirc []
       -- ws1 = (S.fromList $ getWires q1) `S.union` (wirelist gs)
@@ -625,16 +623,16 @@ printCirc_fd circ h = do
 -- have the same label names.
 -- It assumes each gate are regular: i.e. input and output should
 -- have the same arity for all the nonterminal gates. 
-refresh_gates :: Map Variable Variable -> [Gate] -> ([Gate], Map Variable Variable)
+--refresh_gates :: Map Variable Variable -> [Gate] -> ([Gate], Map Variable Variable)
 refresh_gates m [] = ([], m)
 refresh_gates m (Gate name vs input output ctrl : gs) =
   let newInput = renameTemp input m
       newCtrl = renameTemp ctrl m
       outWires = getWires output
       newOutput = case output of
-                    Star -> Star
+                    VStar -> VStar
                     _ -> case newInput of
-                              Star -> output
+                              VStar -> output
                               _ -> newInput
       ins = getWires newInput
       newMap = m `Map.union` Map.fromList (zip outWires ins)
@@ -643,26 +641,26 @@ refresh_gates m (Gate name vs input output ctrl : gs) =
 
 -- A version of refresh_gates that reuse terminals position
 
-refresh_gates' :: Map Variable Variable -> [Gate] -> [Variable] ->
-                      ([Gate], Map Variable Variable)
+-- refresh_gates' :: Map Variable Variable -> [Gate] -> [Variable] ->
+--                       ([Gate], Map Variable Variable)
 refresh_gates' m [] s = ([], m)
-refresh_gates' m (Gate name [] input Star Star : gs) s
+refresh_gates' m (Gate name [] input VStar VStar : gs) s
   | getName name == "Term0" || getName name == "Term1" =
     let newInput = renameTemp input m
         (gs', newMap') = refresh_gates' m gs (getWires newInput ++ s)
-    in (Gate name [] newInput Star Star : gs', newMap')
+    in (Gate name [] newInput VStar VStar : gs', newMap')
 
-refresh_gates' m (Gate name [] Star output Star : gs) []
+refresh_gates' m (Gate name [] VStar output VStar : gs) []
   | getName name == "Init0" || getName name == "Init1" =
     let (gs', newMap') = refresh_gates' m gs []
-    in (Gate name [] Star output Star : gs', newMap')
+    in (Gate name [] VStar output VStar : gs', newMap')
 
-refresh_gates' m (Gate name [] Star output Star : gs) (h:s)
+refresh_gates' m (Gate name [] VStar output VStar : gs) (h:s)
   | getName name == "Init0" || getName name == "Init1" =
     let x:[] = getWires output
         m' = m `Map.union` Map.fromList [(x, h)]
         (gs', newMap') = refresh_gates' m' gs s
-    in (Gate name [] Star (Label h) Star : gs', newMap')
+    in (Gate name [] VStar (VLabel h) VStar : gs', newMap')
     
 refresh_gates' m (Gate name vs input output ctrl : gs) s =
   let newInput = renameTemp input m
@@ -673,3 +671,17 @@ refresh_gates' m (Gate name vs input output ctrl : gs) s =
       newMap = m `Map.union` Map.fromList (zip outWires ins)
       (gs', newMap') = refresh_gates' newMap gs s
   in (Gate name vs newInput newOutput newCtrl : gs', newMap') 
+
+isBool (VConst x) | getName x == "True" = True
+isBool (VConst x) | getName x == "False" = True
+isBool _ = False
+
+toBool (VConst x) | getName x == "True" = True
+toBool (VConst x) | getName x == "False" = False
+
+toNum (VConst x) | getName x == "Z" = 0
+toNum (VApp (VConst s) n) | getName s == "S" =
+  toNum n + 1
+
+
+

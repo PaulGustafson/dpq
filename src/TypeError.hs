@@ -66,8 +66,8 @@ data TypeError = Unhandle Exp
 
 data EvalError = MissBranch Id Exp
                | UndefinedId Id 
-               | PatternMismatch Pattern Exp
-               | TupleMismatch [Variable] Exp
+               | PatternMismatch Pattern Value
+               | TupleMismatch [Variable] Value
                | ErrWrapper TypeError
                | SimulationErr SimulateError
                deriving Show                 

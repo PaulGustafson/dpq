@@ -243,7 +243,6 @@ erasure l@(Case e (B br)) =
              helper2 a [] _ = return []
              helper2 a b _ = error $ "from helper2 flag-erasure-case" ++ (show $ disp a)
 
-erasure a@(Wired _) = return a
 erasure a = error $ "from erasure: " ++ (show $ disp a)
 
 

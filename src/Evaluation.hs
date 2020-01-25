@@ -32,47 +32,27 @@ type Eval a = ExceptT EvalError (State EvalState) a
 
 
 
-evaluation :: Exp -> TCMonad Exp
+evaluation :: Exp -> TCMonad Value
 evaluation e =
   do st <- get
      let gl = globalCxt $ lcontext st
          (r, _) = runState (runExceptT $ eval Map.empty e)
-                  ES{morph = Morphism Star [] Star, evalEnv = gl}
+                  ES{morph = Morphism VStar [] VStar, evalEnv = gl}
      case r of
        Left e -> throwError $ EvalErr e
        Right r -> return r
 
--- lookupLEnv update the parameters and controls in gate
 lookupLEnv x lenv =
   case Map.lookup x lenv of
     Nothing -> error "from lookupLEnv"
-    -- Just (Wired bd) ->
-      -- open bd $ \ wires m ->
-      -- case m of
-      --   (Morphism ins [Gate id ns gins gouts ctrls] outs) -> 
-      --     let vs' = helper ns lenv
-      --         (c:[]) = case ctrls of
-      --                     Star -> Star:[]
-      --                     _ -> helper [ctrls] lenv
-      --     in  Wired (abst wires (Morphism ins [Gate id vs' gins gouts c] outs))
-             
-      --   m' -> Wired (abst wires m')
-
     Just v -> v
-  where helper [] lc = []
-        helper ((Var x):xs) lc =
-          let res = helper xs lc in
-          case Map.lookup x lc of
-            Just v -> v:res
-            Nothing -> error $ "lookupLEnv: can't find variable " ++ (show $ disp x) 
-        helper (a:xs) lc = a : (helper xs lc)
 
 eval :: Map Variable Value -> Exp -> Eval Value
 eval lenv (Var x) =
   return $ lookupLEnv x lenv 
 
 eval lenv Star = return VStar
-
+eval lenv Unit = return VUnit
 eval lenv a@(Const k) =
   do st <- get
      let genv = evalEnv st
@@ -80,12 +60,11 @@ eval lenv a@(Const k) =
        Nothing -> throwError $ UndefinedId k
        Just e ->
          case identification e of
-           DataConstr _ -> return a
-           DefinedGate e -> return e
-           -- DefinedFunction Nothing -> throwError $ UndefinedId k
+           DataConstr _ -> return (VConst k)
+           DefinedGate v -> return v
            DefinedFunction (Just (_, v, _)) -> return v
-           DefinedMethod _ e -> return e
-           DefinedInstFunction _ e -> return e
+           DefinedMethod _ v -> return v
+           DefinedInstFunction _ v -> return v
 
 eval lenv a@(LBase k) =
   do st <- get
@@ -94,48 +73,44 @@ eval lenv a@(LBase k) =
        Nothing -> throwError $ UndefinedId k
        Just e ->
          case identification e of
-           DataType Simple _ (Just d) -> return d
-           DataType (SemiSimple _) _ (Just d) -> return d
-           DataType _ _ Nothing -> return a
-           DictionaryType _ _ -> return a
+           DataType Simple _ (Just (LBase id)) -> return (VLBase id)
+           DataType (SemiSimple _) _ (Just d) -> eval lenv d
+           DataType _ _ Nothing -> return (VBase k)
 
 eval lenv (Force m) =
   do m' <- eval lenv m
      case m' of
-       Lift n -> eval lenv n
-       v@(App UnBox _) -> return $ Force v
-       x -> error $ "from force" ++ (show $ disp x)
+       VLift (Abst lenv' e) -> eval lenv' e
+       w@(VLiftCirc _) -> return w
+       v@(VApp VUnBox _) -> return $ VForce v
 
-eval lenv Unit = return Unit
 eval lenv (Tensor e1 e2) =
   do e1' <- eval lenv e1
      e2' <- eval lenv e2
-     return $ Tensor e1' e2'
+     return $ VTensor e1' e2'
 
-eval lenv a@(Lam body) = 
-  if Map.null lenv then return a else return $ instantiate lenv a
+eval lenv a@(Lam body) = return $ VLam $ abst lenv body
 
-eval lenv a@(Lift body) = 
-  if Map.null lenv then return a else return $ instantiate lenv a
+eval lenv a@(Lift body) = return $ VLift $ abst lenv body
 
 
 
-eval lenv UnBox = return UnBox
-eval lenv Revert = return Revert
-eval lenv a@(Box) = return a
-eval lenv a@(ExBox) = return a
-eval lenv a@(Wired _) = return a
-eval lenv RunCirc = return RunCirc
+
+eval lenv UnBox = return VUnBox
+eval lenv Revert = return VRevert
+eval lenv a@(Box) = return VBox
+eval lenv a@(ExBox) = return VExBox
+eval lenv RunCirc = return VRunCirc
 
 eval lenv (App m n) =
   do v <- eval lenv m
      w <- eval lenv n
-     evalApp lenv v w
+     evalApp v w
 
 eval lenv (Pair m n) = 
   do v <- eval lenv m
      w <- eval lenv n
-     return (Pair v w)
+     return (VPair v w)
 
 eval lenv (Let m bd) =
   do m' <- eval lenv m
@@ -146,7 +121,7 @@ eval lenv (Let m bd) =
 
 eval lenv (LetPair m (Abst xs n)) =
   do m' <- eval lenv m
-     let r = unPair (length xs) m'
+     let r = unVPair (length xs) m'
      case r of
        Just vs -> do
          let lenv' = foldl (\ a (x, y) -> Map.insert x y a)
@@ -157,7 +132,7 @@ eval lenv (LetPair m (Abst xs n)) =
 
 eval lenv (LetPat m bd) =
   do m' <- eval lenv m
-     case flatten m' of
+     case vflatten m' of
        Nothing -> error ("from LetPat" ++ (show $ disp m'))
        Just (Left id, args) ->
          open bd $ \ p m ->
@@ -172,7 +147,7 @@ eval lenv (LetPat m bd) =
 
 eval lenv b@(Case m (B bd)) =
   do m' <- eval lenv m
-     case flatten m' of
+     case vflatten m' of
        Nothing -> error ("from eval (Case):" ++ (show $ disp b))
        Just (Left id, args) ->
          reduce id args bd
@@ -193,137 +168,132 @@ eval lenv a@(Pos _ e) = error "position in eval"
 eval lenv a = error $ "from eval: " ++ (show $ disp a)
 
 
-evalApp lenv UnBox v = return $ App UnBox v
-evalApp lenv (Force (App UnBox v)) w =
+evalApp VUnBox v = return $ VApp VUnBox v
+evalApp (VForce (VApp VUnBox v)) w =
   case v of
     Wired bd ->
       open bd $ \ wires m ->
       case m of
-        f@(Morphism ins gs outs) ->
+        f@(VCircuit (Morphism ins gs outs)) ->
           let binding = makeBinding ins w 
-          in appendMorph binding f
+          in appendMorph binding (Morphism ins gs outs)
     a -> error $ "evalApp(Unbox ..) " ++ (show $ disp a)
 
-evalApp lenv (App (App (App Box q) _) _) v =
-  do st <- get
-     let genv = evalEnv st
-     uv <- eval lenv q
-     evalBox lenv v uv
+evalApp (VApp (VApp (VApp VBox q) _) _) v =
+  case v of
+    VLift (Abst lenv' m) ->
+      evalBox lenv' m q
+    VApp VUnBox w -> return w
 
-evalApp lenv (App (App (App RunCirc  _) _) (Wired (Abst _ m))) input =
+evalApp (VApp (VApp (VApp (VApp VExBox q) _) _) _) v =  
+  case v of
+    VLift (Abst lenv body) ->
+      evalExbox lenv body q
+
+evalApp (VApp (VApp (VApp VRunCirc  _) _) (Wired (Abst _ (VCircuit m)))) input =
   case runCircuit m input of
     Left e -> throwError $ SimulationErr e
     Right r -> return r
 
-evalApp lenv (App (App (App (App ExBox q) _) _) _) v =  
-  do st <- get
-     let genv = evalEnv st
-     uv <- eval lenv q
-     evalExbox lenv v uv
 
-evalApp lenv Revert m' =
+evalApp VRevert m' =
   case m' of
     Wired bd ->
-      open bd $ \ ws (Morphism ins gs outs) ->
+      open bd $ \ ws (VCircuit (Morphism ins gs outs)) ->
       let gs' = revGates gs in
-        return $ Wired (abst ws (Morphism outs gs' ins))
+        return $ Wired (abst ws (VCircuit $ Morphism outs gs' ins))
 
-evalApp lenv a@(Wired _) w = 
-  return a
+evalApp a@(Wired _) w = return a
 
-evalApp lenv v w = handleApplication lenv v w
-
-handleApplication lenv v w = 
-  let (h, res) = unwind AppFlag v
+evalApp v w = 
+  let (h, res) = unwindVal v
   in case h of
-      Lam bd -> handleBody App res bd
-      _ -> return $ App v w
+    VLam (Abst lenv bd) -> handleBody lenv res bd
+    VLiftCirc (Abst vs (Abst lenv e)) -> 
+        do let args = res ++ [w]
+               lvs = length vs
+           if lvs > (length args) then
+             return $ VApp v w
+             else do let sub = zip vs args
+                         ws = drop lvs args
+                         lenv' = updateCircParam sub lenv 
+                     e' <- eval lenv' e
+                     return $ foldl VApp e' ws
+        
+    _ -> return $ VApp v w
           
-     where handleBody app res bd = open bd $ \ vs m ->
+  where unwindVal (VApp t1 t2) =
+          let (h, args) = unwindVal t1
+          in (h, args++[t2])
+        unwindVal a = (a, [])
+
+        handleBody lenv res bd = open bd $ \ vs m ->
              let args = res ++ [w]
                  lvs = length vs
              in
               if lvs > length args
-              then return $ app v w
+              then return $ VApp v w
               else do let sub = zip vs args
                           ws = drop lvs args
                           lenv' = foldr (\ (x,v) y -> Map.insert x v y) lenv sub
-                      eval lenv' (foldl app m ws)
+                      m' <- eval lenv' m
+                      return $ foldl VApp m' ws
+
+        updateCircParam sub lenv =
+             let (x, circ):[] = Map.toList lenv
+                 Wired (Abst wires (VCircuit (Morphism ins [Gate id params gin gout ctrls] outs)))
+                   = circ
+                 vars = helper params sub
+                 circ' = Wired (abst wires (VCircuit (Morphism ins [Gate id vars gin gout ctrls] outs)))
+             in Map.fromList [(x, circ')]
+        helper :: [Value] -> [(Variable, Value)] -> [Value]
+        helper [] lc = []
+        helper ((VVar x):xs) lc =
+             let res = helper xs lc in
+             case lookup x lc of
+               Just v -> v:res
+               Nothing -> error $ "can't find variable " ++ (show $ disp x)
 
 -- evalBox lenv body uv | trace ("b:"++ (show $ disp body) ++ " uv:" ++(show $ disp uv)) $ False = undefined
-evalBox lenv (Lift body) uv =
-  freshNames (genNames uv) $ \ vs ->
+evalBox lenv body uv =
+  freshLabels (genNames uv) $ \ vs ->
    do st <- get
+      b <- eval lenv body
       let uv' = toVal uv vs
           d = Morphism uv' [] uv'
-          (res, st') = runState (runExceptT $ eval lenv (App body uv')) st{morph = d}
+          (res, st') = runState (runExceptT $ evalApp b uv') st{morph = d}
       case res of
         Left e -> throwError e
         Right res' -> 
           let Morphism ins gs _ = morph st'
               newMorph = Morphism ins (reverse gs) res'
               wires = getAllWires newMorph
-              morph' = Wired $ abst wires newMorph
+              morph' = Wired $ abst wires (VCircuit newMorph)
           in return morph'
 
 
-evalExbox lenv (Lift body) uv =
-  freshNames (genNames uv) $ \ vs ->
+evalExbox lenv body uv =
+  freshLabels (genNames uv) $ \ vs ->
    do st <- get
+      b <- eval lenv body
       let uv' = toVal uv vs
           d = Morphism uv' [] uv'
-          (res, st') = runState (runExceptT $ eval lenv (App body uv')) st{morph = d}
+          (res, st') = runState (runExceptT $ evalApp b uv') st{morph = d}
       case res of
         Left e -> throwError e
-        Right (Pair n res') -> 
+        Right (VPair n res') -> 
           let Morphism ins gs _ = morph st'
               newMorph = Morphism ins (reverse gs) res'
               wires = getAllWires newMorph
-              morph' = Wired $ abst wires newMorph
-          in return (Pair n morph')
+              morph' = Wired $ abst wires (VCircuit newMorph)
+          in return (VPair n morph')
         Right a -> error $ "from eval_exBox\n" ++ (show $ disp a)
 
 
 
-instantiate :: Map Variable Exp -> Exp -> Exp
-instantiate lenv (Unit) = Unit
-instantiate lenv (Set) = Set
-instantiate lenv (Label x) = Label x
-instantiate lenv Star = Star
-instantiate lenv a@(Var x) =
-  case Map.lookup x lenv of
-       Nothing -> a
-       Just v -> v
-instantiate lenv a@(Base x) = a
-instantiate lenv a@(LBase x) = a
-instantiate lenv a@(Const x) = a
-instantiate lenv (App e1 e2) = App (instantiate lenv e1) (instantiate lenv e2)
-instantiate lenv (Tensor e1 e2) = Tensor (instantiate lenv e1) (instantiate lenv e2)
-instantiate lenv (Pair e1 e2) = Pair (instantiate lenv e1) (instantiate lenv e2)
-instantiate lenv (Arrow e1 e2) = Arrow (instantiate lenv e1) (instantiate lenv e2)
-instantiate lenv (Bang e) = Bang $ instantiate lenv e
-instantiate lenv (UnBox) = UnBox
-instantiate lenv (Revert) = Revert
-instantiate lenv a@(Box) = a
-instantiate lenv a@(ExBox) = a
-instantiate lenv (Lift e) = Lift $ instantiate lenv e
-instantiate lenv (Force e) = Force $ instantiate lenv e
-instantiate lenv a@(Wired _) = a 
-instantiate lenv (Circ e1 e2) = Circ (instantiate lenv e1) (instantiate lenv e2)
-instantiate lenv a@(Pi bd e) = a
-instantiate lenv (Lam bd) = Lam (open bd $ \ vs b -> abst vs (instantiate lenv b))
-instantiate lenv (Let m bd) = Let (instantiate lenv m) (open bd $ \ vs b -> abst vs (instantiate lenv b))
-instantiate lenv (LetPair m bd) = LetPair (instantiate lenv m) (open bd $ \ xs b -> abst xs (instantiate lenv b))
-instantiate lenv (LetPat m bd) = LetPat (instantiate lenv m)
-                                 (open bd $ \ vs b -> abst vs (instantiate lenv b))
-instantiate lenv (Case e (B br)) = Case (instantiate lenv e) (B (map helper br))
-  where helper bd = open bd $ \ p m -> abst p (instantiate lenv m)
-instantiate lenv (Pos _ e) = error "position in instantiate"
-instantiate lenv a = error $ "from instantiate:" ++ (show $ disp a)
-
 -- | Append a circuit to the underline circuit state according to a Binding
 -- For efficiency reason we try prepend instead of append        
-appendMorph :: Binding -> Morphism -> Eval Exp
+appendMorph :: Binding -> Morphism -> Eval Value
 appendMorph binding f@(Morphism fins fs fouts) =
   do st <- get
      let circ = morph st
@@ -342,27 +312,23 @@ rename (Morphism ins gs outs) m =
   in Morphism ins' gs' outs'
 
 
-renameTemp (Label x) m =
+renameTemp (VLabel x) m =
   case Map.lookup x m of
-    Nothing -> (Label x)
-    Just y -> Label y
-renameTemp a@(Const _) m = a
-renameTemp Star m = Star
-renameTemp (App e1 e2) m = App (renameTemp e1 m) (renameTemp e2 m)
--- renameTemp (AppDep e1 e2) m = AppDep (renameTemp e1 m) (renameTemp e2 m)
-renameTemp (Pair e1 e2) m = Pair (renameTemp e1 m) (renameTemp e2 m)
+    Nothing -> (VLabel x)
+    Just y -> VLabel y
+renameTemp a@(VConst _) m = a
+renameTemp VStar m = VStar
+renameTemp (VApp e1 e2) m = VApp (renameTemp e1 m) (renameTemp e2 m)
+renameTemp (VPair e1 e2) m = VPair (renameTemp e1 m) (renameTemp e2 m)
 renameTemp a m = error "applying renameTemp function to an ill-formed template"     
 
 renameGs gs m = map helper gs
   where helper (Gate id params ins outs ctrls) =
           Gate id params (renameTemp ins m) (renameTemp outs m) (renameTemp ctrls m)
 
-type Binding = Map Variable Variable
+type Binding = Map Label Label
 
-
-
-
-makeBinding :: Exp -> Exp -> Binding
+makeBinding :: Value -> Value -> Binding
 -- makeBinding w v | trace (("makeBinding:" ++ (show $ disp w) ++ ":" ++ (show $ disp v))) False = undefined
 makeBinding w v =
   let ws = getWires w
@@ -409,33 +375,33 @@ toVal uv vs = evalState (templateToVal uv) vs
 
 -- | Obtain a fresh template inhabitant of a simple type, with wirenames
 -- draw from the state. 
-templateToVal :: Exp -> State [Variable] Exp
-templateToVal (LBase _) =
+templateToVal :: Value -> State [Label] Value
+templateToVal (VLBase _) =
   do x <- get
      let (v:vs) = x
      put vs
-     return (Label v)
-templateToVal a@(Const _) = return a
-templateToVal a@(Unit) = return Star
-templateToVal (App e1 e2) =
+     return (VLabel v)
+templateToVal a@(VConst _) = return a
+templateToVal a@(VUnit) = return VStar
+templateToVal (VApp e1 e2) =
   do e1' <- templateToVal e1
      e2' <- templateToVal e2
-     return $ App e1' e2'
+     return $ VApp e1' e2'
 
-templateToVal (Tensor e1 e2) =
+templateToVal (VTensor e1 e2) =
   do e1' <- templateToVal e1
      e2' <- templateToVal e2
-     return $ Pair e1' e2'
+     return $ VPair e1' e2'
 
 templateToVal a = error "applying templateToVal function to an ill-formed template"
 
 -- | Size of a simple data type.
-size (LBase x) = 1
-size (Const _) = 0
-size Unit = 0
-size (App e1 e2) = size e1 + size e2
+size (VLBase x) = 1
+size (VConst _) = 0
+size VUnit = 0
+size (VApp e1 e2) = size e1 + size e2
 -- size (AppDep e1 e2) = size e1
-size (Tensor e1 e2) = size e1 + size e2
+size (VTensor e1 e2) = size e1 + size e2
 size a = error $ "applying size function to an ill-formed template:" ++ (show $ disp a)     
 
 -- | Obtain all the wire names from the circuit.
