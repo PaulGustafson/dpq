@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, FlexibleInstances, RankNTypes, GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass, PatternSynonyms, ViewPatterns #-}
+{-# LANGUAGE DeriveAnyClass, PatternSynonyms, ViewPatterns, ApplicativeDo #-}
 
 {-|
 We use the nominal library provided by Peter Selinger.
@@ -16,6 +16,8 @@ import Prelude hiding ((.), (<>))
 
 
 import Nominal
+import Nominal.Atom
+import Nominal.Atomic
 
 import Control.Monad.Identity
 import Control.Monad.Except
@@ -32,7 +34,6 @@ import Debug.Trace
 
 data Exp =
   Var Variable
-  | Label Variable
   | EigenVar Variable
   | GoalVar Variable
     -- User defined constant
@@ -49,12 +50,12 @@ data Exp =
   | App Exp Exp
   | App' Exp Exp
 
-  -- Dictionary abstraction and application.  
+    -- Dictionary abstraction and application.  
   | AppDict Exp Exp
   | Imply [Exp] Exp
   | LamDict (Bind [Variable] Exp)
 
-  -- Pair and existential  
+    -- Pair and existential  
   | Tensor Exp Exp 
   | Pair Exp Exp
   | Pack Exp Exp
@@ -65,27 +66,27 @@ data Exp =
   | Exists (Bind Variable Exp) Exp
   | Case Exp Branches
 
-  -- Lift and force  
+    -- Lift and force  
   | Bang Exp
   | Force Exp
   | Force' Exp
   | Lift Exp
-  -- Circuit operations  
+
+    -- Circuit operations  
   | Box
   | ExBox
   | UnBox
   | RunCirc
   | Revert 
   | Circ Exp Exp
-  | Wired (Bind [Variable] Morphism)
     
-  -- constants  
+    -- constants  
   | Star
   | Unit
   | Set 
   | Sort
 
-  -- Dependent abstraction    
+    -- Dependent types
   | Pi (Bind [Variable] Exp) Exp
   | Pi' (Bind [Variable] Exp) Exp
     
@@ -102,7 +103,7 @@ data Exp =
   | LamDepTy (Bind [Variable] Exp)
   | AppDepTy Exp Exp
 
-  -- Annotated lambda, this is equivalence to infer mode.
+  -- Annotated lambda, this makes infering body using infer mode.
   | LamAnn Exp (Bind [Variable] Exp)
   | LamAnn' Exp (Bind [Variable] Exp)
 
@@ -121,20 +122,11 @@ data Exp =
   deriving (Eq, Generic, Nominal, NominalShow, NominalSupport, Show)
 
 
--- | Gate <name> <params> <in> <out> <ctrls>
-data Gate = Gate Id [Exp] Exp Exp Exp
-          deriving (Eq, Generic, NominalSupport, NominalShow, Nominal, Show)
-
-type Gates = [Gate]
-
--- | (a, Cs, b)
-data Morphism = Morphism Exp Gates Exp
-              deriving (Eq, Generic, NominalSupport, NominalShow, Nominal, Show)
-
 data Branches = B [Bind Pattern Exp]
               deriving (Eq, Generic, Show, NominalSupport, NominalShow, Nominal)
 
--- | patterns bind only term variables
+-- | Pattern can bind term or type variables, or have an instantiation
+-- that is bound on higher-level
 data Pattern = PApp Id [Either (NoBind Exp) Variable] 
              deriving (Eq, Generic, NominalShow, NominalSupport, Nominal, Bindable, Show)
 
@@ -148,21 +140,9 @@ instance Disp Pattern where
             braces $ display flag x
           helper (Right x) = display flag x 
 
-instance Disp Morphism where
-  display b (Morphism ins gs outs) =
-    (braces $ display b ins) $$
-    nest 2 (vcat $ map (display b) gs) $$
-    (braces $ display b outs) 
-
-instance Disp Gate where
-  display flag (Gate g params ins outs ctrls) =
-    disp g <+> brackets (hsep $ punctuate comma (map (display flag) params))
-    <+> (braces $ display flag ins) <+> (braces $ display flag outs) <+> (brackets $ display flag ctrls)
-
 
 instance Disp Exp where
   display flag (Var x) = display flag x
-  display flag (Label x) = display flag x
   display flag (GoalVar x) = braces $ display flag x
   display flag (EigenVar x) = brackets (display flag x)
   display flag (Const id) = display flag id
@@ -215,41 +195,38 @@ instance Disp Exp where
 
   display flag a@(AppType t t') =
     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
---    fsep [dParen flag (precedence a - 1) t, text "@2", dParen flag (precedence a) t']
 
   display flag a@(App' t t') =
     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
-  -- display False a@(App' t t') =
-  --   fsep [dParen False (precedence a - 1) t, text "@", dParen False (precedence a) t']
 
   display flag (WithType m t) =
     fsep [text "withType" <+> display flag t <+> text ":", display flag m]
 
-
   display flag a@(AppDep t t') =
        fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
---    fsep [text "@0", dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+
   display flag a@(AppDepTy t t') =
        fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
 
   display flag a@(AppDep' t t') =
     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
---    fsep [dParen flag (precedence a - 1) t, text "@", dParen flag (precedence a) t']
     
   display flag a@(AppDict t t') =
     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
---    fsep [text "@4", dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
     
   display flag a@(AppTm t t') =
      fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
---    fsep [text "@5", dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
     
   display flag a@(Bang t) = text "!" <> dParen flag (precedence a - 1) t
+
   display flag a@(Arrow t1 t2) =
     fsep [dParen flag (precedence a) t1, text "->" , dParen flag (precedence a - 1) t2]
+
   display flag a@(Arrow' t1 t2) =
     fsep [dParen flag (precedence a) t1, text "->'" , dParen flag (precedence a - 1) t2]    
+
   display flag (Imply [] t2) = display flag t2
+
   display flag a@(Imply t1 t2) =
     fsep [parens (fsep $ punctuate comma $ map (display flag) t1), text "=>" , nest 2 $ display flag t2]
     
@@ -327,9 +304,6 @@ instance Disp Exp where
     where helper bd =
             open bd $ \ p b -> fsep [display flag p, text "->" , nest 2 (display flag b)]
 
-  display flag (Wired bd) = 
-   open bd $ \ wires e -> (display flag e)
-
   display flag e = error $ "from display: " ++ show e
 
   precedence (Var _ ) = 12
@@ -367,6 +341,126 @@ instance NominalShow (NoBind Exp) where
 instance Disp (Either (NoBind Exp) Variable) where
   display flag (Left (NoBind e)) = braces $ display flag e
   display flag (Right x) = display flag x
+
+
+-- | The value domain, for evaluation purpose.  
+data Value =
+  VLabel Label
+  | VVar Variable -- solely for the parameter in the gates
+  | VConst Id
+  | VTensor Value Value
+  | VUnit
+  | VLBase Id
+  | VLam (Bind LEnv (Bind [Variable] Exp)) -- Lambda forms a closure
+  | VPair Value Value
+  | VStar
+  | VLift (Bind LEnv Exp) -- Lift also forms a closure
+  | VLiftCirc (Bind [Variable] (Bind LEnv Exp))
+  | VCircuit Morphism 
+  | Wired (Bind [Label] Value)
+  | VApp Value Value
+  | VForce Value
+  | VBox
+  | VExBox
+  | VUnBox
+  | VRevert
+
+type LEnv = Map Variable Value
+
+instance Bindable (Map Variable Value) where
+  binding loc = do
+    loc' <- map_binding (Map.toList loc)
+    pure $ Map.fromList loc'
+      where
+        map_binding [] = pure []
+        map_binding ((k,v):t) = do
+          k' <- binding k
+          v' <- nobinding v
+          t' <- map_binding t
+          pure ((k',v'):t')  
+
+data Gate = Gate Id [Value] Value Value Value
+
+type Gates = [Gate]
+
+-- | Morphism denotes an incomplete circuit, a completion would be
+-- using the Wired constructor to bind all the free wires variables in it.
+data Morphism = Morphism Value Gates Value
+
+instance Nominal Gate where
+  pi • Gate id params v1 v2 ctrl = Gate id (pi • params) (pi • v1) (pi • v2) (pi • ctrl)
+
+instance Nominal Morphism where
+  pi • Morphism v1 gs v2 = Morphism (pi • v1) (pi • gs) (pi • v2)
+
+instance Nominal Value where
+  pi • VLabel l = VLabel $ pi • l
+  pi • VVar x = VVar $ pi • x
+  pi • VLam bd = VLam $ pi • bd
+  pi • Wired bd = Wired $ pi • bd
+  pi • VConst id = VConst id
+  pi • VLBase id = VLBase id
+  pi • VUnit = VUnit
+  pi • VStar = VStar
+  pi • VLift bd = VLift $ pi • bd
+  pi • VLiftCirc bd = VLiftCirc $ pi • bd
+  pi • VTensor a b = VTensor (pi • a) (pi • b)
+  pi • VPair a b = VPair (pi • a) (pi • b)
+  pi • VApp a b = VApp (pi • a) (pi • b)
+  pi • VForce v = VForce (pi • v)
+  pi • VCircuit m = VCircuit (pi • m)
+  pi • VBox = VBox
+  pi • VExBox = VExBox
+  pi • VRevert = VRevert
+  pi • VUnBox = VUnBox
+
+
+  
+instance Disp Value where
+  display flag (VLabel l) = text $ show l
+  display flag (VVar l) = text $ show l
+  display flag (VLBase id) = display flag id
+  display flag (VConst id) = display flag id
+  display flag (VTensor x y) = display flag x <+> text "*" <+> display flag y
+  display flag (VPair x y) = parens $ display flag x <+> text "," <+> display flag y
+  display flag (VUnit) = text "Unit"
+  display flag (VStar) = text "()"
+  display flag (VBox) = text "box"
+  display flag (VExBox) = text "existsBox"
+  display flag (VUnBox) = text "unbox"
+  display flag (VRevert) = text "revert"
+  display flag (VCircuit m) = display flag m
+  display flag (VLam (Abst env (Abst vs e))) = text "<function>"
+    -- text "vlam" <+> braces (display flag env) $$
+    -- sep [text "\\", hsep (map display flag vs) , text ".", nest 2 (display flag e)]
+  display flag (VLift (Abst env e)) = text "<lift-term>"
+    -- text "vlift" <+> braces (display flag env) $$ nest 2 (display flag e)
+  display flag (VLiftCirc (Abst vs (Abst env e))) = text "<liftCirc>"
+    -- text "vliftCirc:" <+> hsep (map display flag vs) <+> braces (display flag env) $$ nest 2 (display flag e)
+  display flag (Wired (Abst ls v )) = display flag v
+  display flag (VApp v1 v2) = parens $ display flag v1 <+> display flag v2  
+  display flag (VForce v) = text "&" <+> display flag v
+
+instance Disp Morphism where
+  display flag (Morphism ins gs outs) =
+    (braces $ display flag ins) $$
+    nest 2 (vcat $ map (display flag) gs) $$
+    (braces $ display flag outs) 
+
+instance Disp Gate where
+  display flag (Gate g params ins outs ctrls) =
+    display flag g <+> brackets (hsep $ punctuate comma (map (display flag) params))
+    <+> (braces $ (display flag ins)) <+> (braces $ (display flag outs))
+    <+> (brackets $ display flag ctrls)
+
+-- | Conver a 'basic value' from the value domain to an expression,
+-- so that type checker can use it.   
+toExp :: Value -> Maybe Exp
+toExp (VConst id) = return $ Const id
+toExp VStar = return Star
+toExp (VApp a b) = App <$> toExp a <*> toExp b
+toExp (VPair a b) = Pair <$> toExp a <*> toExp b
+toExp _ = Nothing
 
 
 data Decl = Object Position Id

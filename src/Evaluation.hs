@@ -29,17 +29,9 @@ data EvalState =
 
 type Eval a = ExceptT EvalError (State EvalState) a
 
--- | A cheap way to embed TCMonad into Eval. 
-tcToEval :: TCMonad a -> Eval a
-tcToEval m =
-  do st <- get
-     let cxt = evalEnv st
-         (res, tySt) = runIdentity $ runTCMonadT cxt [] m
-     case res of
-       Left e -> throwError $ ErrWrapper e
-       Right a -> return a
 
-    
+
+
 evaluation :: Exp -> TCMonad Exp
 evaluation e =
   do st <- get
@@ -54,17 +46,17 @@ evaluation e =
 lookupLEnv x lenv =
   case Map.lookup x lenv of
     Nothing -> error "from lookupLEnv"
-    Just (Wired bd) ->
-      open bd $ \ wires m ->
-      case m of
-        (Morphism ins [Gate id ns gins gouts ctrls] outs) -> 
-          let vs' = helper ns lenv
-              (c:[]) = case ctrls of
-                          Star -> Star:[]
-                          _ -> helper [ctrls] lenv
-          in  Wired (abst wires (Morphism ins [Gate id vs' gins gouts c] outs))
+    -- Just (Wired bd) ->
+      -- open bd $ \ wires m ->
+      -- case m of
+      --   (Morphism ins [Gate id ns gins gouts ctrls] outs) -> 
+      --     let vs' = helper ns lenv
+      --         (c:[]) = case ctrls of
+      --                     Star -> Star:[]
+      --                     _ -> helper [ctrls] lenv
+      --     in  Wired (abst wires (Morphism ins [Gate id vs' gins gouts c] outs))
              
-        m' -> Wired (abst wires m')
+      --   m' -> Wired (abst wires m')
 
     Just v -> v
   where helper [] lc = []
@@ -75,13 +67,11 @@ lookupLEnv x lenv =
             Nothing -> error $ "lookupLEnv: can't find variable " ++ (show $ disp x) 
         helper (a:xs) lc = a : (helper xs lc)
 
-eval :: Map Variable Exp -> Exp -> Eval Exp
+eval :: Map Variable Value -> Exp -> Eval Value
 eval lenv (Var x) =
   return $ lookupLEnv x lenv 
 
-eval lenv Star = return Star
-eval lenv (Label x) = return $ Label x
-eval lenv (Base k) = return (Base k)
+eval lenv Star = return VStar
 
 eval lenv a@(Const k) =
   do st <- get

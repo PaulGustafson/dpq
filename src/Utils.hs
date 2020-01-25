@@ -38,6 +38,14 @@ instance Disp Variable where
   display False (Variable x _) = text (show x)
   
 
+data L
+instance AtomKind L where
+  suggested_names _ = ["l"]
+  expand_names _ xs = xs ++ [ x ++ (show n) | n <- [1..], x <- xs ]
+
+type Label = AtomOfKind L
+
+
 pattern Abst :: (Bindable a, Nominal t) => a -> t -> Bind a t
 pattern Abst x t <- ((\ b -> open b (\ x b' -> (x, b'))) -> (x, t))
 
