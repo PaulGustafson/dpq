@@ -290,7 +290,7 @@ dataDecl =
            arg = try (ann >>= \ x -> return $ Left x) <|>
                      (singleExp >>= \ x -> return $ Right x) 
            -- prefix = try annotation <|> classExp
-           annotation = try ann <|> impAnn
+           annotation = ann <|> impAnn
              -- do x <- 
              --    return $ x
            --classExp = parens typeExp -- >>= \ x -> return $ Left x
