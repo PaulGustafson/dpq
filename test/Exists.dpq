@@ -2,15 +2,15 @@ module Exists where
 import "lib/Prelude.dpq"
 
 test :: ! forall a . exists n :: Nat . Vec a n
-test = {Z,  VNil}
+test = (Z,  VNil)
 
 
 toExist :: ! (a :: Type) -> List a -> exists n :: Nat . Vec a n
 toExist a l = case l of
-                Nil -> {Z , VNil}
+                Nil -> (Z , VNil)
 	        Cons x xs ->
-	          let {n, vs} = toExist a xs in
-		   {S n, VCons x vs}
+	          let (n, vs) = toExist a xs in
+		   (S n, VCons x vs)
 
 -- toExist' :: ! (a :: Type) -> List a -> exists n :: Nat . Vec a n
 -- toExist' a l = case l of
@@ -27,8 +27,8 @@ mapHadarmad :: ! (Unit -> exists n :: Nat . Vec Qubit n)
 mapHadarmad x = toExist Qubit $ Cons (initQubit True) (Cons (initQubit False) Nil)
 
 test5 :: exists n :: Nat . Circ(Unit, Vec Qubit n)
-test5 = let {n, circ} = existsBox Unit (\ x . Vec Qubit x) mapHadarmad
-        in {n, circ}
+test5 = let (n, circ) = existsBox Unit (\ x . Vec Qubit x) mapHadarmad
+        in (n, circ)
 
 -- should fail here because existential hiding.
 -- show5 :: Circ(Unit, Vec Qubit 2)

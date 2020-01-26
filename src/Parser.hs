@@ -391,7 +391,7 @@ atomExp = wrapPos (
        <|> nat
        <|> vector
        <|> implicitType
-       <|> existsExp
+--       <|> existsExp
        <|> withAnn
        <|> piType
        <|> impType
@@ -573,11 +573,11 @@ pairExp = parens $
              t2 <- term
              return $ Pair t1 t2
 
-existsExp = braces $
-          do t1 <- term
-             comma
-             t2 <- term
-             return $ Pack t1 t2 
+-- existsExp = braces $
+--           do t1 <- term
+--              comma
+--              t2 <- term
+--              return $ Pack t1 t2 
   
 caseExp =
   withPos $
@@ -612,7 +612,7 @@ letExp = handleLet True
 
 letStatement = handleLet False
 
--- | A parser to handle let expression and let statement.
+-- | A parser to handle let expression (True) and let statement (False).
 handleLet b =
   if b then
     do reserved "let"
@@ -625,7 +625,18 @@ handleLet b =
        bds <- block bind
        notFollowedBy $ reserved "in"
        return $ Let bds Unit
-  where bind = letPattern <|> pair <|> existential <|> single
+  where bind = letPattern <|> pair <|> letAnn <|> single
+        letAnn = do
+          f <- try $ do {f <- var;
+                         reservedOp "::";
+                         return f}
+          ty <- typeExp
+          f' <- var
+          when (f /= f')
+               $ unexpected (f'++", expected name: "++ f)
+          reservedOp "="
+          tm <- term
+          return $ BAnn (f, ty, tm)
         pair =
           do xs <- parens $ 
                        do x <- try var <|> wildString
@@ -635,15 +646,15 @@ handleLet b =
              reservedOp "="
              d <- term
              return $ BPair (xs, d)
-        existential =
-          do (x, y) <- braces $
-                       do x <- try var <|> wildString
-                          comma
-                          y <- try var <|> wildString
-                          return $ (x, y)
-             reservedOp "="
-             d <- term
-             return $ BExist (x, y, d)             
+        -- existential =
+        --   do (x, y) <- braces $
+        --                do x <- try var <|> wildString
+        --                   comma
+        --                   y <- try var <|> wildString
+        --                   return $ (x, y)
+        --      reservedOp "="
+        --      d <- term
+        --      return $ BExist (x, y, d)             
         single =
           do n <- try var <|> wildString
              reservedOp "="
@@ -670,7 +681,7 @@ appExp =
                      }
                             
         arg = wrapPos $ try unit <|> unitTy <|> set
-              <|> try varExp <|> try constExp <|> existsExp <|> nat <|> try vector <|> idiomExp
+              <|> try varExp <|> try constExp <|> nat <|> try vector <|> idiomExp
               <|> do{
                      tms <- parens (term `sepBy1` comma);
                      return $ foldl (\ x y -> Pair x y) (head tms) (tail tms)
@@ -734,12 +745,12 @@ doExp =
              pat = do c <- const
                       ps <- many (try varExp <|> wild)
                       return $ BPattern (c, ps, Wild)
-             exists =
-                braces $
-                do x <- try var <|> wildString
-                   comma
-                   y <- try var <|> wildString
-                   return $ BExist (x, y, Wild)
+             -- exists =
+             --    braces $
+             --    do x <- try var <|> wildString
+             --       comma
+             --       y <- try var <|> wildString
+             --       return $ BExist (x, y, Wild)
              leftPair =
                 parens $
                 do x <- try var <|> wildString
@@ -751,10 +762,10 @@ doExp =
                   return $ BSingle (v, Wild)
              makeBind v (BSingle (x, _)) = BSingle (x, v)
              makeBind v (BPair (xs, _)) = BPair (xs, v)
-             makeBind v (BExist (x,y, _)) = BExist (x, y, v)
+--             makeBind v (BExist (x,y, _)) = BExist (x, y, v)
              makeBind v (BPattern (x,y, _)) = BPattern (x, y, v)
              
-             binding = try leftVar <|> leftPair <|> exists <|> pat  
+             binding = try leftVar <|> leftPair <|> pat  
              bd = do
                x <- try $
                     do{x <- binding;

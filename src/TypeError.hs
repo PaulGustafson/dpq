@@ -62,6 +62,7 @@ data TypeError = Unhandle Exp
                | ImplicitCase Variable Exp
                | ImplicitVarErr Variable Exp
                | LamInferErr Exp
+               | ArityExistsErr Exp [Variable]
                deriving Show
 
 data EvalError = MissBranch Id Exp
@@ -392,5 +393,9 @@ instance Disp TypeError where
     <+> display flag a $$
     text "suggestion: add a type annotation" 
 
-
+  display flag (ArityExistsErr at xs) =
+    text "unexpected pair pattern for existential type." $$
+    text "when checking:" <+> hsep (map (display flag) xs) $$
+    text "againts:" <+> display flag at
+    
   display flag a = error $ "from display TypeError:" ++ show a 

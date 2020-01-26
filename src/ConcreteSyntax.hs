@@ -1,3 +1,7 @@
+-- | The concrete syntax for the surface language. It will
+-- be resolved into abstract syntax. 
+
+
 module ConcreteSyntax where
 import Utils
 import Text.PrettyPrint
@@ -7,9 +11,9 @@ import Prelude hiding((<>))
 
 
   
--- | Concrete syntax for the surface language.
+
 data Exp =
-  Base String
+  Base String 
   | Var String
   | Set 
   | Star
@@ -26,7 +30,7 @@ data Exp =
   | Lam [String] Exp
   | LamAnn [String] Exp Exp
   | App Exp Exp
-  | Pack Exp Exp
+-- Pack Exp Exp
   | Pair Exp Exp
   | Let [Binding] Exp
   | Box
@@ -40,14 +44,16 @@ data Exp =
   | WithAnn Exp Exp
   deriving (Show, Eq)
 
+-- | 
 type Branches = [(String, [Exp], Exp)]
 
 -- | Binding for let expression.
 data Binding =
   BSingle (String, Exp)
   | BPair ([String], Exp)
-  | BExist (String, String, Exp)
+--   BExist (String, String, Exp)
   | BPattern (String, [Exp], Exp)
+  | BAnn (String, Exp, Exp)
   deriving (Show, Eq)
 
 

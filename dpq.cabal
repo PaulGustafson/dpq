@@ -4,16 +4,17 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: eb776acecee266bf005cf84420b1d291c1b34fd4e09d574d0a5ae8c168cee241
+-- hash: 5845df4c82ef01890b9de4cfc9e01217e178109e98988cf1700ea5b7944f6e89
 
 name:           dpq
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/dpq-remake#readme>
-homepage:       https://github.com/githubuser/dpq-remake#readme
-bug-reports:    https://github.com/githubuser/dpq-remake/issues
-author:         Author name here
+synopsis:       Dependently typed Proto-Quipper
+description:    Please see the README at <https://gitlab.com/frank-peng-fu/dpq-remake#readme> for information about installation.
+homepage:       https://github.com/https://gitlab.com/frank-peng-fu/dpq-remake.git#readme
+bug-reports:    https://github.com/https://gitlab.com/frank-peng-fu/dpq-remake.git/issues
+author:         Frank Fu
 maintainer:     example@example.com
-copyright:      2019 Author name here
+copyright:      2019 Frank Fu
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
@@ -23,7 +24,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/dpq-remake
+  location: https://github.com/https://gitlab.com/frank-peng-fu/dpq-remake.git
 
 library
   exposed-modules:

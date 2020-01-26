@@ -193,10 +193,10 @@ resolve d (C.Pair m n) =
      n' <- resolve d n
      return (Pair m' n')
 
-resolve d (C.Pack m n) = 
-  do m' <- resolve d m
-     n' <- resolve d n
-     return (Pack m' n')
+-- resolve d (C.Pack m n) = 
+--   do m' <- resolve d m
+--      n' <- resolve d n
+--      return (Pack m' n')
 
      
      
@@ -215,11 +215,18 @@ resolve d (C.Let ((C.BPair (ss, m)):defs) n) =
        n' <- resolve d' (C.Let defs n)
        return (LetPair m' (abst xs n'))
 
-resolve d (C.Let ((C.BExist (s, s', m)):defs) n) = 
-  lscopeVars d [s, s'] $ \d' (x:y:[]) -> 
-    do m' <- resolve d m
-       n' <- resolve d' (C.Let defs n)
-       return (LetEx m' ((x,y).n'))
+resolve d (C.Let ((C.BAnn (s, ty, n)):defs) m) =
+  lscopeVars d [s] $ \ d' (x:[]) -> 
+  do n' <- resolve d n
+     ty' <- resolve d ty
+     m' <- resolve d' (C.Let defs m)
+     return (Let (WithType n' ty') (abst x m'))
+
+-- resolve d (C.Let ((C.BExist (s, s', m)):defs) n) = 
+--   lscopeVars d [s, s'] $ \d' (x:y:[]) -> 
+--     do m' <- resolve d m
+--        n' <- resolve d' (C.Let defs n)
+--        return (LetEx m' ((x,y).n'))
 
 resolve d (C.Let ((C.BPattern (c, vs, m)):defs) n) =
   do vs' <- mapM helper vs

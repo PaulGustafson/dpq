@@ -8,15 +8,15 @@ import "lib/Gates.dpq"
 data WithGarbage a = WG (exists n :: Nat . Vec Qubit n) a
 
 instance Monad WithGarbage where
-  return x = WG {Z, VNil} x
+  return x = WG (Z, VNil) x
   bind wg f = let WG ng r = wg
-                  {n, g} = ng
+                  (n, g) = ng
                   WG mg' r' = f r
-                  {m, g'} = mg'
-               in WG {add n m, append g g'} r'
+                  (m, g') = mg'
+               in WG (add n m, append g g') r'
 
 dispose_qubit :: !(Qubit -> WithGarbage Unit)
-dispose_qubit q = WG {S Z, VCons q VNil} ()
+dispose_qubit q = WG (S Z, VCons q VNil) ()
 
 class Disposable a where
   dispose :: a -> WithGarbage Unit
@@ -209,13 +209,13 @@ instance forall a (n m :: Nat) . (BooleanLogic a) => BooleanLogic (VecZipper a n
   
 
 run_garbage :: !forall a . WithGarbage a -> (exists n :: Nat . (Vec Qubit n) * a)
-run_garbage comp = let WG x a = comp in let {n, v} = x in {n, (v, a)}
+run_garbage comp = let WG x a = comp in let (n, v) = x in (n, (v, a))
 
 box_garbage :: ! (a b :: Type) -> (Simple a , Simple b) =>
                !(a -> WithGarbage b) -> exists n :: Nat . Circ(a, Vec Qubit n * b)
 box_garbage a b f =
-  let {n, circ} = existsBox a (\n . Vec Qubit n * b) (\x . run_garbage (f x))
-  in {n, circ}
+  let (n, circ) = existsBox a (\n . Vec Qubit n * b) (\x . run_garbage (f x))
+  in (n, circ)
 
 boxGarbage :: ! {a b :: Type} -> (Simple a , Simple b) =>
                !(a -> WithGarbage b) -> exists n :: Nat . Circ(a, Vec Qubit n * b)
@@ -225,7 +225,7 @@ with_computed :: ! forall c .  (a b :: Type) -> (Simple a, Simple b) =>
                        !(a -> exists n :: Nat . Vec Qubit n * b) ->
                        (b -> c * b) -> (a -> c * a)
 with_computed a b ex g = \ input .
-  let {_, h_circ} = existsBox a (\ x . Vec Qubit x * b) ex
+  let (_, h_circ) = existsBox a (\ x . Vec Qubit x * b) ex
       h' = unbox h_circ
       (v, r) = h' input
       h'_rev = unbox (revert h_circ)
@@ -247,7 +247,7 @@ with_computed2 :: ! forall c d .  (a b :: Type) -> (Simple a, Simple b) =>
                        !(a -> exists n :: Nat . Vec Qubit n * b) ->
                        (b * d -> b * c) -> (a * d -> a * c)
 with_computed2 x y ex g = \ input .
-  let {_, h_circ} = existsBox x (\ z . Vec Qubit z * y) ex
+  let (_, h_circ) = existsBox x (\ z . Vec Qubit z * y) ex
       h' = unbox h_circ
       (a, d) = input
       (v, r) = h' a

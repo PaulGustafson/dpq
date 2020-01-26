@@ -185,7 +185,7 @@ chop :: ! forall a (n :: Nat) . Vec a (S n) -> a * Vec a n
 chop l = let VCons x xs = l in (x, xs)
 
 unPack :: ! forall a . VecPac a -> exists n :: Nat . Vec a n 
-unPack l = let VP n v = l in {n, v} 
+unPack l = let VP n v = l in (n, v)
 
 simple VecZipper a :: Nat -> Nat -> Type where
   VecZipper a n m = VZ (Vec a n) a (Vec a m)

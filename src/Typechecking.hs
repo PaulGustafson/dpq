@@ -129,6 +129,7 @@ typeInfer False t@(ExBox) =
 typeInfer flag Star = return (Unit, Star)
 typeInfer flag Unit = return (Set, Unit)
 
+-- Only infering tensor product for pair.
 typeInfer flag a@(Pair t1 t2) =
   do (ty1, ann1) <- typeInfer flag t1 
      (ty2, ann2) <- typeInfer flag t2
@@ -516,7 +517,7 @@ typeCheck False c@(Lam bind) t =
                         return (PiImp (abst vs t') ty, res)
          b -> throwError $ LamErr c b
 
-typeCheck flag a@(Pack t1 t2) (Exists p ty) =
+typeCheck flag a@(Pair t1 t2) (Exists p ty) =
   do (ty', ann1) <- typeCheck flag t1 ty
      open p $ \ x t ->
        do let vars = S.toList $ getVars NoEigen t1
@@ -527,7 +528,7 @@ typeCheck flag a@(Pack t1 t2) (Exists p ty) =
           -- t' is an instance of t, it does not contain x anymore,
           -- hence the return type should be Exists p ty', not
           -- Exists (abst x p') ty'
-          return (Exists p ty', Pack ann1 ann2)
+          return (Exists p ty', Pair ann1 ann2)
 
 
 typeCheck flag a@(Pair t1 t2) d =
@@ -572,43 +573,61 @@ typeCheck flag (Let m bd) goal =
               let res = Let ann (abst x ann2') 
               return (goal', res)
 
-typeCheck flag (LetEx m bd) goal =
-  do (t', ann) <- typeInfer flag m
-     at <- updateWithSubst t'
-     case at of
-       Exists p t1 ->
-         open bd $ \ (x, y) b ->
-            open p $ \ x1 b' ->
-           do addVar x t1
-              addVar y (apply [(x1, EigenVar x)] b')
-              let b'' = apply [(x, EigenVar x)] b
-              (goal', ann2) <- typeCheck flag b'' goal
-              ann2' <- updateWithSubst ann2
-              ann3 <- resolveGoals ann2'
-              checkUsage y b
-              checkUsage x b
-              removeVar x
-              removeVar y
-              let res = LetEx ann (abst (x, y) ann3) 
-              return (goal', res)
-       a -> throwError $ ExistsErr m a
+-- typeCheck flag (LetEx m bd) goal =
+--   do (t', ann) <- typeInfer flag m
+--      at <- updateWithSubst t'
+--      case at of
+--        Exists p t1 ->
+--          open bd $ \ (x, y) b ->
+--             open p $ \ x1 b' ->
+--            do addVar x t1
+--               addVar y (apply [(x1, EigenVar x)] b')
+--               let b'' = apply [(x, EigenVar x)] b
+--               (goal', ann2) <- typeCheck flag b'' goal
+--               ann2' <- updateWithSubst ann2
+--               ann3 <- resolveGoals ann2'
+--               checkUsage y b
+--               checkUsage x b
+--               removeVar x
+--               removeVar y
+--               let res = LetEx ann (abst (x, y) ann3) 
+--               return (goal', res)
+--        a -> throwError $ ExistsErr m a
 
 typeCheck flag (LetPair m (Abst xs n)) goal =
   do (t', ann) <- typeInfer flag m
      at <- updateWithSubst t'
-     case unTensor (length xs) at of
-       Just ts ->
-         do let env = zip xs ts
-            mapM (\ (x, t) -> addVar x t) env
-            (goal', ann2) <- typeCheck flag n goal
-            mapM (\ (x, t) -> checkUsage x n) env
-            mapM removeVar xs
+     case at of
+       Exists (Abst x1 b') t1 ->
+         do when (length xs /= 2) $ throwError $ ArityExistsErr at xs
+            let (x:y:[]) = xs
+                b = n
+            addVar x t1
+            addVar y (apply [(x1, EigenVar x)] b')
+            let b'' = apply [(x, EigenVar x)] b
+            (goal', ann2) <- typeCheck flag b'' goal
             ann2' <- updateWithSubst ann2
-            let res = LetPair ann (abst xs ann2') 
+            ann3 <- resolveGoals ann2'
+            checkUsage y b
+            checkUsage x b
+            removeVar x
+            removeVar y
+            let res = LetPair ann (abst [x, y] ann3) 
             return (goal', res)
-       Nothing ->
-         do nss <- newNames $ map (\ x -> "#unif") xs
-            freshNames nss $ \ (h:ns) ->
+
+       _ -> case unTensor (length xs) at of
+         Just ts ->
+           do let env = zip xs ts
+              mapM (\ (x, t) -> addVar x t) env
+              (goal', ann2) <- typeCheck flag n goal
+              mapM (\ (x, t) -> checkUsage x n) env
+              mapM removeVar xs
+              ann2' <- updateWithSubst ann2
+              let res = LetPair ann (abst xs ann2') 
+              return (goal', res)
+         Nothing ->
+           do nss <- newNames $ map (\ x -> "#unif") xs
+              freshNames nss $ \ (h:ns) ->
                   do let newTensor = foldl Tensor (Var h) (map Var ns)
                          vars = map Var (h:ns)
                      res <- normalizeUnif at newTensor
