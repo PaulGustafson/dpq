@@ -30,7 +30,6 @@ data Exp =
   | Lam [String] Exp
   | LamAnn [String] Exp Exp
   | App Exp Exp
--- Pack Exp Exp
   | Pair Exp Exp
   | Let [Binding] Exp
   | Box
@@ -44,14 +43,15 @@ data Exp =
   | WithAnn Exp Exp
   deriving (Show, Eq)
 
--- | 
+-- | Branches for case expression, must be of the form:
+-- C x y z -> e, where x, y, z are variables.
 type Branches = [(String, [Exp], Exp)]
 
--- | Binding for let expression.
+-- | Binding for let expression. The annotation for let will be
+-- translated away. 
 data Binding =
   BSingle (String, Exp)
   | BPair ([String], Exp)
---   BExist (String, String, Exp)
   | BPattern (String, [Exp], Exp)
   | BAnn (String, Exp, Exp)
   deriving (Show, Eq)

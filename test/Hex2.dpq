@@ -105,9 +105,8 @@ test_positions (n m :: Nat) (x_max :: Nat) (pf :: Eq Bool (x_max > Z) True)
                                          (\ pf . test_backward_focus n m x_max pf)
                                               (\ pf . stay_focus' n m x_max pf) 
                                                 maskmap1 bitmap1 newmap1             
-        let -- new1 :: WithGarbage ((Vec Qubit n * Qubit * Vec Qubit m) *
-            --               (Vec Qubit n * Qubit * Vec Qubit m) *
-            --               (Vec Qubit n * Qubit * Vec Qubit m))
+        let new1 :: WithGarbage (VecZipper Qubit n m * VecZipper Qubit n m *
+                                            VecZipper Qubit n m)
             -- in a left based zipper, the current position index is m			  
             new1 = case mod m x_max > Z of
                         True ->
@@ -406,7 +405,7 @@ testPositions =
 --   False, True, False, True, False,
 --    False, True, True, True, False]
 
-main = test_small_board (False, a_small_board_red)
+-- main = test_small_board (False, a_small_board_red)
 large_board (x :: Unit) = box_checkwin_red (5 @ 7 - 1) 7 refl refl
 large_board' (x :: Unit) = box_checkwin_red (9 @ 7 - 1) 9 refl refl
 -- main = large_board' ()

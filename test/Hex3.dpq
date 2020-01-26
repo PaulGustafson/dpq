@@ -138,6 +138,7 @@ simple TripleVec a :: (n :: Nat) -> Type where
 while (m c x_max :: Nat) (pf :: Eq Bool (x_max > Z) True)
   (bitmap newmap maskmap :: Vec Qubit (S m)) =                 
   case c of
+    Z -> return (bitmap, newmap, maskmap)               
     S c' -> do
             let VCons h1 t1  = maskmap
                 VCons b bs = bitmap
@@ -152,7 +153,7 @@ while (m c x_max :: Nat) (pf :: Eq Bool (x_max > Z) True)
                 VNil = vn'
                 VNil = vn''
             while m c' x_max pf (VCons bit bits) (VCons new' news') (VCons mask' masks')
-    Z -> return (bitmap, newmap, maskmap)               
+
 
 flood_fill (m :: Nat) (x_max :: Nat) (pf :: Eq Bool (x_max > Z) True)
   (bitmap maskmap :: Vec Qubit (S m)) = do
