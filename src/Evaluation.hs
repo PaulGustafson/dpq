@@ -216,8 +216,9 @@ evalApp v w =
              return $ VApp v w
              else do let sub = zip vs args
                          ws = drop lvs args
-                         lenv' = updateCirc sub lenv 
-                     e' <- eval lenv' e
+                         lenv' = updateCirc sub lenv
+                         lenv'' = lenv' `Map.union` Map.fromList sub
+                     e' <- eval lenv'' e
                      return $ foldl VApp e' ws
         
     _ -> return $ VApp v w

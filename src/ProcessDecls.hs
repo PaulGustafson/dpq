@@ -509,7 +509,8 @@ makeGate id ps t =
           let xs = x:xs
           in zipWith (\ x y -> x ++ show y) (take lp xs) [0 .. ]
           
-        etaPair n e | n == 0 = App e Star
+        etaPair n e | n == 0 = error "from etaPair"
+          -- App e Star
         etaPair n e =
           freshNames (getName "y" n) $ \ xs ->
           let xs' = map Var xs
@@ -540,13 +541,13 @@ makeControl id ps t =
           --     (Let morph (freshNames ["y"] $ \ (y:[]) -> abst y (Var y)))
           unbox_morph = etaPair (length inss) (Force $ App UnBox (Var y)) c
           -- abstraction m = freshNames ["dict"] $ \ (d:[]) -> Lam (abst [d] m) 
-          res = if null xs then VLiftCirc $ abst [d,c] (abst env unbox_morph)
-                else VLiftCirc $ abst ((d:xs)++[c]) (abst env unbox_morph)
-                  -- case unbox_morph of
-                  --      Lam bd ->
-                  --        open bd $ \ ys m -> Lift $ abstraction $ Lam (abst (xs++ys) m)
-                                             
-                  --      _ -> Lift $ abstraction $ Lam (abst xs unbox_morph) 
+          res = -- if null xs then
+                --   VLiftCirc $ abst [d,c] (abst env unbox_morph)
+                -- else
+                  case unbox_morph of
+                       Lam bd ->
+                         open bd $ \ ys m ->
+                           VLiftCirc $ abst ((d:xs)++ys ++ [c]) (abst env m)
       in res
   where makeInOut (Arrow t t') =
           let (ins, outs) = makeInOut t'
@@ -560,7 +561,7 @@ makeControl id ps t =
           let xs = x:xs
           in zipWith (\ x y -> x ++ show y) (take lp xs) [0 .. ]
           
-        etaPair n e c | n == 0 = (Pair (App e Star) (Var c))
+        etaPair n e c | n == 0 = error "from etaPair"
         etaPair n e c =
           freshNames (getName "y" n) $ \ xs ->
           let xs' = map Var xs
