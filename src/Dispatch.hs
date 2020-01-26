@@ -63,8 +63,18 @@ dispatch Reload =
 
 dispatch (ShowCirc) =
   do c <- getCirc
-     let Morphism _ gs _ = c
-     liftIO $ putStrLn ("current circuit \n" ++ (show $ vcat $ map dispRaw $ reverse gs) ++ "\n")
+     let Morphism a gs b = c
+         gs' = reverse gs
+         c' = Morphism a gs' b
+     liftIO $ putStrLn ("current circuit \n" ++ (show $ vcat $ map dispRaw gs') ++ "\n")
+     let ws = getAllWires c'
+         res = Wired $ abst ws (VCircuit c')
+     tmpdir <- liftIO $ getTemporaryDirectory
+     (pdffile, fd) <- liftIO $ openTempFile tmpdir "DPQ.pdf"
+     ioTop $ printCirc_fd res fd
+     liftIO $ hClose fd
+     liftIO $ system_pdf_viewer 100 pdffile
+     liftIO $ removeFile pdffile                     
      return True
 
 dispatch (Type e) =
