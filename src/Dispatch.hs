@@ -86,7 +86,9 @@ dispatch (Eval e) =
        else do
          let fvs = getVars AllowEigen t'
          when (not $ S.null fvs) $ throwError $ CompileErr $ TyAmbiguous Nothing t'
-         et <- tcTop $ erasure e'' >>= evaluation 
+         c <- getCirc
+         (et, circ) <- tcTop $ erasure e'' >>= evaluate c
+         putCirc circ
          liftIO $ putStrLn ("it has type \n" ++ (show $ disp t'))
          liftIO $ putStrLn ("it has value \n" ++ (show $ dispRaw et))
          return True

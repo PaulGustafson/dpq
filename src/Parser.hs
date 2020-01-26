@@ -82,13 +82,12 @@ command :: Parser Command
 command =
   do whiteSpace 
      quit <|>  help <|> typing <|>  reload <|>  load <|>  printing <|>
-       displaying <|>  displayEx <|>  annotation <|> evaluation
+       displaying <|>  displayEx <|>  annotation <|> showCirc <|> evaluation
      
--- showCirc =
---   do whiteSpace
---      reserved ":s"
---      eof
---      return ShowCirc
+showCirc =
+  do reserved ":s"
+     eof
+     return ShowCirc
 
 quit =
   do reserved ":q"

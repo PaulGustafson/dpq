@@ -105,10 +105,9 @@ data Command =
   | Reload
   | Print Exp String
   | Display Exp
-  | GateCount Exp
   | DisplayEx Exp
-  | ShowCirc
   | Annotation Exp
+  | ShowCirc
   deriving (Show)
 
 type Program = [Decl] 

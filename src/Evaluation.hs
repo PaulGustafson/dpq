@@ -30,8 +30,17 @@ data EvalState =
 type Eval a = ExceptT EvalError (State EvalState) a
 
 
+-- | Evaluate an expression with an underlying circuit, return value and the updated circuit.
+evaluate circ e =
+  do st <- get
+     let gl = globalCxt $ lcontext st
+         (r, s) = runState (runExceptT $ eval Map.empty e)
+                  ES{morph = circ, evalEnv = gl}
+     case r of
+       Left e -> throwError $ EvalErr e
+       Right r -> return (r, morph s)
 
-
+-- | Evaluate an parameter term and return a value. 
 evaluation :: Exp -> TCMonad Value
 evaluation e =
   do st <- get

@@ -119,6 +119,7 @@ getCirc = do
   s <- getInterpreterState
   return (circ s)
 
+
 getInterpreterState :: Top InterpreterState
 getInterpreterState = do
   s <- get
@@ -231,6 +232,12 @@ putScope scope = do
   s <- getInterpreterState
   let s' = s { scope = scope }
   putInterpreterState s'
+
+putCirc c = do
+  s <- getInterpreterState
+  let s' = s {circ = c}
+  putInterpreterState s'      
+  
 
 putCounter i = do
   s <- getInterpreterState
