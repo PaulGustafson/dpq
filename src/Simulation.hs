@@ -14,13 +14,14 @@ import Text.PrettyPrint
 import Debug.Trace
 -- * A simulator for classical circuits
 
-type Simulate a = ExceptT SimulateError (State (Map Variable Bool)) a
+type Simulate a = ExceptT SimulateError (State (Map Label Bool)) a
 
 data SimulateError =
   NotSupported String
-  | AssertionErr Variable Bool Bool
+  | AssertionErr Label Bool Bool
   | WrapGates [Gate] SimulateError
   deriving Show
+           
 instance Disp Bool where
   display _ True = text "1"
   display _ False = text "0"
@@ -38,46 +39,50 @@ instance Disp SimulateError where
     display flag e $$
     text "when running the simulation for the circuit:" $$
     vcat (map (display flag) gs)
-    
-makeValueMap :: Exp -> Exp -> Map Variable Bool
-makeValueMap Star Star = Map.empty
-makeValueMap (Const x) (Const y) | x == y = Map.empty
-makeValueMap (Label l) a@(Const x) =
+
+toBool (VConst x) | getName x == "True" = True
+toBool (VConst x) | getName x == "False" = False
+toBool _ = error "unknown boolean format, bools should be comming from the Prelude module"  
+
+makeValueMap :: Value -> Value -> Map Label Bool
+makeValueMap VStar VStar = Map.empty
+makeValueMap (VConst x) (VConst y) | x == y = Map.empty
+makeValueMap (VLabel l) a@(VConst x) =
   Map.fromList [(l, toBool a)]
   
-makeValueMap (Pair x y) (Pair a b) =
+makeValueMap (VPair x y) (VPair a b) =
   let m1 = makeValueMap x a
       m2 = makeValueMap y b
   in Map.union m1 m2
 
-makeValueMap (App x y) (App a b) =
+makeValueMap (VApp x y) (VApp a b) =
   let m1 = makeValueMap x a
       m2 = makeValueMap y b
   in Map.union m1 m2
 
-makeValueMap c (AppType a b) = makeValueMap c a
-makeValueMap c (AppTm a b) = makeValueMap c a
-makeValueMap (App x y) (App' a b) = 
-  let m1 = makeValueMap x a
-      m2 = makeValueMap y b
-  in Map.union m1 m2
+-- makeValueMap c (AppType a b) = makeValueMap c a
+-- makeValueMap c (AppTm a b) = makeValueMap c a
+-- makeValueMap (App x y) (App' a b) = 
+--   let m1 = makeValueMap x a
+--       m2 = makeValueMap y b
+--   in Map.union m1 m2
 
   
 makeValueMap a b = error $ "from makeValueMap: " ++ (show $ disp a <+> text "," <+> disp b)
 
-makeOutput m a@(Star) = a
-makeOutput m a@(Const _) = a
-makeOutput m (Label l) =
+makeOutput m a@(VStar) = a
+makeOutput m a@(VConst _) = a
+makeOutput m (VLabel l) =
   case Map.lookup l m of
     Nothing -> error "from makeOutput"
     Just i -> fromBool i
     
-makeOutput m (Pair x y) =
-  Pair (makeOutput m x) (makeOutput m y)
-makeOutput m (App x y) = 
-  App (makeOutput m x) (makeOutput m y)
+makeOutput m (VPair x y) =
+  VPair (makeOutput m x) (makeOutput m y)
+makeOutput m (VApp x y) = 
+  VApp (makeOutput m x) (makeOutput m y)
 
-runCircuit :: Morphism -> Exp -> Either SimulateError Exp
+runCircuit :: Morphism -> Value -> Either SimulateError Value
 runCircuit (Morphism minput gs moutput) input =
   let m = makeValueMap minput input
       m' = runState (runExceptT $ runGates gs) m
@@ -88,7 +93,7 @@ runCircuit (Morphism minput gs moutput) input =
      (Right _, m'') -> Right $ makeOutput m'' moutput
   where runGates gs = mapM_ applyGate gs       
 
-lookupValue :: Variable -> Simulate Bool
+lookupValue :: Label -> Simulate Bool
 lookupValue x =
   do m <- get
      case Map.lookup x m of
@@ -99,43 +104,43 @@ lookupValue x =
             return i
 
 
-updateValue :: Variable -> Bool -> Simulate ()
+updateValue :: Label -> Bool -> Simulate ()
 updateValue x v =
   do m <- get
      put $ Map.insert x v m
 
 
 applyGate :: Gate -> Simulate ()
-applyGate (Gate id [] (Label input) (Label output) Star) | getName id == "QNot" = 
+applyGate (Gate id [] (VLabel input) (VLabel output) VStar) | getName id == "QNot" = 
   do v <- lookupValue input
      updateValue output (not v)
-applyGate (Gate name [] (Pair (Label w) (Label c)) (Pair (Label t) (Label c')) Star) 
+applyGate (Gate name [] (VPair (VLabel w) (VLabel c)) (VPair (VLabel t) (VLabel c')) VStar) 
   | getName name == "CNot" =
     do wv <- lookupValue w
        cv <- lookupValue c
        updateValue c' cv
        updateValue t (booleanAdd cv wv)
 
-applyGate (Gate name [] Star (Label w) Star) 
+applyGate (Gate name [] VStar (VLabel w) VStar) 
   | getName name == "Init0" = updateValue w False
 
-applyGate (Gate name [] Star (Label w) Star) 
+applyGate (Gate name [] VStar (VLabel w) VStar) 
   | getName name == "Init1" = updateValue w True
 
-applyGate (Gate name [] (Label w) Star Star) 
+applyGate (Gate name [] (VLabel w) VStar VStar) 
   | getName name == "Term0" =
     do w' <- lookupValue w
        if w' then throwError $ AssertionErr w False True
          else return ()
 
-applyGate (Gate name [] (Label w) Star Star) 
+applyGate (Gate name [] (VLabel w) VStar VStar) 
   | getName name == "Term1" =
     do w' <- lookupValue w
        if w' then return ()
          else throwError $ AssertionErr w  True False
 
 
-applyGate (Gate name [v] (Pair (Label w) (Label c)) (Pair (Label t) (Label c')) Star)
+applyGate (Gate name [v] (VPair (VLabel w) (VLabel c)) (VPair (VLabel t) (VLabel c')) VStar)
   | getName name == "CNotGate" =
     do let v' = toBool v
        wv <- lookupValue w
@@ -145,8 +150,8 @@ applyGate (Gate name [v] (Pair (Label w) (Label c)) (Pair (Label t) (Label c')) 
          updateValue t (booleanAdd cv wv)
          else updateValue t (booleanAdd (not cv) wv)
          
-applyGate (Gate name [v1, v2] (Pair (Pair (Label w) (Label c1)) (Label c2))
-           (Pair (Pair (Label t) (Label c1')) (Label c2')) Star)
+applyGate (Gate name [v1, v2] (VPair (VPair (VLabel w) (VLabel c1)) (VLabel c2))
+           (VPair (VPair (VLabel t) (VLabel c1')) (VLabel c2')) VStar)
   | getName name == "ToffoliGate" =
     do let v1' = toBool v1
            v2' = toBool v2
@@ -161,7 +166,7 @@ applyGate (Gate name [v1, v2] (Pair (Pair (Label w) (Label c1)) (Label c2))
          (False, True) -> updateValue t $ (not c1value && c2value) `booleanAdd` wvalue
          (False, False) -> updateValue t $ (not c1value && not c2value) `booleanAdd` wvalue 
 
-applyGate (Gate name [] (Label input) (Label output) ctrl) | getName name == "Not_g"  =
+applyGate (Gate name [] (VLabel input) (VLabel output) ctrl) | getName name == "Not_g"  =
   do let ws = getWires ctrl
      values <- mapM lookupValue ws
      v <- lookupValue input
@@ -174,12 +179,8 @@ applyGate (Gate name [] (Label input) (Label output) ctrl) | getName name == "No
 applyGate (Gate name ps input output ctrl) =
   throwError $ NotSupported (getName name)
 
-toBool (Const x) | getName x == "True" = True
-toBool (Const x) | getName x == "False" = False
-toBool a = error $ show a ++ ":unknown boolean format, bools should be comming from the Prelude module."  
-
-fromBool True = Const (Id "True")
-fromBool False = Const (Id "False")
+fromBool True = VConst (Id "True")
+fromBool False = VConst (Id "False")
 
 booleanAdd True False = True
 booleanAdd True True = False

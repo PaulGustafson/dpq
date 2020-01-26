@@ -50,7 +50,7 @@ main =
                      A.Circ _ _ -> ioTop $ printCirc circ' target
                      A.Exists (Abst n (A.Circ _ _)) _ ->
                        case circ' of
-                         A.Pair n res -> ioTop $ printCirc res target
+                         A.VPair n res -> ioTop $ printCirc res target
                      ty -> liftIO $ print (text "main is not a circuit")
         error_handler e = 
           do top_display_error e

@@ -87,7 +87,7 @@ data InterpreterState = InterpreterState {
   scope :: Scope,   -- ^ scope information.
   context :: Context,  -- ^ typing context.
   circ :: Morphism,  -- ^ top level incomplete circuit.
-  mainExp :: Maybe (A.Exp, A.Exp),   -- ^ main value and its type.
+  mainExp :: Maybe (A.Value, A.Exp),   -- ^ main value and its type.
   instCxt :: GlobalInstanceCxt, -- ^ type class instance context.
   parserState :: ParserState,   -- ^ infix operators table.
   parentFiles :: [String], -- ^ parent files, use to
@@ -188,7 +188,7 @@ clearInterpreterState =
 emptyState p = InterpreterState {
   scope = emptyScope,
   context = Map.empty,
-  circ = Morphism A.Star [] A.Star,
+  circ = Morphism A.VStar [] A.VStar,
   mainExp = Nothing,
   instCxt = [],
   parserState = initialParserState,

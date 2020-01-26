@@ -121,7 +121,7 @@ dispatch (Print e file) =
        A.Exists (Abst n (A.Circ _ _)) _ ->
          do res <- tcTop $ evaluation et
             case res of
-              A.Pair n circ -> 
+              A.VPair n circ -> 
                 do -- liftIO $ print (text "input size:" $$ disp n)
                    liftIO $ printCirc circ file
                    return True
@@ -137,7 +137,7 @@ dispatch (DisplayEx e) =
        A.Exists (Abst n (A.Circ _ _)) _ ->
          do res <- tcTop $ evaluation et
             case res of
-              A.Pair _ circ -> 
+              A.VPair _ circ -> 
                 do tmpdir <- liftIO $ getTemporaryDirectory
                    (pdffile, fd) <- liftIO $ openTempFile tmpdir "Quipper.pdf"
                    liftIO $ printCirc_fd circ fd

@@ -23,11 +23,11 @@ data Info =
        }
 
 data Identification = DataConstr Id  -- ^ Data type id 
-                    | DefinedGate Exp -- storing basic gates
-                    | DefinedFunction (Maybe (Exp, Exp, Exp))
-                    -- Storing annotation, value 
-                    | DefinedMethod Exp Exp --
-                    | DefinedInstFunction Exp Exp 
+                    | DefinedGate Value
+                    | DefinedFunction (Maybe (Exp, Value, Maybe Exp))
+                    -- Storing annotation, value   
+                    | DefinedMethod Exp Value --
+                    | DefinedInstFunction Exp Value
                     | DataType DataClassifier [Id] (Maybe Exp)
                       -- ^ A data type, its classifier and its
                       -- constructors, if it is simple type, then its runtime
@@ -432,7 +432,7 @@ shape (PiImp (Abst x t) t2) =
      t2' <- shape t2
      return $ PiImp' (abst x t') t2'
 
-shape (Label x) = return Star
+-- shape (Label x) = return Star
 
 shape (Lam (Abst x t)) = 
   do t' <- shape t
@@ -476,7 +476,7 @@ shape (Case tm (B br)) =
                           return $ abst ys m')
           ps
 
-shape a@(Wired _) = return a
+-- shape a@(Wired _) = return a
 
 shape (Let m bd) =
   do m' <- shape m 
@@ -614,7 +614,7 @@ newNames ns =
 -- | check if a *program* is in value form.
 isValue (Pos p e) = isValue e
 isValue (Var _) = return True
-isValue (Label _) = return True
+-- isValue (Label _) = return True
 isValue Star = return True
 isValue (Const _) = return True
 isValue (EigenVar _) = return True
@@ -652,7 +652,7 @@ isValue a@(AppDep' t t') = checkApp isValue a
 isValue a@(AppDict t t') = checkApp isValue a
 isValue a@(AppType t t') = isValue t
 isValue a@(AppTm t t') = isValue t
-isValue a@(Wired _) = return True
+-- isValue a@(Wired _) = return True
 isValue a@(RunCirc) = return True
 isValue _ = return False
 
@@ -676,25 +676,21 @@ checkApp f a =
     _ -> return False
 
 -- | Check if the expression is a basic value (i.e., things that can be displayed in an interpretor), note that function and circuit is not a basic value.
-isBasicValue :: Exp -> TCMonad Bool
--- isBasicValue (Wired _) = return True
-isBasicValue (Pos _ e) = isBasicValue e
-isBasicValue (Const k) =
+isBasicValue :: Value -> TCMonad Bool
+isBasicValue (VConst k) =
   do pac <- lookupId k
      case identification pac of
        DataConstr _ -> return True
        _ -> return False
-isBasicValue (Pair x y) =
+isBasicValue (VPair x y) =
   do r1 <- isBasicValue x
      r2 <- isBasicValue y
      return (r1 && r2)
-isBasicValue a@(App t t') = checkApp isBasicValue a
--- isBasicValue a@(App' t t') = checkApp isBasicValue a
--- isBasicValue a@(AppDep t t') = checkApp isBasicValue a
--- isBasicValue a@(AppDep' t t') = checkApp isBasicValue a
--- isBasicValue a@(AppDict t t') = checkApp isBasicValue a
--- isBasicValue a@(AppType t t') = isBasicValue t
--- isBasicValue a@(AppTm t t') = isBasicValue t
+isBasicValue a@(VApp t t') =
+    do r1 <- isBasicValue t
+       r2 <- isBasicValue t'
+       return (r1 && r2)
+isBasicValue (VStar) = return True        
 isBasicValue _ = return False       
 
 checkParamCxt :: Exp -> TCMonad ()

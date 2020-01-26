@@ -38,6 +38,16 @@ instance Disp Variable where
   display False (Variable x _) = text (show x)
   
 
+data L
+instance AtomKind L where
+  suggested_names _ = ["l"]
+  expand_names _ xs = xs ++ [ x ++ (show n) | n <- [1..], x <- xs ]
+
+type Label = AtomOfKind L
+
+instance Disp (AtomOfKind L) where
+  display _ t = text (show t)
+
 pattern Abst :: (Bindable a, Nominal t) => a -> t -> Bind a t
 pattern Abst x t <- ((\ b -> open b (\ x b' -> (x, b'))) -> (x, t))
 
@@ -50,6 +60,15 @@ freshNames (n:ns) body =
   body (a:as)
   where freshName s k =
           with_fresh $ \a -> k (Variable a (NoBind s))
+
+freshLabels :: [String] -> ([Label] -> t) -> t
+freshLabels [] body = body []
+freshLabels (n:ns) body =
+  freshLabel n $ \ a ->
+  freshLabels ns $ \ as ->
+  body (a:as)
+  where freshLabel s k =
+          with_fresh $ \a -> k a
 
 
 data Id = Id String

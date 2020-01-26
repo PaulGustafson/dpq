@@ -8,7 +8,7 @@ import Utils
 import TypeError
 import Typechecking
 import Proofchecking
-import Evaluation
+import Evaluation hiding (genNames)
 import Erasure
 import Substitution
 import TypeClass
@@ -52,10 +52,11 @@ process (Class pos d kd dict dictType mths) =
                   -- (_, ty'') <- typeChecking True ty' Set
                   (_, tyy') <- typeChecking True tyy Set 
                   (tyy'', a) <- typeChecking False (Pos pos mth) tyy'
-                  a' <- erasure a 
+                  a' <- erasure a
+                  v <- evaluation a'
                   proofChecking False a tyy''
                   let fp = Info{ classifier = tyy',
-                                 identification = DefinedMethod a a'
+                                 identification = DefinedMethod a v
                                }
                            
                   addNewId mname fp
@@ -97,8 +98,8 @@ process (Def pos f' ty' def') =
      proofChecking False ann ty1'
      v <- evaluation a
      b <- isBasicValue v
-     v' <- if b then typeChecking False v ty1' >>= \ x -> return $ snd x
-           else if isCirc v then return v else return ann
+     v' <- if b then typeChecking False (toExp v) ty1' >>= \ x -> return $ Just (snd x)
+           else if isCirc v then return $ Just (Const f') else return Nothing
      let info2 = Info { classifier = ty1,
                         identification = DefinedFunction (Just (ann, v, v'))}
      addNewId f' info2
@@ -116,8 +117,9 @@ process (Defn pos f Nothing def) =
      proofChecking False a ty
      v <- evaluation a'
      b <- isBasicValue v
-     v' <- if b then typeChecking False v ty >>= \ x -> return $ snd x
-           else if isCirc v then return v else return a
+     v' <- if b then typeChecking False (toExp v) ty >>= \ x -> return $ Just (snd x)
+           else return Nothing
+             -- if isCirc v then return $ Just (Const f) else return $ Just a
      let fp = Info {classifier = erasePos $ removeVacuousPi ty,
                     identification = DefinedFunction (Just (a, v, v'))
                    }
@@ -151,8 +153,8 @@ process (Defn pos f (Just tt) def) =
      proofChecking False def' tk1
      v <- evaluation a'
      b <- isBasicValue v
-     v' <- if b then typeChecking False v tk1 >>= \ x -> return $ snd x
-           else if isCirc v then return v else return def'
+     v' <- if b then typeChecking False (toExp v) tk1 >>= \ x -> return $ Just (snd x)
+           else return Nothing -- if isCirc v then return $ Just (Const f) else return (Just def')
      let fp = Info {classifier = tk1,
                    identification = DefinedFunction (Just (def', v, v'))
                    }
@@ -243,6 +245,7 @@ process (GateDecl pos id params t) =
                do checkStrictSimple a
                   checkStrictSimple b
              checkStrictSimple a = throwError (NotStrictSimple a)
+
 
 process (ControlDecl pos id params t) =
   do mapM_ checkParam params
@@ -402,8 +405,9 @@ elaborateInstance pos f' ty mths =
                                       else rebind env $ LamDict (abst ns def)
                      annTy' = erasePos annTy
                  def'' <- erasure def'
+                 v <- evaluation def''
                  let fp = Info { classifier = annTy',
-                                 identification = DefinedInstFunction def' def''
+                                 identification = DefinedInstFunction def' v
                               }
                  addNewId f' fp
                  proofChecking False def' annTy'
@@ -469,44 +473,44 @@ determineClassifier d kd constructors types =
                                     ) (map snd args)
                           return $ and r
 
-makeGate :: Id -> [Exp] -> Exp -> Exp
+makeGate :: Id -> [Exp] -> Exp -> Value
 makeGate id ps t =
-  let lp = length ps
+  let lp = length ps + 1
       ns = getName "x" lp
       (inss, outExp) = makeInOut t
       outNames = genNames outExp
-      inExp = if null inss then Unit
-                else foldl Tensor (head inss) (tail inss)
+      inExp = if null inss then VUnit
+                else foldl VTensor (head inss) (tail inss)
       inNames = genNames inExp
   in
-      freshNames ns $ \ xs ->
-      freshNames inNames $ \ ins ->
-      freshNames outNames $ \ outs ->
-      let params = map Var xs
+      freshNames ns $ \ (y:xs) ->
+      freshLabels inNames $ \ ins ->
+      freshLabels outNames $ \ outs ->
+      let params = map VVar xs
           inExp' = toVal inExp ins
           outExp' = toVal outExp outs
-          g = Gate id params inExp' outExp' Star
-          morph = Wired $ abst (ins ++ outs) (Morphism inExp' [g] outExp')
-          m = Force $ App UnBox
-                        (Let morph (freshNames ["y"] $ \ (y:[]) -> abst y (Var y)))
-          unbox_morph = etaPair (length inss) m
-          res = if null xs then unbox_morph
-                else
-                  case unbox_morph of
-                       Lam bd ->
-                         open bd $ \ ys m -> Lam (abst (xs++ys) m) 
-                       _ -> Lam (abst xs unbox_morph) 
-      in Lift res
+          g = Gate id params inExp' outExp' VStar
+          morph = Wired $ abst (ins ++ outs) (VCircuit $ Morphism inExp' [g] outExp')
+          env = Map.fromList [(y, morph)] 
+          unbox_morph = etaPair (length inss) (Force $ App UnBox (Var y))
+          res =
+            if null xs then VLift (abst env unbox_morph)
+                else VLiftCirc (abst xs (abst env unbox_morph))
+      in res
   where makeInOut (Arrow t t') =
           let (ins, outs) = makeInOut t'
-          in (t:ins, outs)
+          in (toV t:ins, outs)
         makeInOut (Pos p e) = makeInOut e
-        makeInOut a = ([], a)
+        makeInOut a = ([], toV a)
+        toV Unit = VUnit
+        toV (Tensor a b) = VTensor (toV a) (toV b)
+        toV (LBase x) = VLBase x
         getName x lp =
           let xs = x:xs
           in zipWith (\ x y -> x ++ show y) (take lp xs) [0 .. ]
           
-        etaPair n e | n == 0 = App e Star
+        etaPair n e | n == 0 = error "from etaPair"
+          -- App e Star
         etaPair n e =
           freshNames (getName "y" n) $ \ xs ->
           let xs' = map Var xs
@@ -514,51 +518,55 @@ makeGate id ps t =
           in Lam $ abst xs (App e pairs)
 
 
-makeControl :: Id -> [Exp] -> Exp -> Exp
+makeControl :: Id -> [Exp] -> Exp -> Value
 makeControl id ps t =
-  let lp = length ps
+  let lp = length ps + 1
       ns = getName "x" lp
       (inss, outExp) = makeInOut t
       outNames = genNames outExp
-      inExp = if null inss then Unit
-                else foldl Tensor (head inss) (tail inss)
+      inExp = if null inss then VUnit
+                else foldl VTensor (head inss) (tail inss)
       inNames = genNames inExp
   in
-      freshNames ("ctrl":ns) $ \ (c:xs) ->
-      freshNames inNames $ \ ins ->
-      freshNames outNames $ \ outs ->
-      let params = map Var xs
+      freshNames ("dict":"ctrl":ns) $ \ (d:c:y:xs) ->
+      freshLabels inNames $ \ ins ->
+      freshLabels outNames $ \ outs ->
+      let params = map VVar xs
           inExp' = toVal inExp ins
           outExp' = toVal outExp outs
-          g = Gate id params inExp' outExp' (Var c)
-          morph = Wired $ abst (ins ++ outs) (Morphism inExp' [g] outExp')
-          m = Force $ App UnBox
-              (Let morph (freshNames ["y"] $ \ (y:[]) -> abst y (Var y)))
-          unbox_morph = etaPair (length inss) m c
-          abstraction m = freshNames ["dict"] $ \ (d:[]) -> Lam (abst [d] m) 
-          res = if null xs then Lift $ abstraction $ unbox_morph
-                else
+          g = Gate id params inExp' outExp' (VVar c)
+          morph = Wired $ abst (ins ++ outs) (VCircuit $ Morphism inExp' [g] outExp')
+          env = Map.fromList [(y, morph)] 
+          -- m = Force $ App UnBox
+          --     (Let morph (freshNames ["y"] $ \ (y:[]) -> abst y (Var y)))
+          unbox_morph = etaPair (length inss) (Force $ App UnBox (Var y)) c
+          -- abstraction m = freshNames ["dict"] $ \ (d:[]) -> Lam (abst [d] m) 
+          res = -- if null xs then
+                --   VLiftCirc $ abst [d,c] (abst env unbox_morph)
+                -- else
                   case unbox_morph of
                        Lam bd ->
-                         open bd $ \ ys m -> Lift $ abstraction $ Lam (abst (xs++ys) m)
-                                             
-                       _ -> Lift $ abstraction $ Lam (abst xs unbox_morph) 
+                         open bd $ \ ys m ->
+                           VLiftCirc $ abst ((d:xs)++ys ++ [c]) (abst env m)
       in res
   where makeInOut (Arrow t t') =
           let (ins, outs) = makeInOut t'
-          in (t:ins, outs)
+          in (toV t:ins, outs)
         makeInOut (Pos p e) = makeInOut e
-        makeInOut a = ([], a)
+        makeInOut a = ([], toV a)
+        toV Unit = VUnit
+        toV (Tensor a b) = VTensor (toV a) (toV b)
+        toV (LBase x) = VLBase x
         getName x lp =
           let xs = x:xs
           in zipWith (\ x y -> x ++ show y) (take lp xs) [0 .. ]
           
-        etaPair n e c | n == 0 = Lam (abst [c] (Pair (App e Star) (Var c))) 
+        etaPair n e c | n == 0 = error "from etaPair"
         etaPair n e c =
           freshNames (getName "y" n) $ \ xs ->
           let xs' = map Var xs
               pairs = foldl Pair (head xs') (tail xs')
-          in Lam (abst (xs++[c]) (Pair (App e pairs) (Var c))) 
+          in Lam (abst (xs) (Pair (App e pairs) (Var c))) 
 
 
 -- | Make a type function for runtime wires generation.
@@ -646,3 +654,9 @@ typeInfering b exp =
      r <- updateWithSubst exp''
      ty'' <- resolveGoals ty' >>= updateWithSubst
      return (unEigen ty'', unEigen r)
+
+genNames uv =
+  let n = size uv
+      ls = "l":ls
+      names = take n ls
+  in names

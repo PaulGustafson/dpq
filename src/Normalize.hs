@@ -258,7 +258,7 @@ normalize a@(Var x) =
            TypeVar _ -> return a
            TermVar _ Nothing -> return a
            TermVar _ (Just d) -> normalize d
-             -- shape d >>= normalize 
+
 
 normalize a@(EigenVar x) = 
   do ts <- get
@@ -279,14 +279,15 @@ normalize a@(Const k) =
      let f = identification funPac
      case f of
        DataConstr _ -> return a
-       DefinedFunction (Just (a, e, e')) ->
-         do b <- isBasicValue e
-            if b then shape e' else shape a
+       DefinedFunction (Just (ann, v, Nothing)) ->
+         if isCirc v then return a
+         else (shape ann)
+       DefinedFunction (Just (ann, v, Just e)) ->
+         shape e
        DefinedMethod e _ -> shape e
        DefinedInstFunction e _ -> shape e
-       -- Does not reduce defined gate during type checking. 
        _ -> return a
-       -- a -> error $ "from normalize const:" ++ (show a)
+
 
        
 normalize a@(LBase k) = return a

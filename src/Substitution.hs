@@ -26,8 +26,6 @@ instance Disp (Map Variable Exp) where
 
            
 substitute :: Subst -> Exp -> Exp           
-substitute s a@(Label y) = a
-
 substitute s a@(Var y) =
   case Map.lookup y s of
     Nothing -> a
@@ -210,7 +208,6 @@ substitute s (Case tm (B br)) =
         helper s (Left (NoBind t)) = Left (NoBind (substitute s t))
         helper s (Right x) = Right x
 
-substitute s a@(Wired _) = a
 substitute s (Pos p e) = Pos p (substitute s e)
 substitute s a = error ("from substitute: " ++ show (disp a))  
 

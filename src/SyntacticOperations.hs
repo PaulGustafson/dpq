@@ -85,12 +85,11 @@ data VarSwitch = GetGoal -- ^ Get goal variables only.
   | AllowEigen  -- ^ Free variables in clude eigen variables
   | NoEigen -- ^ Free variables does not clude eigen variables
   | NoImply -- ^ Does not include the variables that occurs in the type class constraints. 
-  | OnlyLabel
+
 
 getVars :: VarSwitch -> Exp -> S.Set Variable
 getVars b a@(EigenVar x) = varSwitch b a
 getVars b a@(Var x) = varSwitch b a
-getVars b a@(Label x) = varSwitch b a
 getVars b a@(GoalVar x) = varSwitch b a
 getVars b (Base _) = S.empty
 getVars b (LBase _) = S.empty
@@ -222,8 +221,6 @@ getVars b (Case t (B brs)) =
           let (bv, fv) = pvar (PApp k xs)
               fbv = getVars b x
           in (bv, S.union fbv fv)
-
-getVars b (Wired _) = S.empty
 getVars b (Pos p e) = getVars b e
 getVars b a = error $ "from getVars  " ++ show (disp a)
 
@@ -231,8 +228,6 @@ varSwitch AllowEigen (EigenVar x) = S.insert x S.empty
 varSwitch OnlyEigen (EigenVar x) = S.insert x S.empty
 varSwitch NoImply (EigenVar x) = S.insert x S.empty
 varSwitch _ (EigenVar x) = S.empty
-varSwitch OnlyLabel (Label x) = S.insert x S.empty
-varSwitch _ (Label x) = S.empty
 varSwitch NoEigen (Var x) = S.insert x S.empty
 varSwitch AllowEigen (Var x) = S.insert x S.empty
 varSwitch NoImply (Var x) = S.insert x S.empty
@@ -247,6 +242,13 @@ unPair n (Pair x y) | n > 2 =
   do r <- unPair (n-1) x
      return (r++[y])
 unPair _ _ = Nothing
+
+
+unVPair n (VPair x y) | n == 2 = Just [x, y]
+unVPair n (VPair x y) | n > 2 =
+  do r <- unVPair (n-1) x
+     return (r++[y])
+unVPair _ _ = Nothing
 
 -- | Flatten a multi-tensor into a list. 
 unTensor n (Pos _ e) = unTensor n e
@@ -333,6 +335,15 @@ flatten (AppTm t1 t2) =
 flatten (Pos p e) = flatten e
 flatten _ = Nothing
 
+vflatten :: Value -> Maybe (Either Id Id, [Value])
+vflatten (VBase id) = return (Right id, [])
+vflatten (VLBase id) = return (Right id, [])
+vflatten (VConst id) = return (Left id, [])
+vflatten (VApp t1 t2) =
+  do (id, args) <- vflatten t1
+     return (id, args ++ [t2])
+vflatten _ = Nothing
+
 
 -- | Determine whether an expression is a kind expression. Note we allow
 -- dependent kind such as: (a :: Type) -> (x :: !a) -> Type. 
@@ -350,7 +361,6 @@ erasePos (Set) = Set
 erasePos (Sort) = Sort
 erasePos Star = Star
 erasePos a@(Var x) = a
-erasePos a@(Label x) = a
 erasePos a@(EigenVar x) = a
 erasePos a@(GoalVar x) = a
 erasePos a@(Base x) = a
@@ -380,7 +390,6 @@ erasePos a@(ExBox) = a
 erasePos (Lift e) = Lift $ erasePos e
 erasePos (Force e) = Force $ erasePos e
 erasePos (Force' e) = Force' $ erasePos e
-erasePos a@(Wired _) = a 
 erasePos (Circ e1 e2) = Circ (erasePos e1) (erasePos e2)
 erasePos (Pi (Abst vs b) e) = Pi (abst vs (erasePos b)) (erasePos e)
 erasePos (PiImp (Abst vs b) e) = PiImp (abst vs (erasePos b)) (erasePos e)
@@ -414,7 +423,6 @@ isConst (Pos p e) = isConst e
 isConst _ = False
 
 isCirc (Wired _) = True
-isCirc (Pos p e) = isCirc e
 isCirc _ = False
 
 
@@ -680,7 +688,6 @@ unEigenBound vars a@(Case e (B br)) =
           let (bv, fv) = pvar xs
               x' = unEigenBound vars x
           in (bv, (Left (NoBind x')):fv)
-unEigenBound vars a@(Wired _) = a 
 unEigenBound vars a = error $ "from unEigenBound" ++ (show $ disp a)
 
 
@@ -718,26 +725,16 @@ obtainPos :: Exp -> Maybe Position
 obtainPos (Pos p e) = Just p
 obtainPos _ = Nothing
 
-getWires (Label x) = [x]
-getWires (Const _) = []
-getWires Star = []
-getWires (App e1 e2) = getWires e1 ++ getWires e2
+getWires (VLabel x) = [x]
+getWires (VConst _) = []
+getWires VStar = []
+getWires (VApp e1 e2) = getWires e1 ++ getWires e2
 -- getWires (AppDep e1 e2) = getWires e1 ++ getWires e2
-getWires (Pair e1 e2) = getWires e1 ++ getWires e2
+getWires (VPair e1 e2) = getWires e1 ++ getWires e2
 getWires a = error $ "applying getWires function to an ill-formed template:" ++ (show $ disp a)
 
-toNum (Const x) | getName x == "Z" = 0
-toNum (App (Const s) n) | getName s == "S" =
-  toNum n + 1
-toNum _ = error "unknown number format, numbers should be comming from the Prelude module"  
 
-isBool (Const x) | getName x == "True" = True
-isBool (Const x) | getName x == "False" = True
-isBool _ = False
 
-toBool (Const x) | getName x == "True" = 1
-toBool (Const x) | getName x == "False" = 0
-toBool _ = error "unknown boolean format, bools should be comming from the Prelude module"  
 
 
 isExplicit s (App t tm) =
@@ -852,8 +849,6 @@ isExplicit s Box = False
 isExplicit s UnBox = False
 isExplicit s ExBox = False
 isExplicit s Revert = False
-isExplicit s (Wired _) = False
-
 isExplicit s Unit = False
 isExplicit s Set = False
 isExplicit s (Base _) = False
