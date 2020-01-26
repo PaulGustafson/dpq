@@ -676,25 +676,21 @@ checkApp f a =
     _ -> return False
 
 -- | Check if the expression is a basic value (i.e., things that can be displayed in an interpretor), note that function and circuit is not a basic value.
-isBasicValue :: Exp -> TCMonad Bool
--- isBasicValue (Wired _) = return True
-isBasicValue (Pos _ e) = isBasicValue e
-isBasicValue (Const k) =
+isBasicValue :: Value -> TCMonad Bool
+isBasicValue (VConst k) =
   do pac <- lookupId k
      case identification pac of
        DataConstr _ -> return True
        _ -> return False
-isBasicValue (Pair x y) =
+isBasicValue (VPair x y) =
   do r1 <- isBasicValue x
      r2 <- isBasicValue y
      return (r1 && r2)
-isBasicValue a@(App t t') = checkApp isBasicValue a
--- isBasicValue a@(App' t t') = checkApp isBasicValue a
--- isBasicValue a@(AppDep t t') = checkApp isBasicValue a
--- isBasicValue a@(AppDep' t t') = checkApp isBasicValue a
--- isBasicValue a@(AppDict t t') = checkApp isBasicValue a
--- isBasicValue a@(AppType t t') = isBasicValue t
--- isBasicValue a@(AppTm t t') = isBasicValue t
+isBasicValue a@(VApp t t') =
+    do r1 <- isBasicValue t
+       r2 <- isBasicValue t'
+       return (r1 && r2)
+isBasicValue (VStar) = return True        
 isBasicValue _ = return False       
 
 checkParamCxt :: Exp -> TCMonad ()

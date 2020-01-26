@@ -65,7 +65,7 @@ eval lenv a@(Const k) =
            DefinedFunction (Just (_, v, _)) -> return v
            DefinedMethod _ v -> return v
            DefinedInstFunction _ v -> return v
-
+eval lenv (Base k) = return $ VBase k
 eval lenv a@(LBase k) =
   do st <- get
      let genv = evalEnv st
@@ -216,7 +216,7 @@ evalApp v w =
              return $ VApp v w
              else do let sub = zip vs args
                          ws = drop lvs args
-                         lenv' = updateCircParam sub lenv 
+                         lenv' = updateCirc sub lenv 
                      e' <- eval lenv' e
                      return $ foldl VApp e' ws
         
@@ -239,15 +239,17 @@ evalApp v w =
                       m' <- eval lenv' m
                       return $ foldl VApp m' ws
 
-        updateCircParam sub lenv =
+        updateCirc sub lenv =
              let (x, circ):[] = Map.toList lenv
                  Wired (Abst wires (VCircuit (Morphism ins [Gate id params gin gout ctrls] outs)))
                    = circ
-                 vars = helper params sub
-                 circ' = Wired (abst wires (VCircuit (Morphism ins [Gate id vars gin gout ctrls] outs)))
+                 params' = helper params sub
+                 ctrls':[] = helper [ctrls] sub
+                 circ' = Wired (abst wires (VCircuit (Morphism ins [Gate id params' gin gout ctrls'] outs)))
              in Map.fromList [(x, circ')]
         helper :: [Value] -> [(Variable, Value)] -> [Value]
         helper [] lc = []
+        helper (VStar:xs) lc = VStar:helper xs lc
         helper ((VVar x):xs) lc =
              let res = helper xs lc in
              case lookup x lc of

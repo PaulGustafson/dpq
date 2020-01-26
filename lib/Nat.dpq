@@ -56,7 +56,7 @@ divMod x y =
             in (S q, r)
 
 div :: !(Nat -> Nat -> Nat)
-div x y = snd $ divMod x y
+div x y = fst $ divMod x y
 
 mod :: ! (Nat -> Nat -> Nat)
 mod x y = let (_, r) = divMod x y in r

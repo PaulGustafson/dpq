@@ -438,17 +438,22 @@ instance Disp Value where
   display flag (VRevert) = text "revert"
   display flag (VRunCirc) = text "runCirc"
   display flag (VCircuit m) = display flag m
-  display flag (VLam (Abst env (Abst vs e))) = text "<function>"
-    -- text "vlam" <+> braces (display flag env) $$
-    -- sep [text "\\", hsep (map display flag vs) , text ".", nest 2 (display flag e)]
-  display flag (VLift (Abst env e)) = text "<lift-term>"
-    -- text "vlift" <+> braces (display flag env) $$ nest 2 (display flag e)
-  display flag (VLiftCirc (Abst vs (Abst env e))) = text "<liftCirc>"
-    -- text "vliftCirc:" <+> hsep (map display flag vs) <+> braces (display flag env) $$ nest 2 (display flag e)
+  display flag (VLam (Abst env (Abst vs e))) = -- text "<function>"
+    text "vlam" <+> braces (display flag env) $$
+    sep [text "\\", hsep (map (display flag) vs) , text ".", nest 2 (display flag e)]
+  display flag (VLift (Abst env e)) = -- text "<lift-term>"
+    text "vlift" <+> braces (display flag env) $$ nest 2 (display flag e)
+  display flag (VLiftCirc (Abst vs (Abst env e))) = -- text "<liftCirc>"
+    text "vliftCirc" <+> hsep (map (display flag) vs) <+> text "." <+> braces (display flag env) $$ nest 2 (display flag e)
   display flag (Wired (Abst ls v )) = display flag v
   display flag (VApp v1 v2) = parens $ display flag v1 <+> display flag v2  
   display flag (VForce v) = text "&" <+> display flag v
 
+instance Disp (Map Variable Value) where
+   display flag l =
+     vcat $
+     map (\ (x, y) -> display flag x <+> text ":=" <+> display flag y) (Map.toList l)
+   
 instance Disp Morphism where
   display flag (Morphism ins gs outs) =
     (braces $ display flag ins) $$
@@ -461,14 +466,14 @@ instance Disp Gate where
     <+> (braces $ (display flag ins)) <+> (braces $ (display flag outs))
     <+> (brackets $ display flag ctrls)
 
--- | Conver a 'basic value' from the value domain to an expression,
+-- | Convert a 'basic value' from the value domain to an expression,
 -- so that type checker can use it.   
-toExp :: Value -> Maybe Exp
-toExp (VConst id) = return $ Const id
-toExp VStar = return Star
-toExp (VApp a b) = App <$> toExp a <*> toExp b
-toExp (VPair a b) = Pair <$> toExp a <*> toExp b
-toExp _ = Nothing
+toExp :: Value -> Exp
+toExp (VConst id) = Const id
+toExp VStar = Star
+toExp (VApp a b) = App (toExp a) (toExp b)
+toExp (VPair a b) = Pair (toExp a) (toExp b)
+
 
 
 data Decl = Object Position Id

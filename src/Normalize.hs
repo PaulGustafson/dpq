@@ -281,11 +281,11 @@ normalize a@(Const k) =
        DataConstr _ -> return a
        DefinedFunction (Just (ann, v, Nothing)) ->
          if isCirc v then return a
-         else return ann
+         else (shape ann)
        DefinedFunction (Just (ann, v, Just e)) ->
-         return e
-       DefinedMethod e _ -> return e
-       DefinedInstFunction e _ -> return e
+         shape e
+       DefinedMethod e _ -> shape e
+       DefinedInstFunction e _ -> shape e
        _ -> return a
 
 
