@@ -1,5 +1,7 @@
 {-#LANGUAGE FlexibleContexts#-}
--- | An indentation sensitive parser for dpq. 
+-- | An indentation sensitive parser for dpq.
+-- We use <https://hackage.haskell.org/package/parsec parsec library>
+-- and <https://hackage.haskell.org/package/indents indents library> for parsing. 
 module Parser
        where
 

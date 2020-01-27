@@ -1,4 +1,7 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts#-}
+-- | This module implements closure-based call-by-value evaluation.
+-- It still has memory problem when generating super-large circuits.
+
 module Evaluation where
 
 import Syntax
@@ -27,6 +30,7 @@ data EvalState =
      }
 
 
+-- | The evaluation monad.
 type Eval a = ExceptT EvalError (State EvalState) a
 
 
@@ -40,7 +44,7 @@ evaluate circ e =
        Left e -> throwError $ EvalErr e
        Right r -> return (r, morph s)
 
--- | Evaluate an parameter term and return a value. 
+-- | Evaluate a parameter term and return a value. 
 evaluation :: Exp -> TCMonad Value
 evaluation e =
   do st <- get
@@ -51,11 +55,14 @@ evaluation e =
        Left e -> throwError $ EvalErr e
        Right r -> return r
 
+-- | Look up a value from the local environment.
 lookupLEnv x lenv =
   case Map.lookup x lenv of
     Nothing -> error "from lookupLEnv"
     Just v -> v
 
+-- | Call-by-value evaluation, it evaluates an expression to
+-- a value in the value domain.
 eval :: Map Variable Value -> Exp -> Eval Value
 eval lenv (Var x) =
   return $ lookupLEnv x lenv 
@@ -101,9 +108,6 @@ eval lenv (Tensor e1 e2) =
 eval lenv a@(Lam body) = return $ VLam $ abst lenv body
 
 eval lenv a@(Lift body) = return $ VLift $ abst lenv body
-
-
-
 
 eval lenv UnBox = return VUnBox
 eval lenv Revert = return VRevert
@@ -176,7 +180,7 @@ eval lenv b@(Case m (B bd)) =
 eval lenv a@(Pos _ e) = error "position in eval"
 eval lenv a = error $ "from eval: " ++ (show $ disp a)
 
-
+-- | A helper function for evaluating various of applications.
 evalApp VUnBox v = return $ VApp VUnBox v
 evalApp (VForce (VApp VUnBox v)) w =
   case v of
@@ -236,7 +240,7 @@ evalApp v w =
           let (h, args) = unwindVal t1
           in (h, args++[t2])
         unwindVal a = (a, [])
-
+        -- Handle beta reduction
         handleBody lenv res bd = open bd $ \ vs m ->
              let args = res ++ [w]
                  lvs = length vs
@@ -248,15 +252,19 @@ evalApp v w =
                           lenv' = foldr (\ (x,v) y -> Map.insert x v y) lenv sub
                       m' <- eval lenv' m
                       return $ foldl VApp m' ws
-
+        -- Perform substitution on the variables in a circuit.
         updateCirc sub lenv =
              let (x, circ):[] = Map.toList lenv
-                 Wired (Abst wires (VCircuit (Morphism ins [Gate id params gin gout ctrls] outs)))
+                 Wired (Abst wires (VCircuit (Morphism ins
+                                               [Gate id params gin gout ctrls] outs)))
                    = circ
                  params' = helper params sub
                  ctrls':[] = helper [ctrls] sub
-                 circ' = Wired (abst wires (VCircuit (Morphism ins [Gate id params' gin gout ctrls'] outs)))
+                 circ' = Wired (abst wires
+                                 (VCircuit (Morphism ins
+                                             [Gate id params' gin gout ctrls'] outs)))
              in Map.fromList [(x, circ')]
+        -- Perfrom substitution.             
         helper :: [Value] -> [(Variable, Value)] -> [Value]
         helper [] lc = []
         helper (VStar:xs) lc = VStar:helper xs lc
@@ -266,7 +274,7 @@ evalApp v w =
                Just v -> v:res
                Nothing -> error $ "can't find variable " ++ (show $ disp x)
 
--- evalBox lenv body uv | trace ("b:"++ (show $ disp body) ++ " uv:" ++(show $ disp uv)) $ False = undefined
+-- | A helper function for evaluating a box term.
 evalBox lenv body uv =
   freshLabels (genNames uv) $ \ vs ->
    do st <- get
@@ -283,7 +291,7 @@ evalBox lenv body uv =
               morph' = Wired $ abst wires (VCircuit newMorph)
           in return morph'
 
-
+-- | A helper function for evaluating a existsBox term
 evalExbox lenv body uv =
   freshLabels (genNames uv) $ \ vs ->
    do st <- get
@@ -304,7 +312,8 @@ evalExbox lenv body uv =
 
 
 -- | Append a circuit to the underline circuit state according to a Binding
--- For efficiency reason we try prepend instead of append        
+-- For efficiency reason we try prepend instead of append, so evalBox and evalExbox
+-- has to reverse the list of gates as part of the post-processing. 
 appendMorph :: Binding -> Morphism -> Eval Value
 appendMorph binding f@(Morphism fins fs fouts) =
   do st <- get
@@ -317,13 +326,14 @@ appendMorph binding f@(Morphism fins fs fouts) =
          do put st{morph = newCirc }
             return fouts'
 
+-- | Rename the labels of a morphism. 
 rename (Morphism ins gs outs) m =
   let ins' = renameTemp ins m
       outs' = renameTemp outs m
       gs' = renameGs gs m
   in Morphism ins' gs' outs'
 
-
+-- | Rename a template value.
 renameTemp (VLabel x) m =
   case Map.lookup x m of
     Nothing -> (VLabel x)
@@ -334,14 +344,16 @@ renameTemp (VApp e1 e2) m = VApp (renameTemp e1 m) (renameTemp e2 m)
 renameTemp (VPair e1 e2) m = VPair (renameTemp e1 m) (renameTemp e2 m)
 renameTemp a m = error "applying renameTemp function to an ill-formed template"     
 
+-- | Rename a list of gates
 renameGs gs m = map helper gs
   where helper (Gate id params ins outs ctrls) =
           Gate id params (renameTemp ins m) (renameTemp outs m) (renameTemp ctrls m)
 
+-- | A binding is a map of labels 
 type Binding = Map Label Label
 
+-- | Obtain a binding from two simple terms. 
 makeBinding :: Value -> Value -> Binding
--- makeBinding w v | trace (("makeBinding:" ++ (show $ disp w) ++ ":" ++ (show $ disp v))) False = undefined
 makeBinding w v =
   let ws = getWires w
       vs = getWires v
@@ -351,6 +363,9 @@ makeBinding w v =
                "\n" ++ (show $ disp v))
        else Map.fromList (zip ws vs)
 
+-- | reverse a list of gate in theory, in reality it only
+-- changes the name of a gate to its adjoint, the gates are
+-- already stored in reverse order due to the way we implement 'appendMorph'.
 revGates :: [Gate] -> [Gate]
 revGates xs = revGatesh xs [] 
   where revGatesh [] gs = gs
@@ -358,6 +373,7 @@ revGates xs = revGatesh xs []
           do id' <- invertName id
              revGatesh res ((Gate id' params outs ins ctrls):gs)
 
+-- | Change the name of a gate to its adjoint
 invertName id | getName id == "Init0" = return $ Id "Term0"
 invertName id | getName id == "Init1" = return $ Id "Term1"
 invertName id | getName id == "Term1" = return $ Id "Init1"
@@ -383,10 +399,11 @@ genNames uv =
       names = take n ls
   in names
 
+-- | Rename uv using fresh labels draw from vs
 toVal uv vs = evalState (templateToVal uv) vs
 
 -- | Obtain a fresh template inhabitant of a simple type, with wirenames
--- draw from the state. 
+-- draw from the state. The input is a simple data type
 templateToVal :: Value -> State [Label] Value
 templateToVal (VLBase _) =
   do x <- get
@@ -412,11 +429,10 @@ size (VLBase x) = 1
 size (VConst _) = 0
 size VUnit = 0
 size (VApp e1 e2) = size e1 + size e2
--- size (AppDep e1 e2) = size e1
 size (VTensor e1 e2) = size e1 + size e2
 size a = error $ "applying size function to an ill-formed template:" ++ (show $ disp a)     
 
--- | Obtain all the wire names from the circuit.
+-- | Obtain all the labels from the circuit.
 getAllWires (Morphism ins gs outs) =
   let inWires = Set.fromList $ getWires ins
       outWires = Set.fromList $ getWires outs

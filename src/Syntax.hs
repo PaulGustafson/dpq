@@ -4,8 +4,8 @@
 {-# LANGUAGE DeriveAnyClass, PatternSynonyms, ViewPatterns, ApplicativeDo #-}
 
 {-|
-This module describe the abstract syntax of dpq. We use Peter Selinger's
-nominal library to handle binding in abstract syntax.
+This module describes the abstract syntax of dpq. We use Peter Selinger's
+nominal library to handle the affair of binding in abstract syntax.
 Please see <http://hackage.haskell.org/package/nominal here> for
 the documentation of nominal library.
 -}
@@ -33,8 +33,8 @@ import Debug.Trace
 
 
 -- | The core abstract syntax tree for dpq expression. We use prime ' to indicate 
--- the given constructor belong to the parameter fragment. The core syntax contains
--- the surface syntax and other form of annotations for proof checking.
+-- the given constructor belongs to the parameter fragment. The core syntax contains
+-- the surface syntax and other forms of annotations for proof checking.
 data Exp =
   Var Variable
   | EigenVar Variable
@@ -122,11 +122,11 @@ data Exp =
   | Pos Position Exp
   deriving (Eq, Generic, Nominal, NominalShow, NominalSupport, Show)
 
--- | Branches for case expression.
+-- | Branches for case expressions.
 data Branches = B [Bind Pattern Exp]
               deriving (Eq, Generic, Show, NominalSupport, NominalShow, Nominal)
 
--- | Pattern can a bind term variable or a type variable, or have an instantiation
+-- | Pattern can a bind term variable or a type variable, or have an instantiation (Left)
 -- that is bound at a higher-level. 
 data Pattern = PApp Id [Either (NoBind Exp) Variable] 
              deriving (Eq, Generic, NominalShow, NominalSupport, Nominal, Bindable, Show)
@@ -141,7 +141,7 @@ instance Disp Pattern where
             braces $ display flag x
           helper (Right x) = display flag x 
 
--- | A helper function for display expression.
+-- | A helper function for display various of applications. 
 dispAt b s =
   if b then text "" else text ("@"++s)
 
@@ -346,7 +346,7 @@ instance Disp (Either (NoBind Exp) Variable) where
 -- | The value domain, for evaluation purpose.  
 data Value =
   VLabel Label
-  | VVar Variable -- ^ For the parameters and generic control in the gates. 
+  | VVar Variable -- ^ For the parameters and generic control in a gate. 
   | VConst Id
   | VTensor Value Value
   | VUnit
@@ -357,8 +357,8 @@ data Value =
   | VStar
   | VLift (Bind LEnv Exp) -- ^ Lift also forms a closure.
   | VLiftCirc (Bind [Variable] (Bind LEnv Exp))
-    -- ^ Circuit binding, [Variable] is like a lambda that handle parameter arguments
-    -- and control arguments, LEnv binds a variable to a circuit.
+    -- ^ Circuit binding, [Variable] is like a lambda that handles parameter arguments
+    -- and the control argument, LEnv binds a variable to a circuit.
   | VCircuit Morphism
     -- ^ Unbound circuit (incomplete). 
   | Wired (Bind [Label] Value)
@@ -395,7 +395,7 @@ data Gate = Gate Id [Value] Value Value Value
 type Gates = [Gate]
 
 -- | Morphism denotes an incomplete circuit, a completion would be
--- using the Wired constructor to bind all the free wires variables in it.
+-- using the Wired constructor to bind all the free labels in it.
 data Morphism = Morphism Value Gates Value
   deriving (Show, NominalShow, NominalSupport, Generic)
            
@@ -474,7 +474,7 @@ instance Disp Gate where
     <+> (brackets $ display flag ctrls)
 
 -- | Convert a 'basic value' from the value domain to an expression,
--- so that type checker can use it.   
+-- so that the type checker can take advantage of cbv.   
 toExp :: Value -> Exp
 toExp (VConst id) = Const id
 toExp VStar = Star
@@ -484,14 +484,29 @@ toExp (VPair a b) = Pair (toExp a) (toExp b)
 -- | Declarations in abstract syntax, resolved from the declarations
 -- in the concrete syntax. 
 data Decl = Object Position Id
-          | Data Position Id Exp [(Position, Id, Exp)] 
-          | SimpData Position Id Int Exp [(Position, Maybe Int, Id, Exp)] 
+            
+          | Data Position Id Exp [(Position, Id, Exp)]
+            -- ^ Id: the type constructor, Exp: a kind expression, [(Position, Id, Exp)]:
+            -- the list of data constructors with corresponding types. 
+          | SimpData Position Id Int Exp [(Position, Maybe Int, Id, Exp)]
+            -- ^ Id: the type constructor, Int: the number of type arguments,
+            -- Exp: partial kind annotation. In [(Position, Maybe Int, Id, Exp)],
+            -- Maybe Int: the position where dependent pattern matching is performed.
+            -- Id: data constructor, Exp: pretypes for the data constructors, to
+            -- be further processed. 
           | Class Position Id Exp Id Exp [(Position, Id, Exp)]
+            -- ^ Id: class name, Exp: instance function type,
+            -- [(Position, Id, Exp)]: list of methods and their definitions.
           | Instance Position Id Exp [(Position, Id, Exp)]
+            -- ^ Id: instance function name, Exp: instance function type,
+            -- [(Position, Id, Exp)]: list of methods and their definitions.
           | Def Position Id Exp Exp
+            -- ^ Function declaration, Id: name, Exp: type, Exp: definition
           | GateDecl Position Id [Exp] Exp
           | ControlDecl Position Id [Exp] Exp
           | ImportDecl Position String
           | OperatorDecl Position String Int String
           | Defn Position Id (Maybe Exp) Exp
+            -- ^ Function declaration in infer mode, Id: name, May Exp: maybe a partial type,
+            -- Exp: definition
 
