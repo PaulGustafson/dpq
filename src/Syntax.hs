@@ -32,8 +32,9 @@ import Debug.Trace
 
 
 
--- | Abstract syntax tree for dpq expression. We use prime ' to indicate 
--- the given constructor belong to the parameter fragment.
+-- | The core abstract syntax tree for dpq expression. We use prime ' to indicate 
+-- the given constructor belong to the parameter fragment. The core syntax contains
+-- the surface syntax and other form of annotations for proof checking.
 data Exp =
   Var Variable
   | EigenVar Variable
@@ -121,12 +122,12 @@ data Exp =
   | Pos Position Exp
   deriving (Eq, Generic, Nominal, NominalShow, NominalSupport, Show)
 
-
+-- | Branches for case expression.
 data Branches = B [Bind Pattern Exp]
               deriving (Eq, Generic, Show, NominalSupport, NominalShow, Nominal)
 
--- | Pattern can bind term or type variables, or have an instantiation
--- that is bound on higher-level
+-- | Pattern can a bind term variable or a type variable, or have an instantiation
+-- that is bound at a higher-level. 
 data Pattern = PApp Id [Either (NoBind Exp) Variable] 
              deriving (Eq, Generic, NominalShow, NominalSupport, Nominal, Bindable, Show)
 
@@ -140,11 +141,16 @@ instance Disp Pattern where
             braces $ display flag x
           helper (Right x) = display flag x 
 
+-- | A helper function for display expression.
+dispAt b s =
+  if b then text "" else text ("@"++s)
 
 instance Disp Exp where
   display flag (Var x) = display flag x
-  display flag (GoalVar x) = braces $ display flag x
-  display flag (EigenVar x) = brackets (display flag x)
+  display flag (GoalVar x) =
+    if flag then disp x else braces $ dispRaw x
+  display flag (EigenVar x) =
+    if flag then disp x else brackets $ dispRaw x
   display flag (Const id) = display flag id
   display flag (LBase id) = display flag id
   display flag (Base id) = display flag id
@@ -194,28 +200,30 @@ instance Disp Exp where
      fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
 
   display flag a@(AppType t t') =
-    fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+    fsep [dParen flag (precedence a - 1) t, dispAt flag "AppType", dParen flag (precedence a) t']
 
   display flag a@(App' t t') =
-    fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+    fsep [dParen flag (precedence a - 1) t, dispAt flag "App'", dParen flag (precedence a) t']
 
   display flag (WithType m t) =
     fsep [text "withType" <+> display flag t <+> text ":", display flag m]
 
   display flag a@(AppDep t t') =
-       fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+       fsep [dParen flag (precedence a - 1) t, dispAt flag "AppDep",
+             dParen flag (precedence a) t']
 
   display flag a@(AppDepTy t t') =
-       fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+       fsep [dParen flag (precedence a - 1) t, dispAt flag "AppDepTy",
+             dParen flag (precedence a) t']
 
   display flag a@(AppDep' t t') =
-    fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+    fsep [dParen flag (precedence a - 1) t, dispAt flag "AppDep'", dParen flag (precedence a) t']
     
   display flag a@(AppDict t t') =
-    fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+    fsep [dParen flag (precedence a - 1) t, dispAt flag "AppDict", dParen flag (precedence a) t']
     
   display flag a@(AppTm t t') =
-     fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
+     fsep [dParen flag (precedence a - 1) t, dispAt flag "AppTm", dParen flag (precedence a) t']
     
   display flag a@(Bang t) = text "!" <> dParen flag (precedence a - 1) t
 
@@ -338,19 +346,23 @@ instance Disp (Either (NoBind Exp) Variable) where
 -- | The value domain, for evaluation purpose.  
 data Value =
   VLabel Label
-  | VVar Variable -- solely for the parameter in the gates
+  | VVar Variable -- ^ For the parameters and generic control in the gates. 
   | VConst Id
   | VTensor Value Value
   | VUnit
   | VLBase Id
   | VBase Id
-  | VLam (Bind LEnv (Bind [Variable] Exp)) -- Lambda forms a closure
+  | VLam (Bind LEnv (Bind [Variable] Exp)) -- ^ Lambda forms a closure.
   | VPair Value Value
   | VStar
-  | VLift (Bind LEnv Exp) -- Lift also forms a closure
+  | VLift (Bind LEnv Exp) -- ^ Lift also forms a closure.
   | VLiftCirc (Bind [Variable] (Bind LEnv Exp))
-  | VCircuit Morphism 
+    -- ^ Circuit binding, [Variable] is like a lambda that handle parameter arguments
+    -- and control arguments, LEnv binds a variable to a circuit.
+  | VCircuit Morphism
+    -- ^ Unbound circuit (incomplete). 
   | Wired (Bind [Label] Value)
+    -- ^ Complete circuit.
   | VApp Value Value
   | VForce Value
   | VBox
@@ -360,6 +372,7 @@ data Value =
   | VRunCirc
   deriving (Show, NominalShow, NominalSupport, Generic)
 
+-- | Local value environment for evaluation. 
 type LEnv = Map Variable Value
 
 instance Bindable (Map Variable Value) where
@@ -374,8 +387,11 @@ instance Bindable (Map Variable Value) where
           t' <- map_binding t
           pure ((k',v'):t')  
 
+-- | Gate, [Value] is a list of parameters, the last three values
+-- are input, output and control.          
 data Gate = Gate Id [Value] Value Value Value
   deriving (Show, NominalShow, NominalSupport, Generic)
+
 type Gates = [Gate]
 
 -- | Morphism denotes an incomplete circuit, a completion would be
@@ -412,7 +428,6 @@ instance Nominal Value where
   pi • VRunCirc = VRunCirc 
   pi • VUnBox = VUnBox
 
-
   
 instance Disp Value where
   display flag (VLabel l) = text $ show l
@@ -430,12 +445,12 @@ instance Disp Value where
   display flag (VRevert) = text "revert"
   display flag (VRunCirc) = text "runCirc"
   display flag (VCircuit m) = display flag m
-  display flag (VLam (Abst env (Abst vs e))) = -- text "<function>"
+  display flag (VLam (Abst env (Abst vs e))) = 
     text "vlam" <+> braces (display flag env) $$
     sep [text "\\", hsep (map (display flag) vs) , text ".", nest 2 (display flag e)]
-  display flag (VLift (Abst env e)) = -- text "<lift-term>"
+  display flag (VLift (Abst env e)) = 
     text "vlift" <+> braces (display flag env) $$ nest 2 (display flag e)
-  display flag (VLiftCirc (Abst vs (Abst env e))) = -- text "<liftCirc>"
+  display flag (VLiftCirc (Abst vs (Abst env e))) =
     text "vliftCirc" <+> hsep (map (display flag) vs) <+> text "." <+> braces (display flag env) $$ nest 2 (display flag e)
   display flag (Wired (Abst ls v )) = display flag v
   display flag (VApp v1 v2) = parens $ display flag v1 <+> display flag v2  
@@ -466,8 +481,8 @@ toExp VStar = Star
 toExp (VApp a b) = App (toExp a) (toExp b)
 toExp (VPair a b) = Pair (toExp a) (toExp b)
 
-
-
+-- | Declarations in abstract syntax, resolved from the declarations
+-- in the concrete syntax. 
 data Decl = Object Position Id
           | Data Position Id Exp [(Position, Id, Exp)] 
           | SimpData Position Id Int Exp [(Position, Maybe Int, Id, Exp)] 

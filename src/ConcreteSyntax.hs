@@ -95,7 +95,7 @@ data Decl = GateDecl Position String [Exp] Exp
              )]
             -- ^ Simple data type declaration. [String] are the
             -- type arguments for the type constructor. Exp is a kind expression.
-            -- The last list is the list of equation thats defined the simple type.
+            -- The last list is the list of equations that defined the simple type.
           | ImportGlobal Position String
           | OperatorDecl Position String Int String
             -- ^ Declaration for fixity and priority of infix

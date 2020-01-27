@@ -3,6 +3,8 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE PatternSynonyms, ViewPatterns #-}
 
+-- | Utility module.
+
 module Utils where
 
 
@@ -14,12 +16,15 @@ import Prelude hiding((<>))
 import Nominal
 import Data.Char
 
+-- | An empty data type for classifying variables. 
 data V
 
 instance AtomKind V where
   suggested_names _ = ["a", "b", "c", "d", "e", "x", "y", "z"]
   expand_names _ xs = xs ++ [ x ++ (show n) | n <- [1..], x <- xs ]
 
+-- | A variable contain an atom for nominal representation and its name string for
+-- error processing. 
 data Variable = Variable (AtomOfKind V) (NoBind String) 
   deriving (Generic, Bindable, Nominal, NominalShow, NominalSupport, Ord)
 
@@ -37,21 +42,23 @@ instance Disp Variable where
   display True (Variable x (NoBind y)) = text y
   display False (Variable x _) = text (show x)
   
-
+-- | An empty data type for classifying labels.
 data L
 instance AtomKind L where
   suggested_names _ = ["l"]
   expand_names _ xs = xs ++ [ x ++ (show n) | n <- [1..], x <- xs ]
 
+-- | Label is used for representing the input/output of circuits. 
 type Label = AtomOfKind L
 
 instance Disp (AtomOfKind L) where
   display _ t = text (show t)
 
+-- | A non-unicode pattern definition for openning a binder.  
 pattern Abst :: (Bindable a, Nominal t) => a -> t -> Bind a t
 pattern Abst x t <- ((\ b -> open b (\ x b' -> (x, b'))) -> (x, t))
 
-
+-- | Generating a list of fresh variables from a given list of strings.
 freshNames :: [String] -> ([Variable] -> t) -> t
 freshNames [] body = body []
 freshNames (n:ns) body =
@@ -61,6 +68,7 @@ freshNames (n:ns) body =
   where freshName s k =
           with_fresh $ \a -> k (Variable a (NoBind s))
 
+-- | Generating a list of fresh labels from a given list of strings.
 freshLabels :: [String] -> ([Label] -> t) -> t
 freshLabels [] body = body []
 freshLabels (n:ns) body =
@@ -70,10 +78,11 @@ freshLabels (n:ns) body =
   where freshLabel s k =
           with_fresh $ \a -> k a
 
-
+-- | Constant identifiers, they are used for top-level definitions and constructors.
 data Id = Id String
         deriving (Show, Eq, Ord, Generic, NominalShow, NominalSupport, Nominal, Bindable)
 
+-- | Get the name string from an identifier.
 getName (Id s) = s
 
 instance Disp Id where
@@ -81,7 +90,8 @@ instance Disp Id where
     if (isAlpha $ head s) then text s
     else parens (text s)
 
--- | Position information for error reporting.
+-- | Position information for error reporting. Build-in positions are
+-- generated from the build-in type classes. 
 data Position = P SourcePos | DummyPos | BuildIn Int
   deriving (Show, Eq, NominalShow, NominalSupport, Generic, Nominal)
 
@@ -95,7 +105,7 @@ instance NominalShow SourcePos where
   showsPrecSup s d t a = ""
 
 
--- | obtain a string that is unique to a position, this is
+-- | Obtain a string that is unique to a position, this is
 -- used to generate names for instance functions.
 hashPos (P p) = (takeBaseName (sourceName p)) ++ (show $ sourceLine p)
 hashPos (DummyPos) = "dummyPos"
