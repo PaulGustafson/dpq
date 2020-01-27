@@ -1,4 +1,11 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
+-- | This module implements a bi-directional algorithm for elaborating
+-- a surface level language into the core language. The elaborated programs
+-- will be checked by the Proofchecking module. The elaboration aims for soundness, i.e.,
+-- if the elaboration is successful, then it will past the proof-checker. Otherwise it
+-- would indicate a bug in the elaboration. 
+
+
 module Typechecking where
 
 import Syntax
@@ -19,8 +26,15 @@ import Debug.Trace
 import Control.Monad.Except
 import Control.Monad.State
 
--- | The flag indicate if whether it is during kinding or not.
+-- | Checking an expression against a type, the flag = True indicates
+--  it is kinding or sorting, flag = False indicates type checking.
+-- For simplicity, we do not allow direct mentioning
+-- of lambda, box, unbox, revert, runCirc, existsBox in types (these will give rise to
+-- type errors saying no typing rule for inference). 
+
 typeCheck :: Bool -> Exp -> Exp -> TCMonad (Exp, Exp)
+
+-- | Infering a type for a term. 
 typeInfer :: Bool -> Exp -> TCMonad (Exp, Exp)
 
 typeInfer flag (Pos p e) =
@@ -63,12 +77,6 @@ typeInfer flag a@(App t1 t2) =
      if isKind t'
        then handleTypeApp ann t' t1 t2 
        else handleTermApp flag ann t1 t' t1 t2
-
--- typeInfer True a@(App' t1 t2) =
---   do (t', ann) <- typeInfer True t1
---      if isKind t'
---        then handleTypeApp ann t' t1 t2
---        else error "from typeInfer App'"
 
 typeInfer False a@(UnBox) =
   freshNames ["a", "b"] $ \ [a, b] ->
@@ -137,12 +145,7 @@ typeInfer flag a@(Pair t1 t2) =
 
 typeInfer False a@(LamAnn ty (Abst xs m)) =
   do (_, tyAnn1) <- if isKind ty then typeCheck True ty Sort else typeCheck True ty Set
---     tyAnn <- betaNormalize tyAnn1
-     let -- tyAnn' = erasePos $ unEigenBound [] tyAnn
-         -- annVars = S.toList $ free_vars NoEigen tyAnn'
-         -- eigenVars = map EigenVar annVars
-         -- eigenSub = zip annVars eigenVars
-         tyAnn'' = toEigen tyAnn1
+     let tyAnn'' = toEigen tyAnn1
      mapM_ (\ x -> addVar x (erasePos tyAnn'')) xs
      p <- isParam tyAnn''
      (ty', ann) <- typeInfer False m
@@ -188,7 +191,7 @@ typeCheck flag (Pos p e) ty =
   do (ty', ann) <- typeCheck flag e ty `catchError` \ e -> throwError $ addErrPos p e
      return (ty', Pos p ann)
 
--- | Sort check
+-- Sort check
 typeCheck True Set Sort = return (Sort, Set)
 
 typeCheck True (Arrow ty1 ty2) Sort =
@@ -209,7 +212,7 @@ typeCheck True (Pi (Abst xs m) ty) Sort =
      mapM_ removeVar xs
      return (Sort, res)
 
--- | Kind check
+-- Kind check
 typeCheck True Unit Set = return (Set, Unit)
 
 typeCheck True (Bang ty) Set =
@@ -334,7 +337,7 @@ typeCheck True a@(Lam bind) t | isKind t =
     b -> throwError $ KArrowErr a t
 
 
--- | Type check
+-- Type check
 typeCheck flag a (Forall (Abst xs m) ty) =
   do let sub1 = zip xs (map EigenVar xs)
          m' = apply sub1 m
@@ -358,19 +361,19 @@ typeCheck flag a (Forall (Abst xs m) ty) =
           when (isExplicit x ann'') $ throwError $ ImplicitVarErr x ann''
 
 
-typeCheck flag (LamDict (Abst xs e)) (Imply bds ty) =
+typeCheck False (LamDict (Abst xs e)) (Imply bds ty) =
   let lxs = length xs
       lbd = length bds
   in if lxs <= lbd then
        do let (pre, post) = splitAt lxs bds
               ty' = if null post then ty else Imply post ty
           mapM (\ (x, y) -> addVar x y) (zip xs pre)
-          (ty'', a) <- typeCheck flag e ty'
+          (ty'', a) <- typeCheck False e ty'
           mapM_ removeVar xs
           return (Imply pre ty'', LamDict (abst xs a))
      else do let (pre, post) = splitAt lbd xs
              mapM (\ (x, y) -> addVar x y) (zip pre bds)
-             (ty', a) <- typeCheck flag (LamDict (abst post e)) ty
+             (ty', a) <- typeCheck False (LamDict (abst post e)) ty
              mapM_ removeVar pre
              return (Imply bds ty', LamDict (abst pre a))
        
@@ -562,32 +565,10 @@ typeCheck flag (Let m bd) goal =
               -- If the goal resolution fails, delay it for upper level to resolve 
               ann2' <- (resolveGoals ann2 >>= updateWithSubst) `catchError`
                           \ e -> return ann2
-                -- updateWithSubst ann2
-                --
               removeVar x
               let res = Let ann (abst x ann2') 
               return (goal', res)
 
--- typeCheck flag (LetEx m bd) goal =
---   do (t', ann) <- typeInfer flag m
---      at <- updateWithSubst t'
---      case at of
---        Exists p t1 ->
---          open bd $ \ (x, y) b ->
---             open p $ \ x1 b' ->
---            do addVar x t1
---               addVar y (apply [(x1, EigenVar x)] b')
---               let b'' = apply [(x, EigenVar x)] b
---               (goal', ann2) <- typeCheck flag b'' goal
---               ann2' <- updateWithSubst ann2
---               ann3 <- resolveGoals ann2'
---               checkUsage y b
---               checkUsage x b
---               removeVar x
---               removeVar y
---               let res = LetEx ann (abst (x, y) ann3) 
---               return (goal', res)
---        a -> throwError $ ExistsErr m a
 
 typeCheck flag (LetPair m (Abst xs n)) goal =
   do (t', ann) <- typeInfer flag m
@@ -682,7 +663,6 @@ typeCheck flag (LetPat m bd) goal =
                  -- when (not isDpm) $ updateSubst subb
                  mapM removeInst ins
                  let axs' = map (substVar subb) axs
-                            -- if isDpm then map (substVar subb) axs else axs
                      goal''' = substitute subb goal''
                      res = LetPat ann (abst (PApp kid axs') ann2')
                  return (goal''', res)
@@ -769,18 +749,18 @@ typeCheck flag a@(Case tm (B brs)) goal =
                                   
                          when isDpm $ updateSubst ss
                          when (not isDpm) $ updateSubst subb
-                         
                          -- because the variable axs may be in the domain
                          -- of the substitution, hence it is necessary to update
                          -- axs as well before binding.
                          let axs' = map (substVar subb) axs
-                         -- if isDpm then map (substVar subb) axs else axs
                          mapM_ (\ (Right v) -> removeVar v) vs
                          mapM removeInst ins
                          return (goal''', abst (PApp kid axs') ann2')
 
 typeCheck flag tm ty = equality flag tm ty
 
+
+-- | Infer a type for tm, and check if it is unifiable with ty.
 equality flag tm ty =
   do ty' <- updateWithSubst ty
      if not (ty == ty') then typeCheck flag tm ty'
@@ -813,9 +793,10 @@ equality flag tm ty =
 
 
 
--- | normalized and unify two expression
 
--- patternUnif m isDpm index head t | trace ("punif: " ++ show index) $ False = undefined
+-- | Normalize and unify two expressions (head and t), taking
+-- dependent pattern matching into account. Dependent pattern matching
+-- has the effect of reverting eigenvariables into variables.
 patternUnif m isDpm index head t =
   if isDpm then
     case index of
@@ -843,7 +824,9 @@ patternUnif m isDpm index head t =
         helper subst [] eSub = return $ Just subst
           
       
--- | There is a degree of freedom in implementing normalizeUnif function.
+-- | Normalize two expressions and then unify them.  
+-- There is a degree of freedom in implementing normalizeUnif function. It could be
+-- further improved. 
 normalizeUnif t1 t2 =
  do t1' <- resolveGoals t1
     t2' <- resolveGoals t2
@@ -862,7 +845,6 @@ normalizeUnif t1 t2 =
                     do r <- normalizeUnif x' y'
                        case r of
                          Nothing -> return Nothing
-                           -- error $ (show $ disp x') ++ ":" ++ (show $ disp y') -- 
                          Just s2 -> return $ Just (mergeSub s2 s1)
                 ) (Just Map.empty) (zip args1 args2)
             | otherwise -> return Nothing
@@ -872,6 +854,16 @@ normalizeUnif t1 t2 =
                return $ runUnify t1'' t2''
 
 
+-- | Extending the typing environment with
+-- the environment induced by pattern. Its first argument is the list from 'Pattern'.
+-- Its second argument is the type of the constructor, its third argument is the constructor
+-- of the pattern. It will return the following, Exp: head of the type expression,
+-- [Either a Variable]: essentially an extended list of pattern variables,
+-- [Variable]: a list of dictionary variables, Exp: annotated version of the constructor,
+-- [Variable]: a list of eigenvariables.
+
+extendEnv :: [Either (NoBind Exp) Variable] -> Exp -> Exp ->
+             TCMonad (Exp, [Either a Variable], [Variable], Exp, [Variable])
 extendEnv xs (Forall bind ty) kid | isKind ty =
   open bind $
       \ ys t' ->
@@ -888,7 +880,6 @@ extendEnv xs (Forall bind ty) kid | otherwise =
          let kid' = foldl AppTm kid (map Var ys)
          (h, vs, ins, kid'', eigen) <- extendEnv xs t' kid'
          let vs' = (map Right ys)++vs
-               -- if isSemi then (map Right ys)++vs else vs
          return (h, vs', ins, kid'', eigen)
 
 extendEnv xs (Imply bds ty) kid =
@@ -923,7 +914,7 @@ extendEnv (Right x : xs) (Pi bind ty) kid
 extendEnv a b kid = throwError $ ExtendEnvErr a b
 
 
-
+-- | A helper function for infering a type for a type application. 
 handleTypeApp ann t' t1 t2 =
   case erasePos t' of
     Arrow k1 k2 ->
@@ -940,8 +931,7 @@ handleTypeApp ann t' t1 t2 =
            
     a -> throwError $ KAppErr t1 (App t1 t2) a  
 
--- | The handleTermApp function produces
--- annotation for an application term expression.
+-- | A helper function for infering a type for a term application. 
 handleTermApp flag ann pos t' t1 t2 = 
   do (a1', rt, anEnv) <- addAnn flag pos ann t' []
      mapM (\ (x, t) -> addVar x t) anEnv
@@ -990,7 +980,8 @@ handleTermApp flag ann pos t' t1 t2 =
        b -> throwError $ ArrowErr t1 b
 
 
-
+-- | Add annotations to the term 'a' according to its type if it is applied to some
+-- other terms. 
 addAnn flag e a (Pos _ t) env = addAnn flag e a t env
 
 addAnn flag e a (Bang t) env =
