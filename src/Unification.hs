@@ -11,18 +11,20 @@ import qualified Data.Map as Map
 import Control.Monad.State
 import Debug.Trace
 
-  
+
+-- | The run function for the unification. 
 runUnify :: Exp -> Exp -> Maybe Subst
--- runUnify t1 t2 | trace ("unifying:" ++ (show $ disp t1) ++ ":" ++ (show $ disp t2)) $ False = undefined
 runUnify t1 t2 =
   let t1' = erasePos t1
       t2' = erasePos t2
       (r, s) = runState (unify t1' t2') Map.empty
   in if r then Just s else Nothing
 
--- | Implement the usual syntactic unification
+-- | Implement the syntactic unification. 
+-- There are eigenvariables for type checking, we only allow
+-- the unification of a eigenvariable [x] with itself and its variable counterpart x.
+-- (the unification of x and [x] can happen due to dependent pattern matching).
 unify :: Exp -> Exp -> State Subst Bool
--- unify t1 t2 | trace ("unifying:" ++ (show $ dispRaw t1) ++ ":" ++ (show $ dispRaw t2)) $ False = undefined
 unify Unit Unit = return True
 unify Set Set = return True
 unify (Base x) (Base y) | x == y = return True

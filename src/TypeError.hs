@@ -102,6 +102,7 @@ instance Disp EvalError where
   display flag (ErrWrapper e) = display flag e
 
 -- | Add a position to an error message if the message does not already contain
+-- position information.
 addErrPos p a@(ErrPos _ _) = a
 addErrPos p a = ErrPos p a
 
