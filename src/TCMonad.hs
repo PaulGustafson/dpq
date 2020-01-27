@@ -489,10 +489,6 @@ shape (LetPair m bd) =
      open bd $ \ y b ->
        do b' <- shape b
           return $ LetPair m' (abst y b')
-shape (LetEx m (Abst (x, y) b)) =
-  do m' <- shape m
-     b' <- shape b
-     return $ LetEx m' (abst (x, y) b')
 
 shape (LetPat m (Abst (PApp id vs) b)) =
   do m' <- shape m
@@ -635,11 +631,6 @@ isValue (Pair x y) =
      y' <- isValue y
      return $ x' && y'
      
-isValue (Pack x y) =
-  do x' <- isValue x
-     y' <- isValue y
-     return $ x' && y' 
-
 isValue (Force (App UnBox t)) = isValue t
 isValue (Force' (App' UnBox t)) = isValue t
 isValue a@(App UnBox t) = isValue t

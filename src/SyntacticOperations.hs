@@ -2,6 +2,7 @@ module SyntacticOperations where
 
 import Syntax
 import Utils
+import Substitution
 
 import Nominal
 
@@ -175,8 +176,6 @@ getVars b (Forall bind ty) =
 getVars b (Circ t u) = S.union (getVars b t) (getVars b u)
 getVars b (Pair ty tm) =
   getVars b ty `S.union` getVars b tm
-getVars b (Pack ty tm) =
-  getVars b ty `S.union` getVars b tm
 
 getVars b (Let t bind) =
   getVars b t `S.union`
@@ -186,9 +185,6 @@ getVars b (LetPair t bind) =
   getVars b t `S.union`
   (open bind $ \ xs m -> (S.difference (getVars b m) (S.fromList xs)))
 
-getVars b (LetEx t bind) =
-  getVars b t `S.union`
-  (open bind $ \ (x, y) m -> S.delete y (S.delete x (getVars b m)))
 
 getVars b (LetPat t (Abst ps m)) =
   let (bvs, fvs) = pvar ps in
@@ -377,7 +373,6 @@ erasePos (AppDict e1 e2) = AppDict (erasePos e1) (erasePos e2)
 erasePos (Tensor e1 e2) = Tensor (erasePos e1) (erasePos e2)
 erasePos (WithType e1 e2) = WithType (erasePos e1) (erasePos e2)
 erasePos (Pair e1 e2) = Pair (erasePos e1) (erasePos e2)
-erasePos (Pack e1 e2) = Pack (erasePos e1) (erasePos e2)
 erasePos (Arrow e1 e2) = Arrow (erasePos e1) (erasePos e2)
 erasePos (Arrow' e1 e2) = Arrow' (erasePos e1) (erasePos e2)
 erasePos (Imply e1 e2) = Imply (map erasePos e1) (erasePos e2)
@@ -408,7 +403,6 @@ erasePos (LamType (Abst vs b)) = LamType (abst vs (erasePos b))
 erasePos (LamDict (Abst vs b)) = LamDict (abst vs (erasePos b))
 erasePos (Let m (Abst vs b)) = Let (erasePos m) (abst vs (erasePos b)) 
 erasePos (LetPair m (Abst xs b)) = LetPair (erasePos m) (abst xs (erasePos b)) 
-erasePos (LetEx m (Abst (x, y) b)) = LetEx (erasePos m) (abst (x, y) (erasePos b)) 
 erasePos (LetPat m (Abst (PApp id vs) b)) = LetPat (erasePos m) (abst (PApp id vs) (erasePos b))
 erasePos (Case e (B br)) = Case (erasePos e) (B (map helper br))
   where helper (Abst p m) = abst p (erasePos m)
@@ -497,11 +491,6 @@ unEigenBound vars (Pair e1 e2) =
       e2' = (unEigenBound vars e2)
   in  Pair e1' e2'
 
-unEigenBound vars (Pack e1 e2) = 
-  let e1' = (unEigenBound vars e1)
-      e2' = (unEigenBound vars e2)
-  in Pack e1' e2' 
-
 unEigenBound vars (Arrow e1 e2) =
   let e1' = (unEigenBound vars e1)
       e2' = (unEigenBound vars e2)
@@ -536,11 +525,6 @@ unEigenBound vars (LetPair m bd) = open bd $ \ xs b ->
   let m' = (unEigenBound vars m)
       b' = (unEigenBound (xs ++ vars) b)
   in LetPair m' (abst xs b') 
-
-unEigenBound vars (LetEx m bd) = open bd $ \ (x, y) b ->
-  let m' = (unEigenBound vars m)
-      b' = (unEigenBound (x:y:vars) b)
-  in LetEx m' (abst (x, y) b')
 
 unEigenBound vars (LetPat m bd) = open bd $ \ (PApp id vs) b ->
   let m' = unEigenBound vars m
@@ -807,9 +791,6 @@ isExplicit s (Pair t tm) =
 isExplicit s (Tensor t tm) =
    (isExplicit s t) || (isExplicit s tm)
    
-isExplicit s (Pack t tm) =
-   (isExplicit s t) || (isExplicit s tm)
-
 isExplicit s (Force t) = (isExplicit s t)
 isExplicit s (Force' t) = (isExplicit s t)
 isExplicit s (Lift t) = (isExplicit s t)
@@ -822,11 +803,6 @@ isExplicit s (LetPair m bd) =
   if isExplicit s m then True
   else 
     open bd $ \ ys b -> isExplicit s b
-
-isExplicit s (LetEx m bd) =
-  if isExplicit s m then True
-  else open bd $ \ (y, z) b -> isExplicit s b
-
 
 isExplicit s (LetPat m bd) =
   if isExplicit s m then True
@@ -857,3 +833,8 @@ isExplicit s (Const _) = False
 
 isExplicit s a = error $ "from isExplicit:" ++ (show $ disp a)
 
+-- | convert all the free variables in an expression into eigenvariables.
+toEigen t =
+  let fvs = S.toList $ getVars NoEigen t
+      sub = zip fvs (map EigenVar fvs)
+  in apply sub t

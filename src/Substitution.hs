@@ -1,9 +1,10 @@
 {-# LANGUAGE  FlexibleInstances #-}
+-- | This module implements substitution. 
 module Substitution where
 
 import Syntax
 import Utils
-import SyntacticOperations
+-- import SyntacticOperations
 
 
 import Nominal
@@ -13,10 +14,10 @@ import Data.Map (Map)
 import Text.PrettyPrint
 
 
-
+-- | Substitution is represented as a map.
 type Subst = Map Variable Exp
 
--- | Display substitution.
+
 instance Disp (Map Variable Exp) where
   display b vs =
     let vs' = Map.toList vs in
@@ -24,7 +25,9 @@ instance Disp (Map Variable Exp) where
      where helper (x,  t) = display b x <+> text "|->" <+> display b t
 
 
-           
+-- | Capture avoiding substitution. Variables that happen
+-- in the domain of substitution will be substituted, no matter
+-- it is a goalvariable or eigenvariable.             
 substitute :: Subst -> Exp -> Exp           
 substitute s a@(Var y) =
   case Map.lookup y s of
@@ -163,8 +166,6 @@ substitute s (LamDep' bind) =
 
 substitute s (Pair t tm) =
   Pair (substitute s t) (substitute s tm)
-substitute s (Pack t tm) =
-  Pack (substitute s t) (substitute s tm)
 
 substitute s (Force t) = Force (substitute s t)
 substitute s (Force' t) = Force' (substitute s t)
@@ -182,11 +183,6 @@ substitute s (Let m bd) =
 substitute s (LetPair m bd) =
   let m' = substitute s m in
     open bd $ \ ys b -> LetPair m' (abst ys (substitute s b)) 
-
-substitute s (LetEx m bd) =
-  let m' = substitute s m in
-    open bd $ \ (y, z) b -> LetEx m' (abst (y, z) (substitute s b)) 
-
 
 substitute s (LetPat m bd) =
   let m' = substitute s m in
@@ -211,18 +207,14 @@ substitute s (Case tm (B br)) =
 substitute s (Pos p e) = Pos p (substitute s e)
 substitute s a = error ("from substitute: " ++ show (disp a))  
 
-
+-- | List version of the substitution.
 apply s t = let s' = Map.fromList s in substitute s' t
 
+-- | Merge two substitution.
 mergeSub :: Map Variable Exp -> Map Variable Exp -> Map Variable Exp
 mergeSub new old =
   new `Map.union` Map.map (substitute new) old
 
--- | convert all the free variables in an expression into eigenvariables.
-toEigen t =
-  let fvs = S.toList $ getVars NoEigen t
-      sub = zip fvs (map EigenVar fvs)
-  in apply sub t
       
 
 

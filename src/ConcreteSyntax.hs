@@ -47,7 +47,7 @@ data Exp =
 -- C x y z -> e, where x, y, z are variables.
 type Branches = [(String, [Exp], Exp)]
 
--- | Binding for let expression. The annotation for let will be
+-- | Binding for let expression. The type declaration for let (BAnn) will be
 -- translated away. 
 data Binding =
   BSingle (String, Exp)
@@ -57,47 +57,58 @@ data Binding =
   deriving (Show, Eq)
 
 
-data Decl = 
-  GateDecl Position String [Exp] Exp 
-  | ControlDecl Position String [Exp] Exp 
-  | Object Position String
-  | Def Position String Exp [String] Exp
-  | Data
-    Position {-Position for the type constructor-}
-    String {- Type constructor name -}
-    [Exp] {- Type constraints -}
-    [([String], Exp)]  {- args -}
-    [(Position, {- Position for the constructor -}
-      String, {- Constructor name -}
-      [Either ([String], Exp) Exp] {- Constructor arguments:
-                                  Left part is for a dependent quantification,
-                                  Right part is for the usual type expression  -}
-     )]
-  | SimpData
-    Position {-Position for the type constructor-}
-    String {- Type constructor name -}
-    [String] {- Type constructor type arguments -}
-    Exp {- residue kind -}
-    [(Position, {- Position of the equation -}
-      [Exp], {- arguments -}
-      Position, {- Position of the constructor -}
-      String, {- Constructor name-}
-      [Exp] {- Constructor arguments-}
-     )]  -- ^ Simple data type declaration.
-  | ImportGlobal Position String
-  | OperatorDecl Position String Int String -- ^ Declaration for fixity and priority of infix
-    -- operator, e.g. infixr 30 $ . This means the infix operator $ is right associative
-    -- and it has the lowest priority, which is 30. The lower the number is, the higher
-    -- is the priority.
-  | Class Position String [([String], Exp)] [(Position, String, Exp)]
-  | Instance Position
-    Exp
-    [(Position, String, -- method name
-      [String], 
-      Exp) -- method definition
-    ]
-  | Defn Position String [Either Exp ([String], Exp)]
-    [Either Exp ([String], Exp)] Exp -- ^ Infer mode function declaration.
+data Decl = GateDecl Position String [Exp] Exp
+            -- ^ Gate declaration, [Exp] are the parameters for the gate. 
+          | ControlDecl Position String [Exp] Exp
+            -- ^ Generic control gate declaration, [Exp] are the parameters. 
+          | Object Position String
+          | Def Position String Exp [String] Exp
+            -- ^ Funtion definition, [String] are the arguments.
+          | Defn Position String [Either Exp ([String], Exp)]
+            [Either Exp ([String], Exp)] Exp
+            -- ^ Infer mode function definition, the first [Either Exp ([String], Exp)]
+            -- are the irrelevant arguments, the second are the explicit arguments.
+            -- An argument can be either a type class constraint, or an annotated argument.
+          | Data
+            Position 
+            String 
+            [Exp] 
+            [([String], Exp)]  
+            [(Position, 
+              String, 
+              [Either ([String], Exp) Exp]
+             )]
+            -- ^ Data type declaration. [Exp] are the type class constraints,
+            -- [([String], Exp)] are the annotated arguments for the type constructor.
+            -- The last list is the list of constructors, the Left part is
+            -- for a dependent quantification, the Right part is the usual arguments.  
+          | SimpData
+            Position {-Position for the type constructor-}
+            String {- Type constructor name -}
+            [String] {- Type constructor type arguments -}
+            Exp {- residue kind -}
+            [(Position, {- Position of the equation -}
+              [Exp], {- arguments -}
+              Position, {- Position of the constructor -}
+              String, {- Constructor name-}
+              [Exp] {- Constructor arguments-}
+             )]
+            -- ^ Simple data type declaration. [String] are the
+            -- type arguments for the type constructor. Exp is a kind expression.
+            -- The last list is the list of equation thats defined the simple type.
+          | ImportGlobal Position String
+          | OperatorDecl Position String Int String
+            -- ^ Declaration for fixity and priority of infix
+            -- operator, e.g. infixr 30 $ . This means the infix operator $ is right associative
+            -- and it has the lowest priority, which is 30. The lower the number is, the higher
+            -- is the priority.
+          | Class Position String [([String], Exp)] [(Position, String, Exp)]
+          | Instance Position
+            Exp
+            [(Position, String, -- method name
+              [String], -- arguments
+              Exp) -- method definition
+            ]
     
   deriving (Show)
 
@@ -111,7 +122,7 @@ data Command =
   | Reload
   | Print Exp String
   | Display Exp
-  | DisplayEx Exp
+  | DisplayEx Exp -- ^ Displaying existential circuit.
   | Annotation Exp
   | ShowCirc
   deriving (Show)

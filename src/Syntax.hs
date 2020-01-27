@@ -4,9 +4,10 @@
 {-# LANGUAGE DeriveAnyClass, PatternSynonyms, ViewPatterns, ApplicativeDo #-}
 
 {-|
-We use the nominal library provided by Peter Selinger.
+This module describe the abstract syntax of dpq. We use Peter Selinger's
+nominal library to handle binding in abstract syntax.
 Please see <http://hackage.haskell.org/package/nominal here> for
-its documentation.
+the documentation of nominal library.
 -}
 module Syntax where
 
@@ -31,7 +32,8 @@ import Debug.Trace
 
 
 
-
+-- | Abstract syntax tree for dpq expression. We use prime ' to indicate 
+-- the given constructor belong to the parameter fragment.
 data Exp =
   Var Variable
   | EigenVar Variable
@@ -58,10 +60,8 @@ data Exp =
     -- Pair and existential  
   | Tensor Exp Exp 
   | Pair Exp Exp
-  | Pack Exp Exp
   | Let Exp (Bind Variable Exp) 
   | LetPair Exp (Bind [Variable] Exp)
-  | LetEx Exp (Bind (Variable, Variable) Exp) 
   | LetPat Exp (Bind Pattern Exp)
   | Exists (Bind Variable Exp) Exp
   | Case Exp Branches
@@ -238,8 +238,6 @@ instance Disp Exp where
     fsep [dParen flag (precedence a - 1) t,  text "*", dParen flag (precedence a) t']
   display flag (Pair a b) =
     parens $ fsep [display flag a, text "," , display flag b]
-  display flag (Pack a b) =
-    braces $ display flag a <+> text "," <+> display flag b
     
   display flag (Force m) = text "&" <> display flag m
   display flag (Force' m) = text "&'" <> display flag m
@@ -287,12 +285,6 @@ instance Disp Exp where
           text "=", display flag m,
           text "in" <+> display flag b]
 
-  display flag (LetEx m bd) =
-    open bd $ \ (x, y) b ->
-    fsep [text "let" <+> braces (display flag x<>comma<+> display flag y)
-          <+> text "=", display flag m,
-          text "in" <+> display flag b]
-    
   display flag (LetPat m bd) =
     open bd $ \ ps b ->
     fsep [text "let" <+> (display flag ps) <+> text "=" , display flag m,

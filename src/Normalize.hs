@@ -1,4 +1,10 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
+-- | This module handles normalization during
+-- type checking. For simplicity, we implement normalization
+-- for a restricted subset of parameter terms, i.e., terms that
+-- does not involve circuit box/unbox. Without circuit boxing,
+-- it is safe for normalization to adopt any strategy as no
+-- side-effects are present. 
 module Normalize where
 
 import Syntax
@@ -17,6 +23,8 @@ import Control.Monad.Except
 import Control.Monad.State
 import Debug.Trace
 
+-- | Beta normalization only reduce beta redex, it is used
+-- when instantiating a type/type function.
 betaNormalize :: Exp -> TCMonad Exp
 betaNormalize a@(Var x) = return a
 betaNormalize a@(EigenVar x) = return a
@@ -35,13 +43,6 @@ betaNormalize a@(LamType bd) = return a
 betaNormalize a@(LamTm bd) = return a
 betaNormalize a@(LamAnn _ _) = return a
 betaNormalize a@(LamAnn' _ _) = return a
--- betaNormalize a@(Box) = return a
--- betaNormalize a@(ExBox) = return a
--- betaNormalize a@(UnBox) = return a
--- betaNormalize a@(Revert) = return a
--- betaNormalize a@(RunCirc) = return a
--- betaNormalize a@(Wired y) = return a
-
 betaNormalize a@(Lift x) = 
   do x' <- betaNormalize x
      return $ Lift x'
@@ -122,18 +123,10 @@ betaNormalize a@(Pair m1 m2) =
      m2' <- betaNormalize m2
      return $ Pair m1' m2'
 
-betaNormalize a@(Pack m1 m2) = 
-  do m1' <- betaNormalize m1
-     m2' <- betaNormalize m2
-     return $ Pack m1' m2'
 
 betaNormalize (Let m bd) =
   do m' <- betaNormalize m
      return (Let m' bd)
-
-betaNormalize (LetEx m bd) =
-  do m' <- betaNormalize m
-     return (LetEx m' bd)
 
 betaNormalize a@(LetPair m bd) =
   do m' <- betaNormalize m
@@ -248,6 +241,10 @@ betaNormalize a@(Case t (B brs)) =
 betaNormalize (Pos _ e) = betaNormalize e
 betaNormalize a = error $ "from betaNormalize" ++ (show (disp a))
 
+-- | Normalize an expression. It also takes advantage of
+-- call-by-value evaluation. If a type refer to a top-level
+-- function that produces a basic value, then we
+-- will one step normalize that function into a value expression.
 normalize a@(Var x) =
   do ts <- get
      let lc = localCxt $ lcontext ts
@@ -300,13 +297,6 @@ normalize (Force' m) =
        Lift n ->
          shape n >>= normalize
        n -> return (Force' n)
-
--- normalize (Force m) =
---   do m' <- normalize m 
---      case erasePos m' of
---        Lift n ->
---          normalize n
---        n -> return (Force n)
 
 normalize (App' m n) =
   do m' <- normalize m
@@ -405,11 +395,6 @@ normalize (Pair m n) =
      w <- normalize n 
      return (Pair v w)
 
-normalize (Pack m n) = 
-  do v <- normalize m 
-     w <- normalize n 
-     return (Pack v w)
-
 normalize (Circ m n) = 
   do v <- normalize m 
      w <- normalize n 
@@ -457,10 +442,6 @@ normalize (LetPat m bd) =
            PApp kid vs
              | kid == id ->
                let m' = helper args vs m in normalize m'
-                 -- let vs' = map (\ (Right x) -> x) vs
-                 --     subs = (zip vs' args)
-                 --     m' = apply subs m
-                 -- in normalize m'
            p -> error "from normalize letpat"
   where helper (a:args) ((Right x):vs) m =
           helper args vs (apply [(x, a)] m)
@@ -472,10 +453,6 @@ normalize b@(Unit) = return b
 normalize b@(Set)  = return b
 normalize b@(Sort)  = return b
 normalize b@(Star) = return b
--- normalize b@(Box) = return b
--- normalize b@(Revert) = return b
--- normalize b@(ExBox) = return b
--- normalize b@(UnBox) = return b
 
 normalize (Tensor e1 e2) =
   do e1' <- normalize e1 
@@ -510,10 +487,6 @@ normalize b@(Case m (B bd)) =
           case p of
              PApp kid vs
                | kid == id -> let m' = helper args vs m in normalize m' 
-                  -- let vs' = map (\ (Right x) -> x) vs
-                  --     subs = (zip vs' args)
-                  --     m' = apply subs m
-                  -- in normalize m' 
                | otherwise -> reduce id args bds m' 
         reduce id args [] m' = throwError $ MissBrErr m' b 
 

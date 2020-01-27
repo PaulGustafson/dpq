@@ -1,11 +1,6 @@
 {-#LANGUAGE FlexibleContexts#-}
+-- | An indentation sensitive parser for dpq. 
 module Parser
-       ( ParserState,
-         initialParserState,
-         parseImports,
-         parseModule,
-         parseCommand,
-         )
        where
 
 import ConcreteSyntax
@@ -24,14 +19,17 @@ import qualified Data.IntMap as IM
 import Data.Char
 import Data.List
 
--- | A parser for DPQ is an ident-parser with a ParserState and input type
--- String.
+
+
+-- *  Parsing a module
+
+-- | A parser for dpq is an ident-parser with a ParserState.
 type Parser a = IndentParser String ParserState a
 
--- | An expression parser state contains an expression parser together with
+-- | A parser state contains an expression parser together with
 -- an operator table. The expression parser is build by combining 
 -- operator table with the atomic expression parser. The operator table
--- can be updated during parsing when encountering an infix operator declaration,
+-- is updated when encountering an operator declaration,
 -- in this case the expression parser will be rebuild as well.
 
 data ParserState =
@@ -47,21 +45,20 @@ initialParserState = ParserState{
   }
 
 -- | The precedence is in descending order (See Text.Parsec.Expr for
--- further information). Currently, we have the following build-in type operators:
+-- further information). Currently, we have the following build-in operators:
 -- '!' (precedence 5), '*' (precedence 7), '->' (precedence 10), '::'(16).
 initialOpTable = [[], [], [], [], [], [unaryOp "!" Bang], [], [binOp AssocLeft "*" Tensor] , [], [], [binOp AssocRight "->" Arrow], [], [], [], [], [], [binOp AssocLeft "::" WithAnn]]
   where binOp assoc op f = Infix (reservedOp op >> return f) assoc
         unaryOp op f = Prefix (reservedOp op >> return f) 
 
         
--- | Parse a DPQ module from a file name 'srcName' and file
--- handler 'cnts', using the parser state 'st'.
+-- | Parse a dpq module from a file name 'srcName' and file
+-- handler 'cnts'. 
 parseModule :: String -> String -> ParserState -> Either P.ParseError ([Decl], ParserState)
 parseModule srcName cnts st = 
   runIndent $ runParserT decls st srcName cnts
 
 -- | Parse the import declarations from a file.
--- This is used to handle importation.
 parseImports :: String -> String -> Either P.ParseError [Decl]
 parseImports srcName cnts = 
   runIndent $ runParserT imports initialParserState srcName cnts
@@ -75,14 +72,12 @@ parseImports srcName cnts =
 parseCommand :: String -> ParserState -> Either P.ParseError Command
 parseCommand s st = runIndent $ runParserT command st "" s
 
-
----------------------------
 -- *  A parser for command line
 command :: Parser Command
 command =
   do whiteSpace 
      quit <|>  help <|> typing <|>  reload <|>  load <|>  printing <|>
-       displaying <|>  displayEx <|>  annotation <|> showCirc <|> evaluation
+       displaying <|>  displayEx <|>  annotation <|> showCirc <|> eval
      
 showCirc =
   do reserved ":s"
@@ -141,18 +136,12 @@ load =
      eof
      return $ Load True path
 
--- gateC =
---   do reserved ":g"
---      t <- term
---      eof
---      return $ GateCount t
-
-evaluation =
+eval =
   do t <- term
      eof
      return $ Eval t
 
------------------------------
+
 -- * Parsers for various of declarations
 decls :: Parser ([Decl], ParserState)
 decls = do
@@ -288,11 +277,7 @@ dataDecl =
                               return $ \ ps -> (P p, c, ps)}) arg
            arg = try (ann >>= \ x -> return $ Left x) <|>
                      (singleExp >>= \ x -> return $ Right x) 
-           -- prefix = try annotation <|> classExp
            annotation = ann <|> impAnn
-             -- do x <- 
-             --    return $ x
-           --classExp = parens typeExp -- >>= \ x -> return $ Left x
              
 -- | A parser for simple data type declaration.                
 simpleDecl :: Parser Decl
@@ -361,7 +346,6 @@ funDef =
              classExp = parens typeExp >>= \ x -> return $ Left x
 
 
-
 -- | A parser for term, built from the operator table.
 term = wrapPos $ getState >>= \st -> expParser st
 
@@ -371,7 +355,7 @@ kindExp = term
 -- | 'typeExp' is a synonym for 'term'.
 typeExp = term
 
---------------------------------
+
 -- * Parsers for various atomic expressions
 
 -- | An atomic expression parser, of course it is defined mutually recursively
@@ -391,12 +375,10 @@ atomExp = wrapPos (
        <|> nat
        <|> vector
        <|> implicitType
---       <|> existsExp
        <|> withAnn
        <|> piType
        <|> impType
        <|> appExp
---       <|> withAnn'
        <?> "expression")
 
 -- | A function for constructing a parser that parse h and many p, they can be across many lines,
@@ -404,12 +386,6 @@ atomExp = wrapPos (
 
 manyLines h p = withPos $ h <*/> p
 
-withAnn' =
-  do t <- term
-     reservedOp "::"
-     ty <- typeExp
-     return $ WithAnn t ty
-     
 withAnn =
   do reserved "withType"
      ty <- typeExp
@@ -451,18 +427,21 @@ followedBy m p =
      p
      return r
 
+-- | A parser for natural number literals. 
 nat =
   do i <- naturals
      return $ toNat i
      where toNat i | i == 0 = Base "Z"
            toNat i | otherwise = App (Base "S") $ toNat (i-1)
+
 -- | A parser for the vector bracket notation.
 vector =
   do elems <- brackets $
               (term `sepBy` comma)
      return $ foldr (\ x y -> App (App (Base "VCons") x) y) (Base "VNil") elems
 
--- | A parser for if-then-else expression.
+-- | A parser for if-then-else expression, it is translated
+-- to pattern matching.
 ifExp =
   do reserved "if"
      c <- term
@@ -553,11 +532,6 @@ lamAnn = do
   reservedOp "."
   t <- term
   return $ LamAnn v ty t
-  -- where ann =
-  --         do{v <- var;
-  --            reservedOp "::";
-  --            ty <- typeExp;
-  --            return (v, ty)}
 
 
 lam =
@@ -573,12 +547,6 @@ pairExp = parens $
              t2 <- term
              return $ Pair t1 t2
 
--- existsExp = braces $
---           do t1 <- term
---              comma
---              t2 <- term
---              return $ Pack t1 t2 
-  
 caseExp =
   withPos $
   do reserved "case"
@@ -646,15 +614,6 @@ handleLet b =
              reservedOp "="
              d <- term
              return $ BPair (xs, d)
-        -- existential =
-        --   do (x, y) <- braces $
-        --                do x <- try var <|> wildString
-        --                   comma
-        --                   y <- try var <|> wildString
-        --                   return $ (x, y)
-        --      reservedOp "="
-        --      d <- term
-        --      return $ BExist (x, y, d)             
         single =
           do n <- try var <|> wildString
              reservedOp "="
@@ -745,12 +704,6 @@ doExp =
              pat = do c <- const
                       ps <- many (try varExp <|> wild)
                       return $ BPattern (c, ps, Wild)
-             -- exists =
-             --    braces $
-             --    do x <- try var <|> wildString
-             --       comma
-             --       y <- try var <|> wildString
-             --       return $ BExist (x, y, Wild)
              leftPair =
                 parens $
                 do x <- try var <|> wildString
@@ -762,7 +715,6 @@ doExp =
                   return $ BSingle (v, Wild)
              makeBind v (BSingle (x, _)) = BSingle (x, v)
              makeBind v (BPair (xs, _)) = BPair (xs, v)
---             makeBind v (BExist (x,y, _)) = BExist (x, y, v)
              makeBind v (BPattern (x,y, _)) = BPattern (x, y, v)
              
              binding = try leftVar <|> leftPair <|> pat  
@@ -797,7 +749,6 @@ doExp =
                   let v = "#bindVar"++ show n 
                   return $ App (App (Var "bind") t) (Lam [v] (Let [makeBind (Var v) x] t'))
              
-               
 -- * Lexer
 
 dpqStyle :: (Stream s m Char, Monad m) => Token.GenLanguageDef s u m

@@ -1,4 +1,9 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
+-- | This module define the 'erasure' function, it erases
+-- an annotated expression into lambda expression without irrelevant annotations.
+-- The erasrue function also perform a check, i.e., checking if an irrelevant variable
+-- is used as an explicit argument. 
+
 module Erasure where
 
 import Syntax
@@ -14,11 +19,10 @@ import Debug.Trace
 import Text.PrettyPrint
 import qualified Data.Set as S
 import Debug.Trace
--- | The 'erasure' function erases all the type annotations from the annotated term.
--- It also converts everything in to Lam and App.
+
+
 
 erasure :: Exp -> TCMonad Exp
--- erasure a | trace ("erasing:" ++ (show $ disp a)) $ False = undefined
 erasure (Pos p a) = erasure a `catchError` \ e -> throwError $ collapsePos p e
 erasure Star = return Star
 erasure Unit = return Unit
@@ -76,10 +80,6 @@ erasure (Tensor e1 e2) =
      e2' <- erasure e2
      return $ Tensor e1' e2'
 
-erasure (Pack e1 e2) =
-  do e1' <- erasure e1
-     e2' <- erasure e2
-     return $ Pair e1' e2'
 
 erasure (Arrow e1 e2) =
   do e1' <- erasure e1
@@ -155,11 +155,6 @@ erasure (LetPair m bd) = open bd $ \ xs b ->
      b' <- erasure b
      return $ LetPair m' (abst xs b') 
 
-erasure (LetEx m bd) = open bd $ \ (x, y) b ->
-  do m' <- erasure m
-     b' <- erasure b
-     return $ LetPair m' (abst [x,y] b')
-     
 erasure (LetPat m bd) = open bd $ \ pa b ->
   case pa of
     PApp kid args ->
@@ -211,7 +206,6 @@ erasure l@(Case e (B br)) =
                  PApp kid args ->
                    do funP <- lookupId kid
                       let ty = classifier funP
-                      -- (isSemi, _) <- isSemiSimple kid
                       args' <- helper2 ty args m 
                       m' <- erasure m
                       return (abst (PApp kid args') m')

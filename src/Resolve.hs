@@ -1,3 +1,4 @@
+-- | Resoving concrete syntax into abstract syntax.
 module Resolve
        (
          ScopeError,
