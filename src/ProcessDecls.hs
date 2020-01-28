@@ -1,4 +1,16 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
+-- | This module processes dpq declarations. For object and simple type declarations,
+-- we generate instances for Simple, Parameter and SimpParam classes. Each simple type
+-- declaration also gives rise to a function that turns the simple type into the simple term.
+-- We also support two kinds of gate declarations, an ordinary gate declaration and a generic
+-- control gate declaration. Gate declarations will generate a value that will be used
+-- for circuit generation. We support Haskell 98 style data type declaration with type class
+-- constraint, moreover, we support a limited form of existential dependent data type in this
+-- format. All top level functions must be of parameter types. Functions can be defined 
+-- by first giving its type annotation, or they can be defined by just annotating the types
+-- for its arguments (in that case dependent pattern matching is not supported). 
+
+
 module ProcessDecls where
 
 import TCMonad
@@ -25,6 +37,7 @@ import Text.PrettyPrint
 import Debug.Trace
 import qualified Data.Set as S
 
+-- | Process a declaration, modifying the state in the TCMonad. 
 process :: Decl -> TCMonad ()
 process (Class pos d kd dict dictType mths) = 
   do let methodNames = map (\(_, s, _) -> s) mths
@@ -46,10 +59,8 @@ process (Class pos d kd dict dictType mths) =
                         LamDict (abst [x] $ LetPat (Var x)
                                   (abst (PApp constr (map Right mVars))
                                    (Var $ mVars !! i)))
-                      --ty' = erasePos $ removeVacuousPi mty'
                       tyy = erasePos $ removeVacuousPi mty
                   checkVacuous pos tyy
-                  -- (_, ty'') <- typeChecking True ty' Set
                   (_, tyy') <- typeChecking True tyy Set 
                   (tyy'', a) <- typeChecking False (Pos pos mth) tyy'
                   a' <- erasure a
@@ -119,11 +130,16 @@ process (Defn pos f Nothing def) =
      b <- isBasicValue v
      v' <- if b then typeChecking False (toExp v) ty >>= \ x -> return $ Just (snd x)
            else return Nothing
-             -- if isCirc v then return $ Just (Const f) else return $ Just a
      let fp = Info {classifier = erasePos $ removeVacuousPi ty,
                     identification = DefinedFunction (Just (a, v, v'))
                    }
      addNewId f fp
+  where typeInfering b exp =
+          do (ty', exp') <- typeInfer b exp
+             exp'' <- resolveGoals exp'
+             r <- updateWithSubst exp''
+             ty'' <- resolveGoals ty' >>= updateWithSubst
+             return (unEigen ty'', unEigen r)
 
 process (Defn pos f (Just tt) def) =
   do (_, tt') <- typeChecking True tt Set 
@@ -135,7 +151,6 @@ process (Defn pos f (Just tt) def) =
      addNewId f info1
      -- the first check obtain the type information 
      (tk', def0) <- typeChecking''' False (Pos pos def) ty''
-     -- error $ "infer type:" ++ (show $ dispRaw def0)
      let tk1 = erasePos $ removeVacuousPi tk' 
      let fvs = getVars AllowEigen tk1
      when (not $ S.null fvs) $ throwError $ ErrPos pos $ TyAmbiguous (Just f) tk1
@@ -154,11 +169,19 @@ process (Defn pos f (Just tt) def) =
      v <- evaluation a'
      b <- isBasicValue v
      v' <- if b then typeChecking False (toExp v) tk1 >>= \ x -> return $ Just (snd x)
-           else return Nothing -- if isCirc v then return $ Just (Const f) else return (Just def')
+           else return Nothing
      let fp = Info {classifier = tk1,
                    identification = DefinedFunction (Just (def', v, v'))
                    }
      addNewId f fp
+  where typeChecking''' b exp ty =
+          do setInfer True
+             (ty', exp') <- typeCheck b exp ty
+             setInfer False
+             exp'' <- updateWithSubst exp'
+             r <- resolveGoals exp''
+             ty'' <- resolveGoals ty' >>= updateWithSubst
+             return (unEigen ty'', unEigen r)
 
 process (Data pos d kd cons) =
   do let constructors = map (\ (_, id, _) -> id) cons
@@ -359,7 +382,8 @@ process (SimpData pos d n k0 eqs) =
 process (OperatorDecl pos op level fixity) = return ()
 process (ImportDecl p mod) = return ()
 
-
+-- | Check if the defined instance head is overlapping with
+-- existing type class instances.  
 checkOverlap h =
   do es <- get
      let gs = globalInstance $ instanceContext es
@@ -371,6 +395,9 @@ checkOverlap h =
           in if r then throwError $ InstanceOverlap h id exp
              else return ()
 
+
+-- | A helper function that constructs an instance function when it is given
+-- the name and the type of the instance fuction, and the method definitions.
 elaborateInstance pos f' ty mths =
   do annTy <- typeChecking' True ty Set
      let (env, ty') = removePrefixes False annTy
@@ -429,14 +456,28 @@ elaborateInstance pos f' ty mths =
                     (t', a) <- typeChecking'' (map fst env') False (Pos p m) (erasePos t)
                     mapM_ (\ (x, t) -> removeVar x) env'
                     mapM_ (\ (x, t) -> removeLocalInst x) instEnv
-                    -- trace ("fromInstance:" ++ (show $ dispRaw a)) $ return a 
                     return a 
 
              rebind [] t = t
              rebind ((Just x, ty):res) t | isKind ty = LamType (abst [x] (rebind res t))
              rebind ((Just x, ty):res) t | otherwise = LamTm (abst [x] (rebind res t))
-
-
+             -- A version of type checking that avoids checking forall param. 
+             typeChecking' b exp ty =
+               do setCheckBound False
+                  (ty', exp') <- typeCheck b exp ty
+                  setCheckBound True
+                  exp'' <- updateWithSubst exp'
+                  r <- resolveGoals exp''
+                  return (unEigen r)
+             -- a version of typeChecking that uses unEigenBound instead of unEigen
+             typeChecking'' vars b exp ty =
+               do (ty', exp') <- typeCheck b exp ty
+                  exp'' <- resolveGoals exp'
+                  r <- updateWithSubst exp''
+                  ty'' <- resolveGoals ty' >>= updateWithSubst
+                  return (unEigenBound vars ty'', unEigenBound vars r)
+  
+-- | Determine the classifier for a non-simple data type declaration. 
 determineClassifier d kd constructors types =
   do f <- queryParam d kd constructors types
      if f then return Param
@@ -473,6 +514,7 @@ determineClassifier d kd constructors types =
                                     ) (map snd args)
                           return $ and r
 
+-- | Construct a circuit from a gate declaration.
 makeGate :: Id -> [Exp] -> Exp -> Value
 makeGate id ps t =
   let lp = length ps + 1
@@ -517,7 +559,7 @@ makeGate id ps t =
               pairs = foldl Pair (head xs') (tail xs')
           in Lam $ abst xs (App e pairs)
 
-
+-- | Construct a generic controlled gate from a controlled declaration.
 makeControl :: Id -> [Exp] -> Exp -> Value
 makeControl id ps t =
   let lp = length ps + 1
@@ -537,17 +579,11 @@ makeControl id ps t =
           g = Gate id params inExp' outExp' (VVar c)
           morph = Wired $ abst (ins ++ outs) (VCircuit $ Morphism inExp' [g] outExp')
           env = Map.fromList [(y, morph)] 
-          -- m = Force $ App UnBox
-          --     (Let morph (freshNames ["y"] $ \ (y:[]) -> abst y (Var y)))
           unbox_morph = etaPair (length inss) (Force $ App UnBox (Var y)) c
-          -- abstraction m = freshNames ["dict"] $ \ (d:[]) -> Lam (abst [d] m) 
-          res = -- if null xs then
-                --   VLiftCirc $ abst [d,c] (abst env unbox_morph)
-                -- else
-                  case unbox_morph of
-                       Lam bd ->
-                         open bd $ \ ys m ->
-                           VLiftCirc $ abst ((d:xs)++ys ++ [c]) (abst env m)
+          res = case unbox_morph of
+            Lam bd ->
+              open bd $ \ ys m ->
+              VLiftCirc $ abst ((d:xs)++ys ++ [c]) (abst env m)
       in res
   where makeInOut (Arrow t t') =
           let (ins, outs) = makeInOut t'
@@ -569,7 +605,7 @@ makeControl id ps t =
           in Lam (abst (xs) (Pair (App e pairs) (Var c))) 
 
 
--- | Make a type function for runtime wires generation.
+-- | Make a type function for runtime labels generation.
 makeTypeFun n k0 ((c, (Nothing, ty)):[]) =
      let (env, m) = removePrefixes False ty
          vars = map (\ (Just x , _) -> x) env
@@ -610,7 +646,7 @@ makeTypeFun n k0 xs@((_, (Just i, _)):_) =
              toPat p = let (h, as) = unwind AppFlag p
                        in PApp (getConst h) (map (\ a -> Right (getVar a)) as)
 
--- typeChecking b exp ty | trace ("checking:" ++ (show $ dispRaw exp) ++ ":" ++ (show $ dispRaw ty)) $ False = undefined
+-- | A wrapper on 'typeCheck' function. 
 typeChecking b exp ty =
   do (ty', exp') <- typeCheck b exp ty
      exp'' <- resolveGoals exp'
@@ -618,43 +654,13 @@ typeChecking b exp ty =
      ty'' <- resolveGoals ty' >>= updateWithSubst
      return (unEigen ty'', unEigen r)
 
--- a version of type checking for elaborateInstance that avoid checking forall param
-typeChecking' b exp ty =
-  do setCheckBound False
-     (ty', exp') <- typeCheck b exp ty
-     setCheckBound True
-     exp'' <- updateWithSubst exp'
-     r <- resolveGoals exp''
-     return (unEigen r)
 
--- a version of typeChecking that uses unEigenBound instead of unEigen
-typeChecking'' vars b exp ty =
-  do (ty', exp') <- typeCheck b exp ty
-     exp'' <- resolveGoals exp'
-     r <- updateWithSubst exp''
-     ty'' <- resolveGoals ty' >>= updateWithSubst
-     return (unEigenBound vars ty'', unEigenBound vars r)
-
--- a version of typeChecking for infer mode
-typeChecking''' b exp ty =
-  do setInfer True
-     (ty', exp') <- typeCheck b exp ty
-     setInfer False
-     exp'' <- updateWithSubst exp'
-     r <- resolveGoals exp''
-     ty'' <- resolveGoals ty' >>= updateWithSubst
-     return (unEigen ty'', unEigen r)
-
+-- | A wrapper on 'proofCheck' function.
 proofChecking b exp ty =
   proofCheck b exp ty `catchError` \ e -> throwError $ PfErrWrapper exp e ty
 
-typeInfering b exp =
-  do (ty', exp') <- typeInfer b exp
-     exp'' <- resolveGoals exp'
-     r <- updateWithSubst exp''
-     ty'' <- resolveGoals ty' >>= updateWithSubst
-     return (unEigen ty'', unEigen r)
 
+-- | A helper function for generating a list of string.
 genNames uv =
   let n = size uv
       ls = "l":ls

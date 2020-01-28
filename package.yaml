@@ -2,9 +2,9 @@ name:                dpq
 version:             0.1.0.0
 github:              "https://gitlab.com/frank-peng-fu/dpq-remake.git"
 license:             BSD3
-author:              "Frank Fu"
-maintainer:          "example@example.com"
-copyright:           "2019 Frank Fu"
+author:              "Frank (Peng) Fu, Peter Selinger"
+maintainer:          "peng.frank.fu@gmail.com"
+copyright:           "2019"
 
 extra-source-files:
 - README.md
