@@ -2,7 +2,7 @@
 -- module is independent from the rest of the dpq modules. In other
 -- words, it just gives a different view on the circuit model.
 
-module Printcircuits (printCirc, printCirc_fd) where
+module Printcircuits where
 
 import Syntax
 import SyntacticOperations
@@ -173,7 +173,8 @@ get_sign (Signed a b) = b
 -- | An unsafe version of 'Map.lookup'. This should only be used for
 -- keys that are guaranteed to be in the map. It is an error to call
 -- this function otherwise.
-mapLookup :: Map a b -> a -> b
+
+mapLookup :: (Ord a, Disp a) => Map a b -> a -> b
 mapLookup ds x = case Map.lookup x ds of
                       Nothing -> error $ "can't find " ++ show (disp x)
                       Just v -> v
