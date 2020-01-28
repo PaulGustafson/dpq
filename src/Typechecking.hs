@@ -661,7 +661,7 @@ typeCheck flag (LetPat m bd) goal =
                  -- as the branch is really global!.
                  -- when isDpm $ updateSubst ss
                  -- when (not isDpm) $ updateSubst subb
-                 mapM removeInst ins
+                 mapM removeLocalInst ins
                  let axs' = map (substVar subb) axs
                      goal''' = substitute subb goal''
                      res = LetPat ann (abst (PApp kid axs') ann2')
@@ -754,7 +754,7 @@ typeCheck flag a@(Case tm (B brs)) goal =
                          -- axs as well before binding.
                          let axs' = map (substVar subb) axs
                          mapM_ (\ (Right v) -> removeVar v) vs
-                         mapM removeInst ins
+                         mapM removeLocalInst ins
                          return (goal''', abst (PApp kid axs') ann2')
 
 typeCheck flag tm ty = equality flag tm ty

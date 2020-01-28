@@ -1,3 +1,7 @@
+-- | This module simulates classical boolean circuits, i.e., circuits
+-- that consist of {CNot, QNot, Init0, Init1, Term0, Term1, CNotGate,
+-- ToffoliGate, Not_g} from the "lib/Gates.dpq".
+
 module Simulation where
 
 import SyntacticOperations hiding (toBool)
@@ -12,9 +16,49 @@ import Control.Monad.Except
 import Text.PrettyPrint
 
 import Debug.Trace
--- * A simulator for classical circuits
 
+-- | The boolean simulation monad. It maintains a global state
+-- that tracks the boolean values for labels. 
 type Simulate a = ExceptT SimulateError (State (Map Label Bool)) a
+
+-- | Apply a circuit to a given value, return the result.
+runCircuit :: Morphism -> Value -> Either SimulateError Value
+runCircuit (Morphism minput gs moutput) input =
+  let m = makeValueMap minput input
+      m' = runState (runExceptT $ runGates gs) m
+  in
+   case m' of
+     (Left e@(AssertionErr _ _ _), _) -> Left $ WrapGates gs e
+     (Left e, _) -> Left e
+     (Right _, m'') -> Right $ makeOutput m'' moutput
+  where runGates gs = mapM_ applyGate gs       
+        -- Construct a map of values from a template and a boolean value term. 
+        makeValueMap :: Value -> Value -> Map Label Bool
+        makeValueMap VStar VStar = Map.empty
+        makeValueMap (VConst x) (VConst y) | x == y = Map.empty
+        makeValueMap (VLabel l) a@(VConst x) =
+          Map.fromList [(l, toBool a)]
+        makeValueMap (VPair x y) (VPair a b) =
+          let m1 = makeValueMap x a
+              m2 = makeValueMap y b
+          in Map.union m1 m2
+        makeValueMap (VApp x y) (VApp a b) =
+          let m1 = makeValueMap x a
+              m2 = makeValueMap y b
+          in Map.union m1 m2
+        makeValueMap a b =
+          error $ "from makeValueMap: " ++ (show $ disp a <+> text "," <+> disp b)
+        -- substitute the labels for values in a given template. 
+        makeOutput m a@(VStar) = a
+        makeOutput m a@(VConst _) = a
+        makeOutput m (VLabel l) =
+          case Map.lookup l m of
+            Nothing -> error "from makeOutput"
+            Just i -> fromBool i
+        makeOutput m (VPair x y) =
+          VPair (makeOutput m x) (makeOutput m y)
+        makeOutput m (VApp x y) = 
+          VApp (makeOutput m x) (makeOutput m y)
 
 data SimulateError =
   NotSupported String
@@ -40,59 +84,15 @@ instance Disp SimulateError where
     text "when running the simulation for the circuit:" $$
     vcat (map (display flag) gs)
 
+-- | Boolean data type to Haskell bool. 
 toBool (VConst x) | getName x == "True" = True
 toBool (VConst x) | getName x == "False" = False
 toBool _ = error "unknown boolean format, bools should be comming from the Prelude module"  
 
-makeValueMap :: Value -> Value -> Map Label Bool
-makeValueMap VStar VStar = Map.empty
-makeValueMap (VConst x) (VConst y) | x == y = Map.empty
-makeValueMap (VLabel l) a@(VConst x) =
-  Map.fromList [(l, toBool a)]
-  
-makeValueMap (VPair x y) (VPair a b) =
-  let m1 = makeValueMap x a
-      m2 = makeValueMap y b
-  in Map.union m1 m2
 
-makeValueMap (VApp x y) (VApp a b) =
-  let m1 = makeValueMap x a
-      m2 = makeValueMap y b
-  in Map.union m1 m2
 
--- makeValueMap c (AppType a b) = makeValueMap c a
--- makeValueMap c (AppTm a b) = makeValueMap c a
--- makeValueMap (App x y) (App' a b) = 
---   let m1 = makeValueMap x a
---       m2 = makeValueMap y b
---   in Map.union m1 m2
-
-  
-makeValueMap a b = error $ "from makeValueMap: " ++ (show $ disp a <+> text "," <+> disp b)
-
-makeOutput m a@(VStar) = a
-makeOutput m a@(VConst _) = a
-makeOutput m (VLabel l) =
-  case Map.lookup l m of
-    Nothing -> error "from makeOutput"
-    Just i -> fromBool i
-    
-makeOutput m (VPair x y) =
-  VPair (makeOutput m x) (makeOutput m y)
-makeOutput m (VApp x y) = 
-  VApp (makeOutput m x) (makeOutput m y)
-
-runCircuit :: Morphism -> Value -> Either SimulateError Value
-runCircuit (Morphism minput gs moutput) input =
-  let m = makeValueMap minput input
-      m' = runState (runExceptT $ runGates gs) m
-  in
-   case m' of
-     (Left e@(AssertionErr _ _ _), _) -> Left $ WrapGates gs e
-     (Left e, _) -> Left e
-     (Right _, m'') -> Right $ makeOutput m'' moutput
-  where runGates gs = mapM_ applyGate gs       
-
+-- | Value lookup, since labels are linear, so
+-- they will be garbage collected once a lookup is done.
 lookupValue :: Label -> Simulate Bool
 lookupValue x =
   do m <- get
@@ -103,13 +103,15 @@ lookupValue x =
             put m'
             return i
 
-
+-- | Update the boolean value for a label.
 updateValue :: Label -> Bool -> Simulate ()
 updateValue x v =
   do m <- get
      put $ Map.insert x v m
 
 
+-- | Updating the current state according to the meaning of the
+-- gate, Termination of a wired will invoke a runtime check.
 applyGate :: Gate -> Simulate ()
 applyGate (Gate id [] (VLabel input) (VLabel output) VStar) | getName id == "QNot" = 
   do v <- lookupValue input
@@ -179,9 +181,11 @@ applyGate (Gate name [] (VLabel input) (VLabel output) ctrl) | getName name == "
 applyGate (Gate name ps input output ctrl) =
   throwError $ NotSupported (getName name)
 
+-- | Boolean to boolean data type.
 fromBool True = VConst (Id "True")
 fromBool False = VConst (Id "False")
 
+-- | Add two booleans.
 booleanAdd True False = True
 booleanAdd True True = False
 booleanAdd False True = True

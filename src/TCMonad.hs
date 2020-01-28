@@ -1,4 +1,6 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts, GeneralizedNewtypeDeriving #-}
+-- | This module defines various of utility functions in the 'TCMonad'. 
+
 module TCMonad where
 
 import Utils
@@ -16,17 +18,22 @@ import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.List
 
+-- | Global context.
+type Context = Map Id Info
 
+-- | A data type that captures all the information
+-- about a top-level identifier.
 data Info =
   Info { classifier :: Exp,
          identification :: Identification
        }
 
+-- | Definition and other related information about a top-level identifier.
 data Identification = DataConstr Id  -- ^ Data type id 
                     | DefinedGate Value
                     | DefinedFunction (Maybe (Exp, Value, Maybe Exp))
-                    -- Storing annotation, value   
-                    | DefinedMethod Exp Value --
+                    -- ^ Storing annotation, value, and may be an expression of a basic value.   
+                    | DefinedMethod Exp Value 
                     | DefinedInstFunction Exp Value
                     | DataType DataClassifier [Id] (Maybe Exp)
                       -- ^ A data type, its classifier and its
@@ -43,11 +50,20 @@ data DataClassifier =
   | Unknown 
   deriving (Show, Eq)
 
+-- | Local type checking context. 
+data LContext = LContext {
+  localCxt :: Map Variable VarInfo, -- ^ local variable info.
+  globalCxt  :: Context  -- ^ global typing context.
+  }
+
+-- | A record that captures all the information about a variable
+-- during type checking.
 data VarInfo =
   VarInfo{ varClassifier :: Exp,
            varIdentification :: VarIdentification
          } 
 
+-- | Information about a term variable or a type variable. 
 data VarIdentification = TermVar ZipCount (Maybe Exp)
                          -- ^ a term variable's count and its definition if it is defined
                          -- by let
@@ -55,42 +71,48 @@ data VarIdentification = TermVar ZipCount (Maybe Exp)
                          -- ^ whether a type variable is a parameter variable
 
 
-type Context = Map Id Info
-
-data LContext = LContext {
-  localCxt :: Map Variable VarInfo, -- ^ local variable info.
-  globalCxt  :: Context  -- ^ global typing context.
-  }
-
+-- | Convert a global context to a local one. 
 fromGlobal :: Context -> LContext
 fromGlobal gl = LContext {localCxt = Map.empty, globalCxt = gl }
 
 
+-- | Global instance context. 
 type GlobalInstanceCxt = [(Id, Exp)]
 
 
+-- | A record for local type class instance context.
 data InstanceContext = IC {
-  localInstance :: [(Variable, Exp)],  -- ^ Local instance assumption.  
+  localInstance :: [(Variable, Exp)],  -- ^ Local instance assumptions.  
   globalInstance  :: GlobalInstanceCxt,  -- ^ Global instance identifiers and their types.
   goalInstance :: [(Variable, (Exp, Exp))]  -- ^ Current goal (constraint) variables that
                                              -- needed to be resolved. It has the format:
                                   -- (<variable>, (<type>, <original-term-for-error-info)).
   }
 
+-- | Convert a global instance context into a local one.
 makeInstanceCxt :: GlobalInstanceCxt -> InstanceContext
 makeInstanceCxt gl =
   IC {localInstance = [], globalInstance = gl, goalInstance = []}
 
 
+-- | The type checking monad tranformer. 
+
+newtype TCMonadT m a = TC{runTC :: ExceptT TypeError (StateT TypeState m) a}
+  deriving (Functor, Monad, Applicative, MonadError TypeError, MonadState TypeState)
+
+-- | The type checking monad.
+type TCMonad a = TCMonadT Identity a
+
+-- | A state for 'TCMonad'.
 data TypeState = TS {
-                     lcontext :: LContext,
+                     lcontext :: LContext, -- ^ Current local typing context.
                      subst :: Subst, -- ^ Substitution generated during the type checking.
-                     clock :: Int, -- ^ A counter 
+                     clock :: Int, -- ^ A counter.  
                      instanceContext :: InstanceContext,
                      checkForallBound :: Bool, -- ^ whether or not to check Forall variable
                                               -- is well-quantified. It is uncheck when the
                                               -- type is intended to be used as instance type
-                     infer :: Bool
+                     infer :: Bool -- ^ If it is in infer mode.
                     }
 
 -- | Initial type state from a global typing context and a
@@ -98,25 +120,23 @@ data TypeState = TS {
 initTS :: Map Id Info -> GlobalInstanceCxt -> TypeState
 initTS gl inst = TS (fromGlobal gl) Map.empty 0 (makeInstanceCxt inst) True False
 
--- * The type checking monad tranformer
-
-newtype TCMonadT m a = TC{runTC :: ExceptT TypeError (StateT TypeState m) a}
-  deriving (Functor, Monad, Applicative, MonadError TypeError, MonadState TypeState)
-
-type TCMonad a = TCMonadT Identity a
-
+-- | A run function for 'TCMonadT'
 runTCMonadT :: Context -> GlobalInstanceCxt -> 
                       TCMonadT m a -> m (Either TypeError a, TypeState)
 runTCMonadT env inst m =
   runStateT (runExceptT $ runTC m) (initTS env inst) 
 
+-- | Set whether or not to check the type of a forall-quantified variable is
+-- a parameter type.
 setCheckBound x =
   do st <- get
      put st{checkForallBound = x}
 
+-- | Set current mode to infer mode if input is True.
 setInfer x =
   do st <- get
      put st{infer = x}
+
 
 getCheckBound :: TCMonad Bool
 getCheckBound =
@@ -126,6 +146,7 @@ getInfer :: TCMonad Bool
 getInfer =
   get >>= \ x -> return $ infer x
 
+-- | Lookup an indentifier for information.
 lookupId :: Id -> TCMonad Info
 lookupId x =
   do ts <- get
@@ -134,7 +155,7 @@ lookupId x =
        Nothing -> throwError (NoDef x)
        Just tup -> return tup
 
--- | Note that type variable does not have count
+-- | Lookup a variable from the typing context. Note that type variable does not have count.
 lookupVar :: Variable -> TCMonad (Exp, Maybe ZipCount)
 lookupVar x =
   do ts <- get
@@ -258,7 +279,9 @@ isParam (Exists (Abst x t) ty) =
      return $ x && y
 isParam a | otherwise = return False
 
-
+-- | Check if an expression is a semi-parameter type. For example,
+-- List a and Vec a are both semi-parameter types because if a is a parameter type,
+-- then both List a and Vec a are parameter types.
 isSemiParam :: Exp -> TCMonad Bool
 isSemiParam a | isKind a = return True
 isSemiParam (Unit) = return True
@@ -322,7 +345,7 @@ updateCount x =
                     gamma' = gamma {localCxt = lty'}
                 put ts{lcontext = gamma'}
 
-     
+-- | The shape operation, it does not transform a kind expression.
 shape a | isKind a = return a
 
 shape Unit = return Unit
@@ -373,8 +396,6 @@ shape a@(AppDep t1 t2) =
          t2' <- shape t2
          return (AppDep' t1' t2')         
 
--- shape a@(AppDep' _ _) = return a
-
 shape (AppDepTy t t') =
   do t1 <- shape t
      return (AppDepTy t1 t')
@@ -419,9 +440,6 @@ shape (Forall (Abst x t) t2) =
 shape a@(Arrow' a1 a2) = 
   Arrow' <$> shape a1 <*> shape a2
 
--- shape a@(Lam' _) = return a
--- shape a@(LamDep' _) = return a
-
 shape (Pi (Abst x t) t2) =
   do t' <- shape t
      t2' <- shape t2
@@ -431,8 +449,6 @@ shape (PiImp (Abst x t) t2) =
   do t' <- shape t
      t2' <- shape t2
      return $ PiImp' (abst x t') t2'
-
--- shape (Label x) = return Star
 
 shape (Lam (Abst x t)) = 
   do t' <- shape t
@@ -460,7 +476,6 @@ shape (LamDict (Abst x t)) =
   do t' <- shape t
      return $ LamDict (abst x t')
 
--- shape RunCirc = return RunCirc
 shape Box = return Box
 shape UnBox = return UnBox
 shape Revert = return Revert
@@ -475,8 +490,6 @@ shape (Case tm (B br)) =
                        do m' <- shape m
                           return $ abst ys m')
           ps
-
--- shape a@(Wired _) = return a
 
 shape (Let m bd) =
   do m' <- shape m 
@@ -498,7 +511,7 @@ shape (LetPat m (Abst (PApp id vs) b)) =
 shape (Pos _ a) = shape a
 shape a = error $ "from shape: " ++ (show $ disp a)
 
-
+-- | Update an expression with the current substitution generated by the unification.
 updateWithSubst :: Exp -> TCMonad Exp
 updateWithSubst e =
   do ts <- get
@@ -581,6 +594,8 @@ updateParamInfo (p:ps) =
                             gamma' = gamma {localCxt = lti'}
                         put ts{lcontext = gamma'}
 
+
+-- | Add a local instance assumption for instance resolution. 
 insertLocalInst :: Variable -> Exp -> TCMonad ()
 insertLocalInst x t =
   do ts <- get
@@ -589,7 +604,7 @@ insertLocalInst x t =
          env' = env{localInstance = gamma'}
      put ts{instanceContext = env'}
 
-
+-- | Dual of 'insertLocalInst'.
 removeLocalInst x =
   do ts <- get
      let env = instanceContext ts
@@ -597,7 +612,8 @@ removeLocalInst x =
          env' = env{localInstance = gamma'}
      put ts{instanceContext = env'}
 
-
+-- | Generating a list of names that is freshed relatively to the
+-- clock value.
 newNames :: [String] -> TCMonad [String]
 newNames ns =
   do ts <- get
@@ -610,7 +626,6 @@ newNames ns =
 -- | check if a *program* is in value form.
 isValue (Pos p e) = isValue e
 isValue (Var _) = return True
--- isValue (Label _) = return True
 isValue Star = return True
 isValue (Const _) = return True
 isValue (EigenVar _) = return True
@@ -643,10 +658,10 @@ isValue a@(AppDep' t t') = checkApp isValue a
 isValue a@(AppDict t t') = checkApp isValue a
 isValue a@(AppType t t') = isValue t
 isValue a@(AppTm t t') = isValue t
--- isValue a@(Wired _) = return True
 isValue a@(RunCirc) = return True
 isValue _ = return False
 
+-- | A helepr function for 'isValue'.
 checkApp f a = 
   case flatten a of
     Just (h, args) -> 
@@ -684,6 +699,8 @@ isBasicValue a@(VApp t t') =
 isBasicValue (VStar) = return True        
 isBasicValue _ = return False       
 
+-- | Check if the current context is a parameter context, this is
+-- used for checking a lift term. 
 checkParamCxt :: Exp -> TCMonad ()
 checkParamCxt t =
   let fvars = getVars AllowEigen t
@@ -703,6 +720,8 @@ checkParamCxt t =
                            p <- isParam tt
                            when (not p) $ throwError $ LiftErrVar x t tt
 
+-- | Check if a variable is used according to linearity
+-- in an expression.
 checkUsage :: Variable -> Exp -> TCMonad ()
 checkUsage x m = 
   do (t', count) <- lookupVar x
@@ -718,11 +737,13 @@ checkUsage x m =
                        | otherwise -> throwError $ (LVarErr x m c t')
 
 
+-- | update the current substitution.
 updateSubst :: Subst -> TCMonad ()
 updateSubst ss =
   do ts <- get
      put ts{subst = ss}
 
+-- | Get the current substitution.
 getSubst :: TCMonad Subst
 getSubst =
   do ts <- get
@@ -735,15 +756,7 @@ withPosition (Pos p e) er@(ErrPos _ _) = er
 withPosition (Pos p e) er = ErrPos p er
 withPosition _ er = er
 
-
-removeInst :: Variable -> TCMonad ()
-removeInst x =
-  do ts <- get
-     let env = instanceContext ts
-         gamma' = deleteBy (\ a b -> fst a == fst b) (x, Unit) $ localInstance env
-         env' = env{localInstance = gamma'}
-     put ts{instanceContext = env'}
-
+-- | Apply the current substitution to the local instance assumptions.
 updateLocalInst :: Subst -> TCMonad ()     
 updateLocalInst sub =
   do ts <- get
@@ -752,7 +765,7 @@ updateLocalInst sub =
          gi' = map (\ (x, t) -> (x, substitute sub t)) gi
      put ts{instanceContext = tc{localInstance = gi'}}
 
-
+-- | Update the count information according to the input function. 
 updateCountWith :: (ZipCount -> ZipCount) -> TCMonad ()
 updateCountWith update = 
   do ts <- get
@@ -783,14 +796,13 @@ addNewId x t =
 
 
 -- | Check whether a type contains any vacuous forall quantification.
-
 checkVacuous pos ty =
   case vacuousForall ty of
        Nothing -> return ()
        Just (Nothing, vs, ty, m) -> throwError (Vacuous pos vs ty m)
        Just (Just p, vs, ty, m) -> throwError (Vacuous p vs ty m)
 
-
+-- | Add an instance function to the global instance context.
 addGlobalInst :: Id -> Exp -> TCMonad ()
 addGlobalInst x t =
   do ts <- get
@@ -799,7 +811,7 @@ addGlobalInst x t =
          env' = env{globalInstance = gamma'}
      put ts{instanceContext = env'}
 
+-- | Add an error position when possible.
 collapsePos p a@(ErrPos _ _) = a
--- collapsePos p a@(ProofCheckErr e) = ProofCheckErr $ collapsePos p e
 collapsePos p a = ErrPos p a
 
