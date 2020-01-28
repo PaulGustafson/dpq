@@ -31,6 +31,10 @@ import Data.Map (Map)
 import Control.Monad.Except
 import Text.PrettyPrint
 
+-- | Perform top-level action on the command line input. The most complicated
+-- piece of code is about loading a file, here we implement a very simple kind of
+-- circularity checking for importation. There is no module system here, implementing
+-- one is left for further work. 
 dispatch :: Command -> Top Bool
 dispatch Quit = return False
 dispatch Help =
@@ -47,7 +51,7 @@ dispatch Help =
                ":e <expr>               display an existential circuit in a previewer\n" ++
                ":p <expr> \"filename\"    print a circuit to a file\n" ++
                ":r                      reload the most recent file, clear circuit state\n" ++
-               -- ":s                      show the current top-level circuit\n" ++
+               ":s                      show the current top-level circuit\n" ++
                ":q                      exit interpreter\n" ++
                ":h                      show this list of commands\n" ++
                -- ":g <expr>               gate count" ++
@@ -251,7 +255,6 @@ dispatch (Load verbose file) =
                            pst <- getPState
                            (decls, pst') <- parserTop $ parseModule file str pst
                            putPState pst'
-                           --processDecls decls
                            decls' <- resolution decls
                            tcTop $ mapM process decls'
                            addImported file
@@ -260,7 +263,7 @@ dispatch (Load verbose file) =
 
 
 
-
+-- | Initialize instances of simple class for unit and tensor product.
 initializeSimpleClass d = 
   do vpairs1 <- makeBuildinClass d "Simple" 1
      s <- topResolve (C.Base "Simple")
@@ -278,7 +281,7 @@ initializeSimpleClass d =
                      (A.App s $ A.Tensor (A.Var a) (A.Var b))) A.Set
      tcTop $ elaborateInstance (BuildIn (i+1)) instSimp2 pt []
 
-
+-- | Initialize instances of SimpParam class for unit and tensor product.
 initializeSimpParam d = 
   do vpairs1 <- makeBuildinClass d "SimpParam" 2
      s <- topResolve (C.Base "SimpParam")
@@ -298,8 +301,7 @@ initializeSimpParam d =
                      (A.App (A.App s $ A.Tensor (A.Var a) (A.Var b)) (A.Tensor (A.Var c) (A.Var d)))) A.Set
      tcTop $ elaborateInstance (BuildIn (i+1)) instSimp2 pt []
 
--- | Initialze the 'Parameter' class and its three build-in instances,
--- i.e. unit, bang and tensor.
+-- | Initialze instances of Parameter class for unit, bang type and tensor product.
 initializeParameterClass d = 
   do vpairs1 <- makeBuildinClass d "Parameter" 1
      s <- topResolve (C.Base "Parameter")

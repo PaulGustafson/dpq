@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
--- | This module define the 'erasure' function, it erases
--- an annotated expression into lambda expression without irrelevant annotations.
--- The erasrue function also perform a check, i.e., checking if an irrelevant variable
+-- | This module defines the 'erasure' function, it erases
+-- an annotated expression to a lambda expression without irrelevant annotations.
+-- The erasrue function also checks if an irrelevant variable
 -- is used as an explicit argument. 
 
 module Erasure where

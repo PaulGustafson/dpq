@@ -1,4 +1,9 @@
-module Printcircuits where
+-- | A circuit displaying module. It is
+-- adapted from the circuit printing code in <https://www.mathstat.dal.ca/~selinger/quipper/doc/Quipper-Internal-Printing.html Quipper>. This module is independent from the rest of
+-- of dpq modules, in another word, it just gives a different view on the circuit model.
+
+module Printcircuits (printCirc, printCirc_fd) where
+
 import Syntax
 import SyntacticOperations
 import Utils
@@ -17,7 +22,7 @@ import qualified Data.Set as S
 
 
 
--- Disclaimer: the following code are modified from Quipper
+
 
 -- | The color white.
 white :: Color
@@ -419,25 +424,6 @@ render_gate fs (Gate name [] (VLabel w) VStar VStar) x ys maxh
       t = render_term fs "1" x y
   in (return (), t)
 
--- render_gate fs (Gate name [v1, v2] input outs) x ys maxh | getName name == "ToffoliGate" =
---   let ymap w = ys `mapLookup` w
---       ws1 = getWires input
---       s2 = render_controlwire x ys ws1 []
---       t2 = render_multi_gate fs x ys ("T("++(show $ toBool v1) ++","++ (show $ toBool v2)++")") ws1
---       t3 = render_controldots fs x ys []
---       t4 = render_multi_genctrl fs x ys []
---   in (s2, t2 >> t3 >> t4)
-
--- render_gate fs (Gate name [WrapR (MR l r)] (VPair (VLabel w) (VLabel c)) output ctrl) x ys maxh
---   | "C_" `isPrefixOf` (getName name) =
---   let 
---       c' = positive c
---       cs = getWires ctrl
---       ctrls = map positive cs
---       s2 = render_controlwire x ys ([w]++[c]) (c':ctrls)
---       t2 = render_multi_gate fs x ys (getName name ++ "("++ showCReal (fromInteger l) r ++")") [w]
---       t3 = render_controldots fs x ys (c':ctrls)
---   in (s2, t2 >> t3)
 
 render_gate fs (Gate name params (VPair (VLabel w) (VLabel c)) output ctrl) x ys maxh
   | "C_" `isPrefixOf` (getName name) =
@@ -449,17 +435,6 @@ render_gate fs (Gate name params (VPair (VLabel w) (VLabel c)) output ctrl) x ys
       t2 = render_multi_gate fs x ys (getName name) [w]
       t3 = render_controldots fs x ys (c':ctrls)
   in (s2, t2 >> t3)
-
-
--- render_gate fs (Gate name [(WrapR (MR l r))] input outs ctrl) x ys maxh =
---   let ymap w = ys `mapLookup` w
---       ws1 = getWires input
---       cs = getWires ctrl
---       ctrls = map positive cs
---       s2 = render_controlwire x ys (ws1++cs) ctrls
---       t2 = render_multi_gate fs x ys (getName name ++ "("++ showCReal (fromInteger l) r ++")") ws1
---       t3 = render_controldots fs x ys ctrls
---   in (s2, t2 >> t3)
 
 render_gate fs (Gate name [] input outs ctrl) x ys maxh =
   let ymap w = ys `mapLookup` w
@@ -473,7 +448,7 @@ render_gate fs (Gate name [] input outs ctrl) x ys maxh =
 
 
   
-render_gate fs a x ys maxh = -- ioError $ userError $ "printing is not supported for gate:\n" ++ (show $ disp a)
+render_gate fs a x ys maxh = 
   error $ "printing is not supported for gate:\n" ++ (show $ disp a)
 
 -- removed type for the wires
@@ -575,23 +550,14 @@ wirelist [] = []
 wirelist (Gate _ _ input output ctrl : gs) =
  (getWires input) ++ (getWires output) ++ (getWires ctrl) ++ (wirelist gs)
 
--- wirelist :: [Gate] -> Set Wire
--- wirelist [] = S.empty
--- wirelist (Gate _ _ input output ctrl : gs) =
---  let s1 = S.fromList $ (getWires input) ++ (getWires output) ++ (getWires ctrl)
---  in S.union s1 (wirelist gs)
-
 
 page_of_ocircuit :: FormatStyle -> Value -> Document ()
 page_of_ocircuit fs (Wired bd) =
   open bd $ \ ws (VCircuit (Morphism q1 ocirc q2)) ->
   let sc = 10
-      (gs, _) = refresh_gates' Map.empty ocirc []
-      -- ws1 = (S.fromList $ getWires q1) `S.union` (wirelist gs)
-      -- ws = S.toList ws1
+      (gs, _) = refresh_gates Map.empty ocirc []
       ws = getWires q1 `List.union` wirelist gs
       raw_height = fromIntegral $ List.length ws
-        -- fromIntegral $ List.length ws
       ys = Map.fromList (zip (reverse ws) [0.0 ..])
       maxh = raw_height + 0.3
       bboxy = sc * (raw_height + 1)
@@ -607,12 +573,13 @@ page_of_ocircuit fs (Wired bd) =
     rendered_wires
     rendered_gates
 
-
+-- | Print a circuit to a file path. 
 printCirc circ s = do
   h <- openFile s WriteMode
   render_file h Format_PDF (page_of_ocircuit pdf circ)
   hClose h
 
+-- | Print a circuit to a file handle. 
 printCirc_fd circ h = do
   render_file h Format_PDF (page_of_ocircuit pdf circ)
 
@@ -622,54 +589,36 @@ printCirc_fd circ h = do
 -- | 'refresh_gates' relabels each gate to ensure the input and output wires
 -- have the same label names.
 -- It assumes each gate are regular: i.e. input and output should
--- have the same arity for all the nonterminal gates. 
---refresh_gates :: Map Variable Variable -> [Gate] -> ([Gate], Map Variable Variable)
-refresh_gates m [] = ([], m)
-refresh_gates m (Gate name vs input output ctrl : gs) =
-  let newInput = renameTemp input m
-      newCtrl = renameTemp ctrl m
-      outWires = getWires output
-      newOutput = case output of
-                    VStar -> VStar
-                    _ -> case newInput of
-                              VStar -> output
-                              _ -> newInput
-      ins = getWires newInput
-      newMap = m `Map.union` Map.fromList (zip outWires ins)
-      (gs', newMap') = refresh_gates newMap gs
-  in (Gate name vs newInput newOutput newCtrl : gs', newMap') 
+-- have the same arity for all the nonterminal gates. It tries to re-use
+-- the label names once a label is terminated. 
 
--- A version of refresh_gates that reuse terminals position
-
--- refresh_gates' :: Map Variable Variable -> [Gate] -> [Variable] ->
---                       ([Gate], Map Variable Variable)
-refresh_gates' m [] s = ([], m)
-refresh_gates' m (Gate name [] input VStar VStar : gs) s
+refresh_gates m [] s = ([], m)
+refresh_gates m (Gate name [] input VStar VStar : gs) s
   | getName name == "Term0" || getName name == "Term1" =
     let newInput = renameTemp input m
-        (gs', newMap') = refresh_gates' m gs (getWires newInput ++ s)
+        (gs', newMap') = refresh_gates m gs (getWires newInput ++ s)
     in (Gate name [] newInput VStar VStar : gs', newMap')
 
-refresh_gates' m (Gate name [] VStar output VStar : gs) []
+refresh_gates m (Gate name [] VStar output VStar : gs) []
   | getName name == "Init0" || getName name == "Init1" =
-    let (gs', newMap') = refresh_gates' m gs []
+    let (gs', newMap') = refresh_gates m gs []
     in (Gate name [] VStar output VStar : gs', newMap')
 
-refresh_gates' m (Gate name [] VStar output VStar : gs) (h:s)
+refresh_gates m (Gate name [] VStar output VStar : gs) (h:s)
   | getName name == "Init0" || getName name == "Init1" =
     let x:[] = getWires output
         m' = m `Map.union` Map.fromList [(x, h)]
-        (gs', newMap') = refresh_gates' m' gs s
+        (gs', newMap') = refresh_gates m' gs s
     in (Gate name [] VStar (VLabel h) VStar : gs', newMap')
     
-refresh_gates' m (Gate name vs input output ctrl : gs) s =
+refresh_gates m (Gate name vs input output ctrl : gs) s =
   let newInput = renameTemp input m
       newCtrl = renameTemp ctrl m
       outWires = getWires output
       newOutput = newInput
       ins = getWires newInput
       newMap = m `Map.union` Map.fromList (zip outWires ins)
-      (gs', newMap') = refresh_gates' newMap gs s
+      (gs', newMap') = refresh_gates newMap gs s
   in (Gate name vs newInput newOutput newCtrl : gs', newMap') 
 
 isBool (VConst x) | getName x == "True" = True

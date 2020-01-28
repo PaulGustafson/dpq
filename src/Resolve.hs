@@ -124,7 +124,7 @@ instance Disp ScopeError where
 -- | A monad for scope resolution.
 type Resolve a = ExceptT ScopeError Identity a
 
--- | A run function for the R monad.
+-- | A run function for the Resolve monad.
 runResolve :: Resolve a -> Either ScopeError a
 runResolve m = runIdentity $ runExceptT m
 
@@ -194,13 +194,6 @@ resolve d (C.Pair m n) =
      n' <- resolve d n
      return (Pair m' n')
 
--- resolve d (C.Pack m n) = 
---   do m' <- resolve d m
---      n' <- resolve d n
---      return (Pack m' n')
-
-     
-     
 resolve d (C.Let [] m) = resolve d m
 
 resolve d (C.Let ((C.BSingle (s, n)):defs) m) =
@@ -222,12 +215,6 @@ resolve d (C.Let ((C.BAnn (s, ty, n)):defs) m) =
      ty' <- resolve d ty
      m' <- resolve d' (C.Let defs m)
      return (Let (WithType n' ty') (abst x m'))
-
--- resolve d (C.Let ((C.BExist (s, s', m)):defs) n) = 
---   lscopeVars d [s, s'] $ \d' (x:y:[]) -> 
---     do m' <- resolve d m
---        n' <- resolve d' (C.Let defs n)
---        return (LetEx m' ((x,y).n'))
 
 resolve d (C.Let ((C.BPattern (c, vs, m)):defs) n) =
   do vs' <- mapM helper vs
@@ -397,8 +384,6 @@ resolveDecl scope (C.Defn p f qs args def) | not $ null args =
            toForall ((Left s):xs) m = C.Imply [s] (toForall xs m)
            toForall (Right (vs, t):xs) m =
              C.Forall [(vs, t)] (toForall xs m)
-           -- toForall (Right (Left (vs, t)):xs) m =
-           --   C.PiImp vs t (toForall xs m)
 
 
 resolveDecl scope (C.Data p d ts vs constrs) =
@@ -419,7 +404,6 @@ resolveDecl scope (C.Data p d ts vs constrs) =
                                         Left (y, e) -> C.Pi y e z
                                         Right e -> C.Arrow e z
                                  ) hd cArgs1
-                      -- t = foldr (\ (xs, t) y -> C.Forall [(xs, t)] y) (C.Imply ts ty) vs
                       t = floatingParam ts vs ty []
                   t' <- resolve lsc' t
                   (cs', sc'') <- resolveConstrs sc' hd ts env cs
@@ -466,9 +450,7 @@ resolveDecl scope (C.Class pos c vs mths) =
                  do (d, scope'') <- addConst p mname Const scope'
                     let lscope' = toLScope scope''
                         ty = C.Bang $ C.Forall vs (C.Imply [head] mty)
-                        -- ty1 = C.Bang $ C.Forall vs (C.Arrow head mty) 
                     ty' <- resolve lscope' ty
-                    -- ty'' <- resolve lscope' ty1
                     (res, scope''') <- makeMethods scope'' head vs cs
                     return ((p, d, ty'):res, scope''')
 
