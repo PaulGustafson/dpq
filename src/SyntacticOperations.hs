@@ -1,3 +1,5 @@
+-- | This module defines various of syntactic operations on the abstract syntax.
+
 module SyntacticOperations where
 
 import Syntax
@@ -80,14 +82,14 @@ vacuousForall (Pos p e) =
     Just r -> Just r
 vacuousForall a = Nothing
 
-
+-- | Flags for getting various of variables.
 data VarSwitch = GetGoal -- ^ Get goal variables only.
   | OnlyEigen  -- ^ Obtain only eigen variables from an expression.
   | AllowEigen  -- ^ Free variables in clude eigen variables
   | NoEigen -- ^ Free variables does not clude eigen variables
   | NoImply -- ^ Does not include the variables that occurs in the type class constraints. 
 
-
+-- | Get a set of variables from an expression according to the flag.
 getVars :: VarSwitch -> Exp -> S.Set Variable
 getVars b a@(EigenVar x) = varSwitch b a
 getVars b a@(Var x) = varSwitch b a
@@ -220,6 +222,7 @@ getVars b (Case t (B brs)) =
 getVars b (Pos p e) = getVars b e
 getVars b a = error $ "from getVars  " ++ show (disp a)
 
+-- | A helper function for 'getVars'. 
 varSwitch AllowEigen (EigenVar x) = S.insert x S.empty
 varSwitch OnlyEigen (EigenVar x) = S.insert x S.empty
 varSwitch NoImply (EigenVar x) = S.insert x S.empty
@@ -239,7 +242,7 @@ unPair n (Pair x y) | n > 2 =
      return (r++[y])
 unPair _ _ = Nothing
 
-
+-- | Flatten a n-value-tuple into a list. 
 unVPair n (VPair x y) | n == 2 = Just [x, y]
 unVPair n (VPair x y) | n > 2 =
   do r <- unVPair (n-1) x
@@ -282,7 +285,7 @@ flattenArrows (Imply t1 t2) =
 flattenArrows a = ([], a)  
 
 
--- | Remove the leading forall and class quantifiers (if flag is True).
+-- | Remove the leading forall quantifiers, and class quantifiers if flag is True.
 removePrefixes :: Bool -> Exp -> ([(Maybe Variable, Exp)], Exp)
 removePrefixes flag (Forall bd ty) =
   open bd $ \ vs m ->
@@ -301,7 +304,6 @@ removePrefixes flag a = ([], a)
 -- in a applicative form. Left indicates the identifier is a term constructor, Right 
 -- indicates the identifier is a type construtor.
 -- 'flatten' also returns a list of arguments.
-
 
 flatten :: Exp -> Maybe (Either Id Id, [Exp])
 flatten (Base id) = return (Right id, [])
@@ -331,6 +333,7 @@ flatten (AppTm t1 t2) =
 flatten (Pos p e) = flatten e
 flatten _ = Nothing
 
+-- | Flatten an applicative value. 
 vflatten :: Value -> Maybe (Either Id Id, [Value])
 vflatten (VBase id) = return (Right id, [])
 vflatten (VLBase id) = return (Right id, [])
@@ -350,7 +353,7 @@ isKind (Forall b ty) = open b $ \ vs b' -> isKind b'
 isKind (Pos _ e) = isKind e
 isKind _ = False
 
-
+-- | Erase the positions from an expression.
 erasePos (Pos _ e) = erasePos e
 erasePos (Unit) = Unit
 erasePos (Set) = Set
@@ -407,6 +410,7 @@ erasePos (LetPat m (Abst (PApp id vs) b)) = LetPat (erasePos m) (abst (PApp id v
 erasePos (Case e (B br)) = Case (erasePos e) (B (map helper br))
   where helper (Abst p m) = abst p (erasePos m)
 erasePos e = error $ "from erasePos " ++ (show $ disp e)
+
 
 isEigenVar (EigenVar _) = True
 isEigenVar (Pos p e) = isEigenVar e
@@ -674,7 +678,7 @@ unEigenBound vars a@(Case e (B br)) =
           in (bv, (Left (NoBind x')):fv)
 unEigenBound vars a = error $ "from unEigenBound" ++ (show $ disp a)
 
-
+-- | Flags for 'unwind'.
 data UnwindFlag = AppFlag | App'Flag | AppDep'Flag
                 | AppDepFlag | AppDictFlag 
   deriving (Show, Eq)
@@ -709,18 +713,16 @@ obtainPos :: Exp -> Maybe Position
 obtainPos (Pos p e) = Just p
 obtainPos _ = Nothing
 
+-- | Obtain the labels from a simple term.
 getWires (VLabel x) = [x]
 getWires (VConst _) = []
 getWires VStar = []
 getWires (VApp e1 e2) = getWires e1 ++ getWires e2
--- getWires (AppDep e1 e2) = getWires e1 ++ getWires e2
 getWires (VPair e1 e2) = getWires e1 ++ getWires e2
 getWires a = error $ "applying getWires function to an ill-formed template:" ++ (show $ disp a)
 
 
-
-
-
+-- | Check if a variable is used explicitly for runtime evaluation.
 isExplicit s (App t tm) =
    (isExplicit s t) || (isExplicit s tm)
 
