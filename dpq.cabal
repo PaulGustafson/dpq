@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 508a34405eb7d1eae1ea758c6c45455db1085916898f88a1894386cdc8aa4119
+-- hash: b27695340f68f9190d8ad428e81528978686a56299bea2f54374c7468a1874fe
 
 name:           dpq
 version:        0.1.0.0
@@ -13,7 +13,7 @@ description:    Please see the README at <https://gitlab.com/frank-peng-fu/dpq-r
 homepage:       https://github.com/https://gitlab.com/frank-peng-fu/dpq-remake.git#readme
 bug-reports:    https://github.com/https://gitlab.com/frank-peng-fu/dpq-remake.git/issues
 author:         Frank (Peng) Fu, Peter Selinger
-maintainer:     peng.frank.fu@gmail.com
+maintainer:     peng.frank.fu@gmail.com, selinger@mathstat.dal.ca
 copyright:      2019
 license:        BSD3
 license-file:   LICENSE

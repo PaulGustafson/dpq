@@ -3,7 +3,7 @@ version:             0.1.0.0
 github:              "https://gitlab.com/frank-peng-fu/dpq-remake.git"
 license:             BSD3
 author:              "Frank (Peng) Fu, Peter Selinger"
-maintainer:          "peng.frank.fu@gmail.com"
+maintainer:          "peng.frank.fu@gmail.com, selinger@mathstat.dal.ca"
 copyright:           "2019"
 
 extra-source-files:
