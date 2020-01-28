@@ -1,5 +1,8 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
-
+-- | This module implements a "proof checker" that checks the results
+-- produced from the elaborator (Typechecking module). The proof checker
+-- is also bi-directional. The unification is only used for dependent
+-- pattern matching. 
 
 module Proofchecking where
 
@@ -21,9 +24,14 @@ import Data.Map (Map)
 import Debug.Trace
 
 
--- | A bidirectional proof checker that is mutually defined with proofInfer.
--- The flag indicates if it is a pure type checking
+-- | Check an expression against a type. 
+-- The flag indicates if it is a parameter type checking.
+-- Here parameter type checking means using shape of the context to
+-- type check a parameter term. 
 proofCheck :: Bool -> Exp -> Exp -> TCMonad ()
+
+
+-- | Infer a type for an expression. 
 proofInfer :: Bool -> Exp -> TCMonad Exp
 
 
@@ -34,12 +42,6 @@ proofInfer True (Base kid) =
   lookupId kid >>= \ x -> return $ (classifier x)
 proofInfer True Unit = return Set
 proofInfer True Set = return Sort
--- proofInfer flag (Bang ty) =
---   do a <- proofInfer True ty
---      case a of
---        Set -> return Set
---        b -> throwPfError (NotEq ty Set b)
-
 proofInfer True ty@(Arrow t1 t2) =
   do a1 <- proofInfer True t1
      a2 <- proofInfer True t2
@@ -48,8 +50,6 @@ proofInfer True ty@(Arrow t1 t2) =
        (Set, Sort) -> return Sort
        (Sort, Sort) -> return Sort
        (b1, b2) -> throwError (NotEq ty Set (Arrow b1 b2))
-
-
 proofInfer True ty@(Circ t1 t2) =
   do a1 <- proofInfer True t1
      a2 <- proofInfer True t2
@@ -136,7 +136,6 @@ proofInfer True ty@(Forall bd t) =
               Set -> return Set
 
 
-
 proofInfer flag a@(Var x) =
   do (t, _) <- lookupVar x
      if flag then shape t 
@@ -179,8 +178,7 @@ proofInfer False a@(AppDep t1 t2) =
               else return $ PiImp (abst (tail xs) m') ty  
 
 
-
-proofInfer True a@(AppDep' t1 t2) =
+proofInfer flag a@(AppDep' t1 t2) =
   do t' <- proofInfer True t1
      case t' of
        b@(Pi' bd ty) -> open bd $ \ xs m ->
@@ -234,10 +232,10 @@ proofInfer flag a@(AppDepTy t1 t2) =
               else return $ PiImp' (abst (tail xs) m') ty
 
 
-proofInfer flag a@(App t1 t2) =
-  do t' <- proofInfer flag t1
+proofInfer False a@(App t1 t2) =
+  do t' <- proofInfer False t1
      case t' of
-       Arrow ty m -> proofCheck flag t2 ty >> return m
+       Arrow ty m -> proofCheck False t2 ty >> return m
        b -> throwError $ ArrowErr t1 b
 
 
@@ -264,12 +262,31 @@ proofInfer flag a@(AppDict t1 t2) =
        b -> throwError $ ArrowErr t1 b
 
 proofInfer flag a@(AppType t1 t2) =
-  proofInfer flag t1 >>= \ t' -> handleForallApp2 flag t' t1 t2
+  do t' <- proofInfer flag t1
+     case erasePos t' of
+       b@(Forall bd kd) | isKind kd -> 
+             open bd $ \ xs m ->
+              do let t2' = toEigen t2
+                 proofCheck True t2 kd
+                 m' <- betaNormalize (apply [(head xs,  t2')] m)
+                 m'' <- if flag then shape m' else return m'
+                 if null (tail xs)
+                   then return m''
+                   else return $ Forall (abst (tail xs) m'') kd
 
 proofInfer flag a@(AppTm t1 t2) =
-  proofInfer flag t1 >>= \ t' -> handleForallApp1 flag t' t1 t2
+  do t' <- proofInfer flag t1
+     case erasePos t' of
+       b@(Forall bd kd) -> 
+             open bd $ \ xs m ->
+              do let t2' = toEigen t2
+                 proofCheck True t2 kd
+                 m' <- betaNormalize (apply [(head xs,  t2')] m)
+                 if null (tail xs)
+                   then return m'
+                   else return $ Forall (abst (tail xs) m') kd
 
-proofInfer False Revert =
+proofInfer flag Revert =
   freshNames ["a", "b"] $ \ [a, b] ->
   let va = Var a
       vb = Var b
@@ -277,7 +294,7 @@ proofInfer False Revert =
       ty = Forall (abst [a, b] t1) Set
   in return ty
 
-proofInfer False UnBox =
+proofInfer flag UnBox =
   freshNames ["a", "b"] $ \ [a, b] ->
   let va = Var a
       vb = Var b
@@ -285,7 +302,7 @@ proofInfer False UnBox =
       ty = Forall (abst [a, b] t1) Set
   in return ty
 
-proofInfer False t@(Box) = freshNames ["a", "b"] $ \ [a, b] ->
+proofInfer flag t@(Box) = freshNames ["a", "b"] $ \ [a, b] ->
   do let va = Var a
          vb = Var b
          simpClass = Id "Simple"
@@ -294,7 +311,7 @@ proofInfer False t@(Box) = freshNames ["a", "b"] $ \ [a, b] ->
          boxType = Pi (abst [a] (Forall (abst [b] t1') Set)) Set
      return boxType
 
-proofInfer False t@(RunCirc) = freshNames ["a", "b", "c", "d"] $ \ [a, b, c, d] ->
+proofInfer flag t@(RunCirc) = freshNames ["a", "b", "c", "d"] $ \ [a, b, c, d] ->
   do let va = Var a
          vb = Var b
          vc = Var c
@@ -305,7 +322,7 @@ proofInfer False t@(RunCirc) = freshNames ["a", "b", "c", "d"] $ \ [a, b, c, d] 
          res = Forall (abst [a, b, c, d] t1') Set
      return res
 
-proofInfer False t@(ExBox) =
+proofInfer flag t@(ExBox) =
   freshNames ["a", "b", "p", "n"] $ \ [a, b, p, n] ->
   do let va = Var a
          vb = Var b
@@ -333,7 +350,7 @@ proofInfer False a@(Force t) =
        Bang ty' -> return ty'
        b -> throwError $ BangErr t b 
 
-proofInfer True a@(Force' t) =
+proofInfer flag a@(Force' t) =
   do ty <- proofInfer True t
      case ty of
        Bang ty' -> shape ty'
@@ -476,28 +493,12 @@ proofCheck flag (LetPair m bd) goal = open bd $ \ xs t ->
                 return res
            Nothing -> throwError $ TensorErr (length xs) m t'
 
--- proofCheck flag (LetEx m bd) goal = open bd $ \ (x, y) t ->
---   do t' <- proofInfer flag m
---      case t' of
---        Exists p t1 ->
---          open p $ \ z t2 ->
---          do addVar x t1
---             let t2' = apply [(z, EigenVar x)] t2
---             addVar y t2'
---             proofCheck flag (apply [(x, EigenVar x)] t) goal
---             when (not flag) $ checkUsage x t >> checkUsage y t 
---             removeVar x
---             removeVar y
---        b -> throwError $ ExistsErr m b
-
-
 proofCheck flag (LetPat m bd) goal  = open bd $ \ (PApp kid args) n ->
   do tt <- proofInfer flag m
      funPac <- lookupId kid
      let dt = classifier funPac
      (isSemi, index) <- isSemiSimple kid
      (head, vs, kid', eigen) <- inst dt args (Const kid)
-     -- tt' <- normalize tt
      let matchEigen = isEigenVar m
          eSub = map (\ x -> (x, EigenVar x)) eigen
          isDpm = isSemi || matchEigen
@@ -596,11 +597,16 @@ proofCheck flag a goal =
      t' <- normalize t1
      when ((erasePos goal') /= (erasePos t')) $ throwError (NotEq a goal' t')
 
+-- | Unification for dependent pattern pattern matching.
 
+-- Technical: in the following, "return $ runUnify head t" can be replaced by
+-- "if head == t then return $ Just Map.empty else return Nothing", as
+-- these two cases are not dependent pattern matching.       
 dependentUnif index isDpm head t =
   if not isDpm then return $ runUnify head t
   else case index of
          Nothing -> return $ runUnify head t
+           
          Just i ->
            case flatten t of
             Just (Right h, args) -> 
@@ -621,32 +627,7 @@ dependentUnif index isDpm head t =
           in helper subst'' vars eSub
         helper subst [] eSub = return $ Just subst
 
-
-handleForallApp1 flag t' t1 t2 = 
-     case erasePos t' of
-       b@(Forall bd kd) -> 
-             open bd $ \ xs m ->
-              do let t2' = toEigen t2
-                 proofCheck True t2 kd
-                 m' <- betaNormalize (apply [(head xs,  t2')] m)
-                 if null (tail xs)
-                   then return m'
-                   else return $ Forall (abst (tail xs) m') kd
-
-handleForallApp2 flag t' t1 t2 = 
-     case erasePos t' of
-       b@(Forall bd kd) | isKind kd -> 
-             open bd $ \ xs m ->
-              do let t2' = toEigen t2
-                 proofCheck True t2 kd
-                 m' <- betaNormalize (apply [(head xs,  t2')] m)
-                 m'' <- if flag then shape m' else return m'
-                 if null (tail xs)
-                   then return m''
-                   else return $ Forall (abst (tail xs) m'') kd
-
--- throwError e = throwError $ ProofCheckErr e
-
+-- | A helper function for checking various of lambda abstractions. 
 handleAbs flag lam prefix bd1 bd2 ty fl =
   open bd1 $ \ xs m -> open bd2 $ \ ys b ->
   if length xs <= length ys
@@ -672,6 +653,8 @@ handleAbs flag lam prefix bd1 bd2 ty fl =
        mapM_ removeVar vs
 
 
+-- | Extending the typing environment according to the information available
+-- in the pattern expression.        
 inst (Arrow t1 t2) (Right x : xs) kid =
   do addVar x t1
      (h, vs, kid', eigen) <- inst t2 xs kid
@@ -698,20 +681,6 @@ inst (Pi bd t) (Right x:xs) kid | not (isKind t) = open bd $ \ ys t' ->
                (h, xs', kid', eigen) <- inst (Pi (abst (tail ys) t'') t) xs kid
                return (h, Right x:xs', kid', x:eigen)
 
--- inst isSemi (Forall bd ty) xs kid | isKind ty = open bd $ \ ys t' -> 
---   do mapM_ (\ x -> addVar x ty) ys
---      let kid' = foldl AppType kid (map Var ys)
---      (h, xs', kid'') <- inst isSemi t' xs kid'
---      return (h, xs', kid'')
-
--- not in dependent pattern matching mode
--- inst False (Forall bd ty) xs kid = open bd $ \ ys t' -> 
---   do mapM_ (\ x -> addVar x ty) ys
---      let kid' = foldl AppTm kid (map Var ys)
---      (h, xs', kid'') <- inst False t' xs kid'
---      return (h, xs', kid'')
-
-
 inst (Forall bd t) (Right x:xs) kid = open bd $ \ ys t' ->
   do let y = head ys
          t'' = apply [(y, EigenVar x)] t'
@@ -737,4 +706,4 @@ inst (Forall bd t) (Left (NoBind x):xs) kid = open bd $ \ ys t' ->
                return (h, Left (NoBind x'):xs', kid', eigen)
 
 inst t [] kid = return (t, [], kid, [])            
--- inst flag a b kid = throwError $ InstEnvErr a b
+
