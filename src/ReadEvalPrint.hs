@@ -1,3 +1,9 @@
+-- | This module implements the top-level read eval print loop.
+-- We use <https://hackage.haskell.org/package/haskeline Haskeline library> for
+-- handling command line. The repl calls the 'dispatch' function to handle
+-- user input command. We allow multilines input, as programmer can use ";" to indicate newline.
+-- The repl can also auto-complete names that are in scope. 
+
 module ReadEvalPrint where
 
 import Syntax as A
@@ -49,7 +55,7 @@ read_eval_print_line lineno initString = do
     Just line
       | all isSpace line ->
         if null initString then return (True, lineno)
-        else --read_eval_print_line (lineno+1) (initString ++ "\n")
+        else
           do pst <- lift getPState
              case parseCommand initString pst of
                Left e -> lift $ throwError (ParseErr e)

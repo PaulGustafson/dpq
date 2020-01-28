@@ -1,5 +1,9 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
-module Simplecheck where
+
+-- | This module implements a simplicity checker that checks the correctness
+-- of the simple data type definition. 
+
+module Simplecheck (checkCoverage, checkIndices, preTypeToType) where
 
 
 import TCMonad
@@ -47,7 +51,11 @@ checkCoverage d' cons =
          when (length css /= length cons) $ throwError $ CoverErr css cons d'
          when (not $ null (css \\ cons)) $ throwError (CoverErr css cons d')
 
--- | n is the number of type variables, k is the kind specified in the simple
+-- | Convert a "pretype" expression from the simple data type declaration
+-- into an actual type. It will also check if the simple declaration is
+-- structurally decreasing (in the sense of primitive recursion). 
+
+--  n is the number of type variables, k is the kind specified in the simple
 -- declaration, i is the index, e is the pretype. preTypeToType will return
 -- (<matched-constructor>, <type>)
 preTypeToType :: Int -> Exp -> Maybe Int -> Exp -> TCMonad (Maybe Id, Exp)
@@ -100,7 +108,7 @@ handleBody n k i m =
                   pargs' <- mapM getVar pargs
                   res' <- mapM getVar res
                   return (vs', pargs', res')
-             -- 
+
              instantiation head ty =
                let (env, t) = removePrefixes False ty
                    (argTs, h') = flattenArrows t
