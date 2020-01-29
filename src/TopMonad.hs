@@ -232,7 +232,7 @@ getCounter = do
 
 -- | Add a build in identifier according to the third argument.
 -- For example, @addBuildin (BuildIn i) "Simple" A.Base@.
-addBuildin :: Position -> String -> (Id -> Exp) -> Top Id  
+addBuildin :: Position -> String -> (Id -> A.Exp) -> Top Id  
 addBuildin p x f =
   do scope <- getScope
      case lookupScope scope x of

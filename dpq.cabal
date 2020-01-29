@@ -4,10 +4,10 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: b27695340f68f9190d8ad428e81528978686a56299bea2f54374c7468a1874fe
+-- hash: 712d0e5daf8c6fa1c34eab972490df614bb4266761ad1b890645f2fc8930df79
 
 name:           dpq
-version:        0.1.0.0
+version:        0.0.1
 synopsis:       Dependently typed Proto-Quipper
 description:    Please see the README at <https://gitlab.com/frank-peng-fu/dpq-remake#readme> for information about installation.
 homepage:       https://github.com/https://gitlab.com/frank-peng-fu/dpq-remake.git#readme
