@@ -2,7 +2,7 @@
 -- | An indentation sensitive parser for Proto-Quipper-D.
 -- We use <https://hackage.haskell.org/package/parsec parsec library>
 -- and <https://hackage.haskell.org/package/indents indents library> for parsing. 
-module Parser
+module Parser (ParserState, parseModule, initialParserState, parseImports, parseCommand)
        where
 
 import ConcreteSyntax
@@ -452,43 +452,51 @@ singlePat = wrapPos (try varExp <|> try constExp <|> parens patApp <?> "single p
 singleExp :: Parser Exp
 singleExp = wrapPos (try varExp <|> try constExp <|> parens term <?> "single expression")
 
--- | A parser for annotation. e.g. (x1 x2 :: Nat).
+-- | Parse an annotation. E.g. @(x1 x2 :: Nat)@.
+ann :: Parser ([String], Exp)
 ann = parens $ 
       do xs <- many1 var
          reservedOp "::"
          ty <- typeExp 
          return (xs, ty)    
 
--- | Implicit annotation, e.g. in Eq a, a implicitly means (a :: Type).
+-- | Parse an implicit annotation. E.g. in @List a@, the variable @a@
+-- is parsed to @(a :: Type)@.
+impAnn :: Parser ([String], Exp)
 impAnn = var >>= \ x -> return ([x], Set)
 
--- | A parser for operator.
+-- | Parse an operator in to expression.
+opExp :: Parser Exp
 opExp =
   do op <- operator
      return $ Base op
 
--- | Parse m, then parse p, but return the
--- result of m.
+-- | Parse /m/, then parse/p/, but return the
+-- result of /m/.
+followedBy :: Parser b -> Parser a -> Parser b
 followedBy m p =
   do r <- m
      p
      return r
 
--- | A parser for natural number literals. 
+-- | Parse a natural number literal.
+nat :: Parser Exp
 nat =
   do i <- naturals
      return $ toNat i
      where toNat i | i == 0 = Base "Z"
            toNat i | otherwise = App (Base "S") $ toNat (i-1)
 
--- | A parser for the vector bracket notation.
+-- | Parse the vector bracket notation.
+vector :: Parser Exp
 vector =
   do elems <- brackets $
               (term `sepBy` comma)
      return $ foldr (\ x y -> App (App (Base "VCons") x) y) (Base "VNil") elems
 
--- | A parser for if-then-else expression, it is translated
+-- | Parse an if-then-else expression. The if-then-else is translated
 -- to pattern matching.
+ifExp :: Parser Exp
 ifExp =
   do reserved "if"
      c <- term
@@ -498,7 +506,8 @@ ifExp =
      t2 <- term
      return $ Case c [("True", [], t1), ("False", [], t2)]
 
--- | A parser for Pi-type.     
+-- | Parse a pi-type.
+piType :: Parser Exp
 piType =
   do (vs, ty) <- try $ followedBy (parens $
                                     do vs <- many1 var
@@ -509,6 +518,8 @@ piType =
      t <- typeExp
      return $ Pi vs ty t
 
+-- | Parse an implicit pi-type.
+implicitType :: Parser Exp
 implicitType =
   do (vs, ty) <- try $ followedBy (braces $
                                     do vs <- many1 var
@@ -519,7 +530,8 @@ implicitType =
      t <- typeExp
      return $ PiImp vs ty t
 
--- | A parser for existential type. 
+-- | Parse an existential type.
+existsType :: Parser Exp
 existsType =
  do reserved "exists"
     v <- var
@@ -529,6 +541,8 @@ existsType =
     t <- typeExp
     return $ Exists v ty t
 
+-- | Parse an instance type.
+instanceType :: Parser Exp
 instanceType =
   do r <- option [] (do {reserved "forall";
                          vs <- many1 ((ann >>= \ x -> return x) <|>
@@ -541,7 +555,8 @@ instanceType =
         makeType ((xs, ty) : res) t =
           let t' = makeType res t in Forall [(xs, ty)] t'
 
-        
+-- | Parse an type class constraint type. 
+impType :: Parser Exp 
 impType = do
   constraints <- try $ do constraints <- parens $ typeExp `sepBy` comma
                           reservedOp "=>"
@@ -549,6 +564,8 @@ impType = do
   ty <- typeExp
   return $ Imply constraints ty
 
+-- | Parse a forall type.
+forallType :: Parser Exp
 forallType =
  do vs <- try $ do reserved "forall"
                    vs <- many1 (try ann <|> impAnn)
@@ -557,6 +574,8 @@ forallType =
     t <- typeExp
     return $ Forall vs t
 
+-- | Parse a circuit type.
+circType :: Parser Exp
 circType =
   do reserved "Circ"
      (t, u) <- parens $ do
@@ -566,12 +585,20 @@ circType =
                 return (t, u)
      return $ Circ t u
 
+-- | Parse @Type@.
+set :: Parser Exp
 set = reserved "Type" >> return Set
 
+-- | Parse a unit.
+unit :: Parser Exp
 unit = reservedOp "()" >> return Star
 
+-- | Parse the unit type.
+unitTy :: Parser Exp
 unitTy = reserved "Unit" >> return Unit
 
+-- | Parse a lambda abstraction with annotation.
+lamAnn :: Parser Exp
 lamAnn = do
   (v, ty) <-  try $
               do reservedOp "\\"
@@ -580,7 +607,8 @@ lamAnn = do
   t <- term
   return $ LamAnn v ty t
 
-
+-- | Parse a lambda abstraction.
+lam :: Parser Exp
 lam =
  do reservedOp "\\"
     vs <- many1 var
@@ -588,12 +616,16 @@ lam =
     t <- term
     return $ Lam vs t
 
+-- | Parse a pair.
+pairExp :: Parser Exp
 pairExp = parens $
           do t1 <- term
              comma
              t2 <- term
              return $ Pair t1 t2
 
+-- | Parse a case expression.
+caseExp :: Parser Exp
 caseExp =
   withPos $
   do reserved "case"
@@ -610,24 +642,36 @@ caseExp =
               b <- term
               return (h, args, b)
 
+-- | Parse a box expression.
 boxExp :: Parser Exp
 boxExp = reserved "box" >> return Box 
 
+-- | Parse an existsBox expression.
 exBoxExp :: Parser Exp     
 exBoxExp = reserved "existsBox" >> return ExBox 
 
+-- | Parse an unbox expression.
+unBoxExp :: Parser Exp
 unBoxExp = reserved "unbox" >> return UnBox 
 
+-- | Parse a revert expression.
+revertExp :: Parser Exp
 revertExp = reserved "revert" >> return Revert
 
+-- | Parse a runCirc expression.
+runCircExp :: Parser Exp
 runCircExp = reserved "runCirc" >> return RunCirc
 
-
+-- | Parse a let expression.
+letExp :: Parser Exp
 letExp = handleLet True
 
+-- | Parse a let statement.
+letStatement :: Parser Exp
 letStatement = handleLet False
 
--- | A parser to handle let expression (True) and let statement (False).
+-- | Help to parse a let expression (True) and let statement (False).
+handleLet ::  Bool -> Parser Exp
 handleLet b =
   if b then
     do reserved "let"
@@ -673,7 +717,8 @@ handleLet b =
              t <- term
              return $ BPattern (c, ps, t)
 
--- | A parser for application.
+-- | Parse an application.
+appExp :: Parser Exp
 appExp =
    manyLines (do{head <- headExp;
                  pos <- getPosition;
@@ -736,7 +781,8 @@ wrapPos par =
   where pos x (Pos y e) | x == y = Pos y e
         pos x y = Pos x y
 
--- | Parsing the inside of an idiom braket.
+-- | Parse the inside of an idiom braket.
+applicativeExp :: Parser Exp
 applicativeExp =
    manyLines (do{head <- wrapPos $ try varExp <|> try constExp <|> parens term <|> idiomExp;
                 return $ foldl' (\ z x -> App (App (Var "ap") z) x)
@@ -744,16 +790,17 @@ applicativeExp =
   where arg = try varExp <|> try constExp <|> parens term <|> idiomExp
               
 
--- | A parser for idiom braket, it adds a ''join'' at the applicativeExp.
+-- | Parse an idiom braket. We apply a /join/ to the /applicativeExp/.
 idiomExp :: Parser Exp
 idiomExp = do try $ reservedOp "[|"
               t <- applicativeExp
               reservedOp "|]"
               return (App (Var "join") t)
 
+-- | A data type for all the statements in do notation. 
 data DoBinding = LetStmt [Binding] | PatternBind (Binding, Exp) | Stmt Exp                
 
--- | A parser for do expression. We allow direct pattern matching when using '<-',
+-- | Parse a do expression. We allow direct pattern matching when using '<-',
 -- such pattern matching is translated to let pattern matching. We also allow
 -- let statement.
 doExp :: Parser Exp
@@ -812,6 +859,7 @@ doExp =
              
 -- * Lexer
 
+-- | A Proto-Quipper-D language token definition.
 dpqStyle :: (Stream s m Char, Monad m) => Token.GenLanguageDef s u m
 dpqStyle = Token.LanguageDef
                 { Token.commentStart   = "{-"
@@ -841,54 +889,66 @@ dpqStyle = Token.LanguageDef
                     [ ".", "\\", "<-", "->", "::",  "*", "()", "!", "_", ":", "=", "=>"]
                 }
 
-
+-- | Parse a Proto-Quipper-D token.
 tokenizer :: (Stream s m Char, Monad m) => Token.GenTokenParser s u m
 tokenizer = Token.makeTokenParser dpqStyle
 
+-- | Parse a literal.
 stringLiteral :: (Stream s m Char, Monad m) => ParsecT s u m String
 stringLiteral = Token.stringLiteral tokenizer
 
+-- | Parse an legal identifier.
 identifier :: (Stream s m Char, Monad m) => ParsecT s u m String
 identifier = Token.identifier tokenizer
 
+-- | Parse many white spaces.
 whiteSpace :: (Stream s m Char, Monad m) => ParsecT s u m ()
 whiteSpace = Token.whiteSpace tokenizer
 
+-- | Parse a reserved word.
 reserved :: (Stream s m Char, Monad m) => String -> ParsecT s u m ()
 reserved = Token.reserved tokenizer
 
+-- | Parse a reserved operator.
 reservedOp :: (Stream s m Char, Monad m) => String -> ParsecT s u m ()
 reservedOp = Token.reservedOp tokenizer
 
+-- | Parse an operator.
 operator :: (Stream s m Char, Monad m) => ParsecT s u m String
 operator = Token.operator tokenizer
 
+-- | Parse a colon.
 colon :: (Stream s m Char, Monad m) => ParsecT s u m String
 colon = Token.colon tokenizer
 
+-- | Parse an integer.
 integer :: (Stream s m Char, Monad m) => ParsecT s u m Integer
 integer = Token.integer tokenizer
 
+-- | Parse an natural number.
 naturals :: (Stream s m Char, Monad m) => ParsecT s u m Integer
 naturals = Token.natural tokenizer
 
+-- | Parse a pair of brackets.
 brackets :: (Stream s m Char, Monad m) => ParsecT s u m a -> ParsecT s u m a
 brackets = Token.brackets tokenizer
 
+-- | Parse a pair of parenthesis.
 parens :: (Stream s m Char, Monad m) => ParsecT s u m a -> ParsecT s u m a
 parens  = Token.parens tokenizer
 
+-- | Parse a pair of angle brackets.
 angles :: (Stream s m Char, Monad m) => ParsecT s u m a -> ParsecT s u m a
 angles  = Token.angles tokenizer
 
+-- | Parse a pair of braces.
 braces :: (Stream s m Char, Monad m) => ParsecT s u m a -> ParsecT s u m a
 braces = Token.braces tokenizer
 
+-- | Parse a dot.
 dot :: (Stream s m Char, Monad m) => ParsecT s u m String
 dot = Token.dot tokenizer
 
-lexeme :: (Stream s m Char, Monad m) => ParsecT s u m a -> ParsecT s u m a
-lexeme = Token.lexeme tokenizer
-
+-- | Parse a comma.
 comma :: (Stream s m Char, Monad m) => ParsecT s u m String
 comma = Token.comma tokenizer

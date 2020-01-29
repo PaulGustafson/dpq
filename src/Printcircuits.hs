@@ -2,7 +2,7 @@
 -- module is independent from the rest of the dpq modules. In other
 -- words, it just gives a different view on the circuit model.
 
-module Printcircuits where
+module Printcircuits (printCirc, printCirc_fd) where
 
 import Syntax
 import SyntacticOperations
