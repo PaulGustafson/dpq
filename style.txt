@@ -237,6 +237,11 @@ will be added here.
 
   and preferably with a comment explaining why that option is used.
 
+* We use camel case for naming identifiers.
+  Identifiers start with a lower case letter and
+  words are separated by capital letters rather than underscores.
+  So, for example, one would use someMultiWordName rather than some_multi_word_name.
+
 Style guide for Proto-Quipper-D
 -----------------------
 
@@ -254,8 +259,8 @@ Declarations:
         z = <<gate3>>
     in (y, z)
 
-  mygate :: !(Qubit -> WithGarbage Qubit)
-  mygate x =
+  myGate :: !(Qubit -> WithGarbage Qubit)
+  myGate x =
     do s <- <<action-1>>
        s2 <- <<action-2>>
        dispose s

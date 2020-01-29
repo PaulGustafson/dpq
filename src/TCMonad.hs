@@ -517,7 +517,7 @@ updateWithSubst e =
   do ts <- get
      return $ substitute (subst ts) e
 
--- | Add a variable into the typing context
+-- | Add a variable into the typing context.
 addVar :: Variable -> Exp -> TCMonad ()
 addVar x t =
   do ts <- get
@@ -528,7 +528,7 @@ addVar x t =
          env' = env{localCxt = gamma'}
      put ts{lcontext = env'}
 
-
+-- | Add a variable and its definition into the typing context.
 addVarDef :: Variable -> Exp -> Exp -> TCMonad ()
 addVarDef x t m =
   do ts <- get

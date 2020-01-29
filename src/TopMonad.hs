@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts, GeneralizedNewtypeDeriving #-}
--- | 
+-- | This module defines various utility functions in the 'TopMonad'. 
 module TopMonad where
 
 
@@ -28,13 +28,14 @@ import qualified Data.Map as Map
 import Data.Map (Map)
 
 
+-- | Top-level error data type. 
 data Error =
   NoReloadError  
-  | IOError IOError  -- ^ Wrapper for IO error.
-  | ScopeErr ScopeError -- ^ A wrapper for Scope error.
+  | IOError IOError  -- ^ A wrapper for IO error.
+  | ScopeErr ScopeError -- ^ A wrapper for scope error.
   | Mess Position Doc  -- ^ A wrapper for a message.
-  | Cyclic Position [String] String -- ^ Cyclic importation error
-  | ParseErr ParseError -- ^ A wrapper for parse error.
+  | Cyclic Position [String] String -- ^ Cyclic importation error.
+  | ParseErr ParseError -- ^ A wrapper for parsing error.
   | CompileErr TypeError -- ^ A wrapper for typing error.
 
 
@@ -64,17 +65,25 @@ instance Disp Error where
   display flag (CompileErr e) = display flag e
     
 
--- | A toplevel monad
+-- | A top-level monad. It wraps on top of IO monad, and maintains
+-- a 'TopState'. 
 newtype Top a = T {runT :: ExceptT Error (StateT TopState IO) a }
               deriving (Monad, Applicative, Functor,
                         MonadState TopState, MonadError Error, MonadIO)
 
+-- | A 'TopState' contains an interpretor state and a file name. 
+data TopState = TopState {
+  interpreterstate :: InterpreterState,
+  filename :: Maybe String
+  }
+
+-- | Initial top-level state.
 initTopState p = TopState {
   interpreterstate = emptyState p,
   filename = Nothing
   }
 
-
+-- | A run function for the 'Top' monad.
 runTop :: String -> Top a -> IO a
 runTop p body = 
   do (r, s') <- runStateT (runExceptT (runT body)) (initTopState p)
@@ -85,56 +94,56 @@ runTop p body =
 
 -- | Interpretor's state.
 data InterpreterState = InterpreterState {
-  scope :: Scope,   -- ^ scope information.
-  context :: Context,  -- ^ typing context.
-  circ :: Morphism,  -- ^ top level incomplete circuit.
-  mainExp :: Maybe (A.Value, A.Exp),   -- ^ main value and its type.
-  instCxt :: GlobalInstanceCxt, -- ^ type class instance context.
-  parserState :: ParserState,   -- ^ infix operators table.
-  parentFiles :: [String], -- ^ parent files, use to
-                    -- prevent cyclic importing.
-  importedFiles :: [String], -- ^ Imported files, prevent double importing.
-  counter :: Int,
-  path :: String
-  }
-
-data TopState = TopState {
-  interpreterstate :: InterpreterState,
-  filename :: Maybe String
+  scope :: Scope,   -- ^ Scope information.
+  context :: Context,  -- ^ Typing context.
+  circ :: Morphism,  -- ^ Top level incomplete circuit.
+  mainExp :: Maybe (A.Value, A.Exp),   -- ^ Main value and its type.
+  instCxt :: GlobalInstanceCxt, -- ^ Type class instance context.
+  parserState :: ParserState,   -- ^ Infix operators table.
+  parentFiles :: [String], -- ^ Parent files, for
+                    -- preventing cyclic importing.
+  importedFiles :: [String], -- ^ Imported files, for preventing double importing.
+  counter :: Int, -- ^ A counter. 
+  path :: String -- ^ DPQ project path.
   }
 
 
+-- | Lift 'IO' to 'Top'.
 ioTop :: IO a -> Top a
 ioTop x = T $ ExceptT $ lift (caught x)
   where caught :: IO a -> IO (Either Error a)
         caught x = catch (x >>= \y -> return (return y))
                    (\e -> return (Left (IOError e)))
 
-
+-- | Get current file name. 
 getFilename :: Top (Maybe String)
 getFilename = do
   s <- get
   return (filename s)
 
+-- | Get current top-level circuit.
 getCirc = do
   s <- getInterpreterState
   return (circ s)
 
-
+-- | Get the interpretor state.
 getInterpreterState :: Top InterpreterState
 getInterpreterState = do
   s <- get
   return (interpreterstate s)
 
+-- | Get current scope information.
 getScope :: Top Scope
 getScope = do
   s <- getInterpreterState
   return (scope s)
 
+-- | Resolve an expression at top-level.
 topResolve t =
   do scope <- getScope
      scopeTop $ resolve (toLScope scope) t
 
+-- | Lift the 'Resolve' monad to 'Top' monad. 
 scopeTop :: Resolve a -> Top a
 scopeTop x = case runResolve x of
                  Left e -> throwError (ScopeErr e)
@@ -156,7 +165,7 @@ tcTop m =
             putInstCxt inst'
             return e
 
-    
+-- | A top-level wrapper for 'typeInfer'.    
 topTypeInfer :: A.Exp -> Top (A.Exp, A.Exp)
 topTypeInfer def = tcTop $
   do (ty, tm) <- typeInfer (isKind def) def
@@ -177,16 +186,18 @@ topTypeInfer def = tcTop $
              elimConstraint e a (A.Pos _ ty) = elimConstraint e a ty    
              elimConstraint e a t = return (a, t)
 
-
+-- | Get current typing context.
 getCxt = do
   s <- getInterpreterState
   return (context s)
 
+-- | Reset the interpretor state to the empty state. 
 clearInterpreterState :: Top ()
 clearInterpreterState =
   do p <- getPath
      putInterpreterState $ emptyState p
 
+-- | The empty interpretor state.
 emptyState p = InterpreterState {
   scope = emptyScope,
   context = Map.empty,
@@ -200,22 +211,28 @@ emptyState p = InterpreterState {
   path = p
   }
 
+-- | Get the DPQ path.
 getPath :: Top String
 getPath =
   do s <- get
      let intp = interpreterstate s
      return (path intp)
 
+-- | Update interpreter state.
 putInterpreterState :: InterpreterState -> Top ()
 putInterpreterState is = do
   s <- get
   put $ s{interpreterstate = is}
 
+-- | Get counter.
 getCounter :: Top Int
 getCounter = do
   s <- getInterpreterState
   return (counter s)
 
+-- | Add a build in identifier according to the third argument.
+-- For example, @addBuildin (BuildIn i) "Simple" A.Base@.
+addBuildin :: Position -> String -> (Id -> Exp) -> Top Id  
 addBuildin p x f =
   do scope <- getScope
      case lookupScope scope x of
@@ -228,34 +245,38 @@ addBuildin p x f =
              scope' = scope{scopeMap = newMap}
          in putScope scope' >> return id
 
+-- | Update scope.
 putScope :: Scope -> Top ()
 putScope scope = do
   s <- getInterpreterState
   let s' = s { scope = scope }
   putInterpreterState s'
 
+-- | Update top-level circuit.
 putCirc c = do
   s <- getInterpreterState
   let s' = s {circ = c}
   putInterpreterState s'      
   
-
+-- | Update counter.
 putCounter i = do
   s <- getInterpreterState
   let s' = s {counter = i}
   putInterpreterState s'
 
-
+-- | Update current file name.
 putFilename :: String -> Top ()
 putFilename x = do
   s <- get
   let s' = s{filename = Just x }
   put s'
 
+-- | Get infix operator table.
 getPState = do
   s <- getInterpreterState
   return (parserState s)
 
+-- | Update infix operator table.
 putPState x = do
   s <- getInterpreterState
   let s' = s { parserState = x }
@@ -274,7 +295,7 @@ putInstCxt cxt = do
   putInterpreterState s'
 
 
--- | Make a buildin class of the form c x1 ... xn, where c is the class name.
+-- | Make a buildin class of the form @C x1 ... xn@, where "C" is the class name.
 makeBuildinClass d c n | n > 0 =
   do i <- getCounter
      dict <- addBuildin (BuildIn (i+1)) (c++"Dict") A.Const
@@ -285,6 +306,7 @@ makeBuildinClass d c n | n > 0 =
          kd = foldr (\ x y -> A.Arrow A.Set y) A.Set names
      tcTop $ process (A.Class (BuildIn (i+2)) d kd dict dictType [])
 
+-- | Lift a parsing result to 'Top' monad.
 parserTop :: Either ParseError a -> Top a
 parserTop (Left e) = throwError (ParseErr e)
 parserTop (Right a) = return a
@@ -321,10 +343,12 @@ getCurrentImported =
      let intp = interpreterstate s
      return (importedFiles intp)
 
+-- | Get the main function's information. 
 getMain = do
   s <- getInterpreterState
   return (mainExp s)
 
+-- | Update main function.
 putMain v t = do
   s <- getInterpreterState
   let s' = s {mainExp = Just (v, t)}
