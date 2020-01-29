@@ -45,10 +45,11 @@ instance MonadException Top where
 
 
         
--- | One iteration of the read-eval-print loop. Return False to quit,
+-- | Parse and dispatch a command.
+-- It is one iteration of the read-eval-print loop. Return False to quit,
 -- otherwise True.
 
--- read_eval_print_line :: Integer -> InputT Top Bool
+read_eval_print_line :: Num b => b -> String -> InputT Top (Bool, b)
 read_eval_print_line lineno initString = do
   s <- getInputLine "> " 
   case s of
@@ -79,7 +80,7 @@ read_eval_print_line lineno initString = do
     Nothing -> return (False, lineno)
 
 
--- | Read-eval-print loop.
+-- | Read eval print loop.
 read_eval_print :: Integer -> Top ()
 read_eval_print lineno =
   do more <- catchTop error_handler
@@ -100,7 +101,7 @@ top_display_error e = do
   ioTop $ putStrLn ("error: " ++ show (disp e))
 
 -- | Restore the interpretor state when
--- an error occur  
+-- an error occur.  
 catchTop :: (Error -> Top a) -> Top a -> Top a
 catchTop k x = 
   do s <- get

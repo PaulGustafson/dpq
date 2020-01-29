@@ -1,10 +1,10 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
--- | This module implements a "proof checker" that checks the results
--- produced from the elaborator (Typechecking module). The proof checker
--- is also bi-directional. The unification is only used for dependent
--- pattern matching. 
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+-- | This module implements a proof checker that checks the results
+-- produced from the elaborator ("Typechecking" module). The proof checker
+-- is also bi-directional. 
 
-module Proofchecking where
+module Proofchecking (proofCheck) where
 
 
 import Syntax
@@ -27,7 +27,9 @@ import Debug.Trace
 -- | Check an expression against a type. 
 -- The flag indicates if it is a parameter type checking.
 -- Here parameter type checking means using shape of the context to
--- type check a parameter term. 
+-- type check a parameter term.
+
+-- Currently we only use proofCheck to check programs.
 proofCheck :: Bool -> Exp -> Exp -> TCMonad ()
 
 
@@ -498,7 +500,7 @@ proofCheck flag (LetPat m bd) goal  = open bd $ \ (PApp kid args) n ->
      funPac <- lookupId kid
      let dt = classifier funPac
      (isSemi, index) <- isSemiSimple kid
-     (head, vs, kid', eigen) <- inst dt args (Const kid)
+     (head, vs, eigen) <- inst dt args 
      let matchEigen = isEigenVar m
          eSub = map (\ x -> (x, EigenVar x)) eigen
          isDpm = isSemi || matchEigen
@@ -512,7 +514,7 @@ proofCheck flag (LetPat m bd) goal  = open bd $ \ (PApp kid args) n ->
                                            case y of
                                              Right u -> App x (EigenVar u)
                                              Left (NoBind u) -> App x u
-                                         ) kid' vs
+                                         ) (Const kid) vs
                          
                     else return sub'
             let sub'' = sub1 `mergeSub` ss
@@ -557,7 +559,7 @@ proofCheck flag a@(Case tm (B brs)) goal =
              let dt = classifier funPac
              updateCountWith (\ x -> nextCase x kid)
              (isSemi, index) <- isSemiSimple kid
-             (head, vs, kid', eigen) <- inst dt args (Const kid)
+             (head, vs, eigen) <- inst dt args
              let matchEigen = isEigenVar tm
                  eSub = map (\ x -> (x, EigenVar x)) eigen
                  isDpm = isSemi || matchEigen
@@ -572,7 +574,7 @@ proofCheck flag a@(Case tm (B brs)) goal =
                                                case y of
                                                  Right u -> App x (EigenVar u)
                                                  Left (NoBind u) -> App x u
-                                             ) kid' vs
+                                             ) (Const kid) vs
                      
                    else return sub'
                  let sub'' = sub1 `mergeSub` ss
@@ -601,7 +603,8 @@ proofCheck flag a goal =
 
 -- Technical: in the following, "return $ runUnify head t" can be replaced by
 -- "if head == t then return $ Just Map.empty else return Nothing", as
--- these two cases are not dependent pattern matching.       
+-- these two cases are not dependent pattern matching.
+dependentUnif :: Maybe Int -> Bool -> Exp -> Exp -> TCMonad (Maybe Subst)
 dependentUnif index isDpm head t =
   if not isDpm then return $ runUnify head t
   else case index of
@@ -627,7 +630,11 @@ dependentUnif index isDpm head t =
           in helper subst'' vars eSub
         helper subst [] eSub = return $ Just subst
 
--- | A helper function for checking various of lambda abstractions. 
+-- | Check lambda abstractions against a type. The argument /fl/ is to indicate
+-- whether or not to check usage. 
+handleAbs ::  Bool -> (Bind [Variable] Exp -> Exp) ->
+                      (Bind [Variable] Exp -> Exp -> Exp) ->
+                      Bind [Variable] Exp -> Bind [Variable] Exp -> Exp -> Bool -> TCMonad ()
 handleAbs flag lam prefix bd1 bd2 ty fl =
   open bd1 $ \ xs m -> open bd2 $ \ ys b ->
   if length xs <= length ys
@@ -653,46 +660,48 @@ handleAbs flag lam prefix bd1 bd2 ty fl =
        mapM_ removeVar vs
 
 
--- | Extending the typing environment according to the information available
--- in the pattern expression.        
-inst (Arrow t1 t2) (Right x : xs) kid =
+-- | Extend the typing environment according to the information available
+-- in the pattern expression.
+inst ::  Exp -> [Either (NoBind Exp) Variable] ->
+         TCMonad (Exp, [Either (NoBind Exp) Variable], [Variable])
+inst (Arrow t1 t2) (Right x : xs) =
   do addVar x t1
-     (h, vs, kid', eigen) <- inst t2 xs kid
-     return (h, Right x : vs, kid', eigen)
+     (h, vs, eigen) <- inst t2 xs 
+     return (h, Right x : vs, eigen)
 
-inst (Imply [t1] t2) (Right x : xs) kid =
+inst (Imply [t1] t2) (Right x : xs) =
   do addVar x t1
-     (h, vs, kid', eigen) <- inst t2 xs kid
-     return (h, Right x : vs, kid', eigen)
+     (h, vs, eigen) <- inst t2 xs 
+     return (h, Right x : vs, eigen)
 
-inst (Imply (t1:ts) t2) (Right x : xs) kid =
+inst (Imply (t1:ts) t2) (Right x : xs) =
   do addVar x t1
-     (h, vs, kid', eigen) <- inst (Imply ts t2) xs kid
-     return (h, Right x : vs, kid', eigen)
+     (h, vs, eigen) <- inst (Imply ts t2) xs 
+     return (h, Right x : vs, eigen)
 
-inst (Pi bd t) (Right x:xs) kid | not (isKind t) = open bd $ \ ys t' ->
+inst (Pi bd t) (Right x:xs) | not (isKind t) = open bd $ \ ys t' ->
   do let y = head ys
          t'' = apply [(y, EigenVar x)] t' 
      if null (tail ys)
        then do addVar x t
-               (h, xs', kid', eigen) <- inst t'' xs kid 
-               return (h, Right x:xs', kid', x:eigen)
+               (h, xs', eigen) <- inst t'' xs  
+               return (h, Right x:xs', x:eigen)
        else do addVar x t
-               (h, xs', kid', eigen) <- inst (Pi (abst (tail ys) t'') t) xs kid
-               return (h, Right x:xs', kid', x:eigen)
+               (h, xs', eigen) <- inst (Pi (abst (tail ys) t'') t) xs 
+               return (h, Right x:xs', x:eigen)
 
-inst (Forall bd t) (Right x:xs) kid = open bd $ \ ys t' ->
+inst (Forall bd t) (Right x:xs)  = open bd $ \ ys t' ->
   do let y = head ys
          t'' = apply [(y, EigenVar x)] t'
      if null (tail ys)
        then do addVar x t
-               (h, xs', kid', eigen) <- inst t'' xs kid
-               return (h, Right x:xs', kid', eigen)
+               (h, xs', eigen) <- inst t'' xs 
+               return (h, Right x:xs', eigen)
        else do addVar x t
-               (h, xs', kid', eigen) <- inst (Forall (abst (tail ys) t'') t) xs kid
-               return (h, Right x:xs', kid', eigen)
+               (h, xs', eigen) <- inst (Forall (abst (tail ys) t'') t) xs 
+               return (h, Right x:xs', eigen)
 
-inst (Forall bd t) (Left (NoBind x):xs) kid = open bd $ \ ys t' ->
+inst (Forall bd t) (Left (NoBind x):xs) = open bd $ \ ys t' ->
   do let y = head ys
          fvs = S.toList $ getVars NoEigen x
          fvs' = map EigenVar fvs
@@ -700,10 +709,10 @@ inst (Forall bd t) (Left (NoBind x):xs) kid = open bd $ \ ys t' ->
          x' = apply sub x
          t'' = apply [(y, x')] t' 
      if null (tail ys)
-       then do (h, xs', kid', eigen) <- inst t'' xs kid
-               return (h, Left (NoBind x'):xs', kid', eigen)
-       else do (h, xs', kid', eigen) <- inst (Forall (abst (tail ys) t'') t) xs kid
-               return (h, Left (NoBind x'):xs', kid', eigen)
+       then do (h, xs', eigen) <- inst t'' xs 
+               return (h, Left (NoBind x'):xs', eigen)
+       else do (h, xs', eigen) <- inst (Forall (abst (tail ys) t'') t) xs 
+               return (h, Left (NoBind x'):xs', eigen)
 
-inst t [] kid = return (t, [], kid, [])            
+inst t [] = return (t, [], [])            
 

@@ -1,4 +1,4 @@
-# Dependently Typed Proto-Quipper (DPQ)
+# Dependently Typed Proto-Quipper (Proto-Quipper-D)
 
 
 
@@ -26,7 +26,7 @@ E.g. add `export DPQ=<path-to-dpq-directory>` to your `.bashrc` file.
    you computer. Add `<path-to-dpqi>, <path-to-dpq>` to your `PATH` variable. 
 
 
-4. Optional: if you are an emacs user, you may wan to add the following to your `.emacs` file
+4. Optional: if you are an emacs user, you may want to add the following to your `.emacs` file
 
    ```
    (load "<path>/dpq-mode.el")
@@ -35,7 +35,8 @@ E.g. add `export DPQ=<path-to-dpq-directory>` to your `.bashrc` file.
    ```
    You should now be able to use `C-c C-l` to type check your dpq file.
 
-5. Test your installation. Just type `dpq` or `dpqi` in the terminal.  
+5. Test your installation. Just type `dpqi` in the terminal to invoke
+   the interpretor. In the dpqi interpretor, type `:h` to see a list of options.  
 
 
 

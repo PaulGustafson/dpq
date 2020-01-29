@@ -1,17 +1,19 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
--- | This module processes dpq declarations. For object and simple type declarations,
--- we generate instances for Simple, Parameter and SimpParam classes. Each simple type
--- declaration also gives rise to a function that turns the simple type into the simple term.
--- We also support two kinds of gate declarations, an ordinary gate declaration and a generic
--- control gate declaration. Gate declarations will generate a value that will be used
--- for circuit generation. We support Haskell 98 style data type declaration with type class
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+
+-- | This module processes Proto-Quipper-D declarations. For object and simple type declarations,
+-- the type checker will generate instances for 'Simple', 'Parameter' and 'SimpParam' classes.
+-- Each simple type
+-- declaration also gives rise to a function that turns the simple type into a simple term.
+-- We support two kinds of gate declarations, an ordinary gate declaration and a generic
+-- control gate declaration. We support Haskell 98 style data type declaration with type class
 -- constraint, moreover, we support a limited form of existential dependent data type in this
 -- format. All top level functions must be of parameter types. Functions can be defined 
--- by first giving its type annotation, or they can be defined by just annotating the types
+-- by first giving its type annotation, or one can just annotate the types
 -- for its arguments (in that case dependent pattern matching is not supported). 
 
 
-module ProcessDecls where
+module ProcessDecls (process, elaborateInstance) where
 
 import TCMonad
 import Syntax
@@ -37,7 +39,7 @@ import Text.PrettyPrint
 import Debug.Trace
 import qualified Data.Set as S
 
--- | Process a declaration, modifying the state in the TCMonad. 
+-- | Process a top-level declaration, modifying the state in the TCMonad. 
 process :: Decl -> TCMonad ()
 process (Class pos d kd dict dictType mths) = 
   do let methodNames = map (\(_, s, _) -> s) mths
@@ -383,7 +385,8 @@ process (OperatorDecl pos op level fixity) = return ()
 process (ImportDecl p mod) = return ()
 
 -- | Check if the defined instance head is overlapping with
--- existing type class instances.  
+-- existing type class instances.
+checkOverlap :: Exp -> TCMonad ()
 checkOverlap h =
   do es <- get
      let gs = globalInstance $ instanceContext es
@@ -396,8 +399,10 @@ checkOverlap h =
              else return ()
 
 
--- | A helper function that constructs an instance function when it is given
--- the name and the type of the instance fuction, and the method definitions.
+-- | Construct an instance function. The argument /f'/ is 
+-- the name of the instance fuction and /ty/ is its the type, the
+-- arguments /mths/ are the method definitions.
+elaborateInstance :: Position -> Id -> Exp -> [(Position, Id, Exp)] -> TCMonad ()
 elaborateInstance pos f' ty mths =
   do annTy <- typeChecking' True ty Set
      let (env, ty') = removePrefixes False annTy
@@ -477,7 +482,8 @@ elaborateInstance pos f' ty mths =
                   ty'' <- resolveGoals ty' >>= updateWithSubst
                   return (unEigenBound vars ty'', unEigenBound vars r)
   
--- | Determine the classifier for a non-simple data type declaration. 
+-- | Determine the classifier for a data type declaration.
+determineClassifier :: Id -> Exp -> [Id] -> [Exp] -> TCMonad DataClassifier
 determineClassifier d kd constructors types =
   do f <- queryParam d kd constructors types
      if f then return Param
@@ -514,7 +520,7 @@ determineClassifier d kd constructors types =
                                     ) (map snd args)
                           return $ and r
 
--- | Construct a circuit from a gate declaration.
+-- | Construct a gate from a gate declaration.
 makeGate :: Id -> [Exp] -> Exp -> Value
 makeGate id ps t =
   let lp = length ps + 1
@@ -552,7 +558,6 @@ makeGate id ps t =
           in zipWith (\ x y -> x ++ show y) (take lp xs) [0 .. ]
           
         etaPair n e | n == 0 = error "from etaPair"
-          -- App e Star
         etaPair n e =
           freshNames (getName "y" n) $ \ xs ->
           let xs' = map Var xs
@@ -605,7 +610,9 @@ makeControl id ps t =
           in Lam (abst (xs) (Pair (App e pairs) (Var c))) 
 
 
--- | Make a type function for runtime labels generation.
+-- | Make a type function for runtime labels generation. The input /n/
+-- is the number of type variables, /k0/ is the kind annotation. 
+makeTypeFun :: Int -> Exp -> [(Id, (Maybe Int, Exp))] -> TCMonad Exp
 makeTypeFun n k0 ((c, (Nothing, ty)):[]) =
      let (env, m) = removePrefixes False ty
          vars = map (\ (Just x , _) -> x) env
@@ -646,7 +653,8 @@ makeTypeFun n k0 xs@((_, (Just i, _)):_) =
              toPat p = let (h, as) = unwind AppFlag p
                        in PApp (getConst h) (map (\ a -> Right (getVar a)) as)
 
--- | A wrapper on 'typeCheck' function. 
+-- | Check an expression against a type. It is a wrapper on the 'typeCheck' function.
+typeChecking :: Bool -> Exp -> Exp -> TCMonad (Exp, Exp)
 typeChecking b exp ty =
   do (ty', exp') <- typeCheck b exp ty
      exp'' <- resolveGoals exp'
@@ -655,12 +663,14 @@ typeChecking b exp ty =
      return (unEigen ty'', unEigen r)
 
 
--- | A wrapper on 'proofCheck' function.
+-- | Check an annotated expression against a type. It is a wrapper on 'proofCheck' function.
+proofChecking :: Bool -> Exp -> Exp -> TCMonad ()
 proofChecking b exp ty =
   proofCheck b exp ty `catchError` \ e -> throwError $ PfErrWrapper exp e ty
 
 
--- | A helper function for generating a list of string.
+-- | Generate a list of strings from a value.
+genNames :: Value -> [String]
 genNames uv =
   let n = size uv
       ls = "l":ls
