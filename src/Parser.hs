@@ -1,5 +1,5 @@
 {-#LANGUAGE FlexibleContexts#-}
--- | An indentation sensitive parser for dpq.
+-- | An indentation sensitive parser for Proto-Quipper-D.
 -- We use <https://hackage.haskell.org/package/parsec parsec library>
 -- and <https://hackage.haskell.org/package/indents indents library> for parsing. 
 module Parser
@@ -25,7 +25,7 @@ import Data.List
 
 -- *  Parsing a module
 
--- | A parser for dpq is an ident-parser with a ParserState.
+-- | A parser for Proto-Quiper-D is an ident-parser with a ParserState.
 type Parser a = IndentParser String ParserState a
 
 -- | A parser state contains an expression parser together with
@@ -40,27 +40,31 @@ data ParserState =
     expOpTable :: IM.IntMap [Operator String ParserState (IndentT Identity) Exp]
     }
 
+-- | The initial parser state.
 initialParserState :: ParserState
 initialParserState = ParserState{
   expParser = buildExpressionParser initialOpTable atomExp,
   expOpTable = IM.fromAscList (zip [0 ..] initialOpTable)
   }
 
--- | The precedence is in descending order (See Text.Parsec.Expr for
+-- | Initial operator table. The precedence is in descending order
+-- (See <https://hackage.haskell.org/package/parsec-3.1.14.0/docs/Text-Parsec-Expr.html Text.Parsec.Expr> for
 -- further information). Currently, we have the following build-in operators:
--- '!' (precedence 5), '*' (precedence 7), '->' (precedence 10), '::'(16).
+-- ! (precedence 5), * (precedence 7), -> (precedence 10), :: (precedence 16).
+initialOpTable :: [[Operator String ParserState (IndentT Identity) Exp]]
 initialOpTable = [[], [], [], [], [], [unaryOp "!" Bang], [], [binOp AssocLeft "*" Tensor] , [], [], [binOp AssocRight "->" Arrow], [], [], [], [], [], [binOp AssocLeft "::" WithAnn]]
   where binOp assoc op f = Infix (reservedOp op >> return f) assoc
         unaryOp op f = Prefix (reservedOp op >> return f) 
 
         
--- | Parse a dpq module from a file name 'srcName' and file
--- handler 'cnts'. 
+-- | Parse a Proto-Quipper-D module from a file name /srcName/ and file
+-- handler /cnts/. 
 parseModule :: String -> String -> ParserState -> Either P.ParseError ([Decl], ParserState)
 parseModule srcName cnts st = 
   runIndent $ runParserT decls st srcName cnts
 
--- | Parse the import declarations from a file.
+-- | Parse only the import declarations from a file. The imports must be declared
+-- at the beginning of the file. 
 parseImports :: String -> String -> Either P.ParseError [Decl]
 parseImports srcName cnts = 
   runIndent $ runParserT imports initialParserState srcName cnts
@@ -70,43 +74,57 @@ parseImports srcName cnts =
              reserved "where" 
              many importDecl
 
--- | Parse a command line string using a given parser state.
+-- | Parse a command line input using a given parser state.
 parseCommand :: String -> ParserState -> Either P.ParseError Command
 parseCommand s st = runIndent $ runParserT command st "" s
 
--- *  A parser for command line
+-- * Command line parser
+
+-- | A parser for the command line.
 command :: Parser Command
 command =
   do whiteSpace 
-     quit <|>  help <|> typing <|>  reload <|>  load <|>  printing <|>
-       displaying <|>  displayEx <|>  annotation <|> showCirc <|> eval
-     
+     quit <|> help <|> typing <|> reload <|> load <|> printing <|>
+       displaying <|> displayEx <|> annotation <|> showCirc <|> eval
+
+-- | Parse show top-level circuit command.
+showCirc :: Parser Command     
 showCirc =
   do reserved ":s"
      eof
      return ShowCirc
 
+-- | Parse quit command.
+quit :: Parser Command
 quit =
   do reserved ":q"
      eof
      return Quit
 
+-- | Parse help command.
+help :: Parser Command
 help =
   do reserved ":h"
      eof
      return Help
 
+-- | Parse reload command.
+reload :: Parser Command
 reload =
   do reserved ":r"
      eof
      return Reload
 
+-- | Parse print pdf to file command.
+typing :: Parser Command
 typing =
   do reserved ":t"
      t <- term
      eof
      return $ Type t
 
+-- | Parse reload command.
+printing :: Parser Command
 printing =
   do reserved ":p"
      t <- term
@@ -114,30 +132,40 @@ printing =
      eof
      return $ Print t path
 
+-- | Parse the display command.
+displaying :: Parser Command 
 displaying =
   do reserved ":d"
      t <- term
      eof
      return $ Display t
 
+-- | Parse the display existential circuit command.
+displayEx :: Parser Command
 displayEx =
   do reserved ":e"
      t <- term
      eof
      return $ DisplayEx t
 
+-- | Parse show annotation command.
+annotation :: Parser Command 
 annotation =
   do reserved ":a"
      t <- try varExp <|> parens opExp
      eof
      return $ Annotation t
 
+-- | Parse load command.
+load :: Parser Command
 load =
   do reserved ":l"
      path <- stringLiteral
      eof
      return $ Load True path
 
+-- | Parse an expression, for evaluation.
+eval :: Parser Command
 eval =
   do t <- term
      eof
@@ -145,6 +173,9 @@ eval =
 
 
 -- * Parsers for various of declarations
+
+-- | Parse a top-level declaration. All declarations have to have the
+-- same level of indentation.
 decls :: Parser ([Decl], ParserState)
 decls = do
   reserved "module"
@@ -160,7 +191,7 @@ decls = do
   eof
   return (bs, st)
  
--- | A parser for operator fixity and priority. 
+-- | Parse the operator fixity declaration.
 operatorDecl :: Parser Decl
 operatorDecl = do
   r <- choice [reserved i >> return i | i <- ["infix","infixr","infixl"]]
@@ -179,7 +210,7 @@ operatorDecl = do
         toOp op "infixl" app var =
           Infix (reservedOp op >> return (\ x y -> app (app (var op) x) y)) AssocLeft
 
--- | A parser for import declaration.
+-- | Parse an importation declaration.
 importDecl :: Parser Decl
 importDecl = impGlobal
   where impGlobal = 
@@ -188,8 +219,9 @@ importDecl = impGlobal
              mod <- stringLiteral
              return $ ImportGlobal (P p) mod              
 
--- | A parser for class declaration. We allow phatom class, i.e. class without
--- any method, in that case, one should not use the keyword "where".              
+-- | Parse a type class declaration. We allow phatom class, i.e. class without
+-- any method, in that case, one should not use the keyword "where".
+-- Methods declarations have to have same level of indentation.
 classDecl :: Parser Decl
 classDecl =
   do reserved "class"
@@ -207,8 +239,9 @@ classDecl =
                   t <- typeExp
                   return (P pos, n, t)
 
--- | A parser for instance declaration. For the instance of the phantom class,
--- one should not use the keyword "where".                  
+-- | Parse an instance declaration. For the instance of the phantom class,
+-- one should not use the keyword "where".
+-- Methods definitions have to have same level of indentation.
 instanceDecl :: Parser Decl
 instanceDecl =
   do reserved "instance"
@@ -225,7 +258,7 @@ instanceDecl =
                   def <- term
                   return (P pos, n, args, def)
 
--- | A parser for object declaration.
+-- | Parse an object declaration.
 objectDecl :: Parser Decl
 objectDecl =
   do reserved "object"
@@ -233,7 +266,7 @@ objectDecl =
      o <- const
      return $ Object (P p) o
 
--- | A parser for gate declaration
+-- | Parse a gate declaration.
 gateDecl :: Parser Decl
 gateDecl =
   do reserved "gate"
@@ -244,8 +277,8 @@ gateDecl =
      ty <- typeExp
      return $ GateDecl (P p) g args ty
 
--- | Generalized controlled declaration. 
-
+-- | Parse a generalized controlled gate declaration. 
+controlDecl :: Parser Decl
 controlDecl =
   do reserved "controlled"
      p <- getPosition
@@ -255,8 +288,9 @@ controlDecl =
      ty <- typeExp
      return $ ControlDecl (P p) g args ty
 
--- | A parser for data type declaration. We allow data type without any constructor,
--- in that case, one should not use '='.     
+-- | Parse a data type declaration. We allow data type without any constructor,
+-- in that case, one should not use '='. The syntax is similar to Haskell 98
+-- data type declaration, except we allow existential dependent data type.
 dataDecl :: Parser Decl
 dataDecl = 
   do reserved "data"
@@ -281,7 +315,8 @@ dataDecl =
                      (singleExp >>= \ x -> return $ Right x) 
            annotation = ann <|> impAnn
              
--- | A parser for simple data type declaration.                
+-- | Parse a simple data type declaration. All clauses have to have
+-- the same level of indentation.
 simpleDecl :: Parser Decl
 simpleDecl = 
   do reserved "simple"
@@ -307,7 +342,7 @@ simpleDecl =
                   singlePat
 
  
--- | A parser for function declaration.                     
+-- | Parse a function declaration. Top level annotation is required for the function.
 funDecl :: Parser Decl
 funDecl =
   do (f, ty) <- try $ do{ 
@@ -325,7 +360,8 @@ funDecl =
      def <- term
      return $ Def (P p) f ty args def
 
--- | Function definition in the infer mode.
+-- | Parse a function definition in the infer mode, where one only annotates
+-- the arguments of the function.
 funDef :: Parser Decl
 funDef =
   do p <- getPosition 
@@ -348,19 +384,24 @@ funDef =
              classExp = parens typeExp >>= \ x -> return $ Left x
 
 
--- | A parser for term, built from the operator table.
+-- * Expression parsers
+
+-- | Parse a term. It is built from the operator table.
+term :: Parser Exp
 term = wrapPos $ getState >>= \st -> expParser st
 
--- | 'kindExp' is a synonym for 'term'. 
+-- | Parse a kind expression, but it is really a synonym for 'term'.
+kindExp :: Parser Exp
 kindExp = term
 
--- | 'typeExp' is a synonym for 'term'.
+-- | Parse a type expression, but it is really a synonym for 'term'.
+typeExp :: Parser Exp
 typeExp = term
 
 
 -- * Parsers for various atomic expressions
 
--- | An atomic expression parser, of course it is defined mutually recursively
+-- | Parse an atomic expression. Of course it is defined mutually recursively
 -- with the full expression parser. 
 atomExp :: Parser Exp
 atomExp = wrapPos (
@@ -383,11 +424,13 @@ atomExp = wrapPos (
        <|> appExp
        <?> "expression")
 
--- | A function for constructing a parser that parse h and many p, they can be across many lines,
+-- | Parse a head /h/ and many /p/, they can be across many lines,
 -- but they must be properly indented. 
-
+manyLines :: Parser ([a] -> b) -> Parser a -> Parser b
 manyLines h p = withPos $ h <*/> p
 
+-- | Parse an @withType@ expression.
+withAnn :: Parser Exp
 withAnn =
   do reserved "withType"
      ty <- typeExp
@@ -402,9 +445,11 @@ patApp =
                           return $ foldl' (\ z x -> App z x) head}) singlePat
 
 -- | An expression parser for a single pattern.
+singlePat :: Parser Exp
 singlePat = wrapPos (try varExp <|> try constExp <|> parens patApp <?> "single pattern")
 
 -- | An expression parser for a single expression.
+singleExp :: Parser Exp
 singleExp = wrapPos (try varExp <|> try constExp <|> parens term <?> "single expression")
 
 -- | A parser for annotation. e.g. (x1 x2 :: Nat).
@@ -648,33 +693,47 @@ appExp =
                      return $ foldl (\ x y -> Pair x y) (head tms) (tail tms)
                      }
                   
-varExp = (var >>= \ x -> return $ Var x) 
 
+-- | Parse a wild card string expression.
+wild :: Parser Exp
 wild = reservedOp "_" >> return Wild
 
+-- | Parse a wild card string.
+wildString :: Parser String
 wildString = reservedOp "_" >> return "_"
 
+-- | Parse a constructor expression.
+constExp :: Parser Exp
 constExp = const >>= \ x -> return $ Base x
 
+-- | Parse a variable expression.
+varExp :: Parser Exp
+varExp = (var >>= \ x -> return $ Var x)
+
+-- | Parse a variable. The variable must begin with lower case letter.
+var :: Parser String
 var =
   do n <- identifier
      if (isUpper (head n)) then
        unexpected $ "uppercase word: "++n++", expected to begin with lowercase letter"
        else return n
 
+-- | Parse a constructor. The constructor must begin with upper case letter.
+const :: Parser String
 const = 
   do n <- identifier  
      if (isLower (head n)) then
        unexpected $ "lowercase word: "++ n ++", expected to begin with uppercase letter"
        else return n
 
+-- | Add a position to the expression.
 wrapPos :: Parser Exp -> Parser Exp
 wrapPos par =
   do q <- getPosition
      e <- par
      let e' = pos (P q) e
      return e'
-  where pos x (Pos y e) | x==y = Pos y e
+  where pos x (Pos y e) | x == y = Pos y e
         pos x y = Pos x y
 
 -- | Parsing the inside of an idiom braket.

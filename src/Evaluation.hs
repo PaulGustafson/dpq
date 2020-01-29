@@ -2,7 +2,7 @@
 -- | This module implements a closure-based call-by-value evaluation.
 -- It still has memory problem when generating super-large circuits.
 
-module Evaluation where
+module Evaluation (evaluation, evaluate, renameTemp, size, toVal, getAllWires) where
 
 import Syntax
 import SyntacticOperations

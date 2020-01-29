@@ -2,8 +2,8 @@
 -- | This module handles normalization during
 -- type checking. For simplicity, we implement normalization
 -- for a restricted subset of parameter terms, i.e., terms that
--- does not involve circuit box/unbox. Without circuit boxing,
--- it is safe for normalization to adopt any strategy as no
+-- do not involve circuit box/unbox. Without circuit boxing,
+-- it is safe for the normalization to adopt any reduction strategy as no
 -- side-effects are present. 
 module Normalize where
 
@@ -23,7 +23,7 @@ import Control.Monad.Except
 import Control.Monad.State
 import Debug.Trace
 
--- | Beta normalization only reduce beta redex, it is used
+-- | Reduce a beta redex. It is used
 -- when instantiating a type/type function.
 betaNormalize :: Exp -> TCMonad Exp
 betaNormalize a@(Var x) = return a
@@ -242,9 +242,10 @@ betaNormalize (Pos _ e) = betaNormalize e
 betaNormalize a = error $ "from betaNormalize" ++ (show (disp a))
 
 -- | Normalize an expression. It also takes advantage of
--- call-by-value evaluation. If a type refer to a top-level
+-- call-by-value evaluation, i.e., if a type refers to a top-level
 -- function that produces a basic value, then we
--- will one step normalize that function into a value expression.
+-- will one step normalize that function into the corresponding value expression.
+normalize :: Exp -> TCMonad Exp
 normalize a@(Var x) =
   do ts <- get
      let lc = localCxt $ lcontext ts
@@ -469,7 +470,7 @@ normalize (Imply (e1:es) e2) =
      case e' of
        Imply es' e2' ->
          return (Imply (e1':es') e2')
---       _ ->  return (Imply [e1'] e')
+
      
 normalize (Bang e) =
   do e' <- normalize e 
