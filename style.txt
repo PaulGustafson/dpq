@@ -67,7 +67,7 @@ Markup style:
   minus: − ndash: – mdash: —
   → ← ↑ ↓ ↔ ↕ ↦ ◀ ▶ 〉〈 √ ‖ ⌊ ⌋ ⌈ ⌉ |0〉 |1〉
   ℚ ℝ ℕ ℤ ℂ ℍ ℙ ⅅ  ℬ ℰ ℯ ℱ ℊ ℋ ℎ ℐ ℒ ℓ ℳ ℴ ℘ ℛ
-
+  
   For quotation marks, both the left-right style “” and the ASCII
   style "" can be used, but obviously they should be used in matching
   pairs. (Also keep in mind that "XYZ" has a special meaning in
