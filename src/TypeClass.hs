@@ -1,3 +1,6 @@
+-- | This module implements a simple type class resolution. There is no supper class
+-- or cyclic detection. Our type class can work with dependent data types such as Vector.   
+
 module TypeClass where
 
 import Utils
@@ -13,9 +16,10 @@ import Control.Monad.Except
 import Control.Monad.State
 import qualified Data.Set as S
 
-
+-- | Resolve all the goals in an expression, this will substitute
+-- all the goal variables in an expression with the corresponding
+-- evidence (dictionary). 
 resolveGoals :: Exp -> TCMonad Exp
--- resolveGoals a | trace (show $ text "resolveGoals:" <+> disp a) False = undefined
 resolveGoals a = 
   do ts <- get
      let env = instanceContext ts
@@ -42,11 +46,11 @@ resolveGoals a =
              resolution e local gl
 
 
-
+-- | Construct an evidence for a goal expression automatically
+-- using existing global instance context and local type class assumptions.             
 resolution :: Exp -> [(Variable, Exp)] -> [(Id, Exp)] -> TCMonad Exp
 resolution goal localEnv globalEnv =
-  do -- goal' <- normalize goal
-     (t, newGoals) <- rewrite goal localEnv globalEnv
+  do (t, newGoals) <- rewrite goal localEnv globalEnv
      helper t newGoals
        where helper t [] = return t
              helper t ((x, subGoal):res) =
@@ -54,7 +58,8 @@ resolution goal localEnv globalEnv =
                   let t'' = apply [(x, t')] t
                   helper t'' res
 
-
+-- | Implement resolution by rewriting, it uses matching to drive the resolution process. 
+rewrite :: Exp -> [(Variable, Exp)] -> [(Id, Exp)] -> TCMonad (Exp, [(Variable, Exp)])
 rewrite goal localEnv globalEnv =
   do r <- tryLocal goal localEnv
      case r of
@@ -93,11 +98,12 @@ rewrite goal localEnv globalEnv =
                   freshNames r $ \ (s':[]) -> return s'
 
 
--- | Match the first expression against the second, return the result and the substitution.
+-- | A run function for 'match'.
 runMatch :: Exp -> Exp -> (Bool, [(Variable, Exp)])
 runMatch e1 e2 = runState (match (erasePos e1) (erasePos e2)) []
 
--- | Type class resolution requires a matching algorithm instead of unification.
+-- | Match the first expression against the second, return the result (success or fail) and
+-- accumulating substitution.
 match :: Exp -> Exp -> State [(Variable, Exp)] Bool
 match Unit Unit = return True
 match (Base x) (Base y) | x == y = return True
