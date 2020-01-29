@@ -1,4 +1,6 @@
-module Dispatch where
+-- | This module implements the command line dispatch function. 
+
+module Dispatch (dispatch) where
 
 
 import ConcreteSyntax as C
@@ -33,8 +35,8 @@ import Text.PrettyPrint
 
 -- | Perform top-level action on the command line input. The most complicated
 -- piece of code is about loading a file, here we implement a very simple kind of
--- circularity checking for importation. There is no module system here, implementing
--- one is left for further work. 
+-- circularity checking for importation. We left implementing
+-- a better module system as further work. 
 dispatch :: Command -> Top Bool
 dispatch Quit = return False
 dispatch Help =

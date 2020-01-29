@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts#-}
--- | This module implements closure-based call-by-value evaluation.
+-- | This module implements a closure-based call-by-value evaluation.
 -- It still has memory problem when generating super-large circuits.
 
 module Evaluation where
@@ -24,17 +24,12 @@ import qualified Data.Set as Set
 import Debug.Trace
 
 
-data EvalState =
-  ES { morph :: Morphism, -- ^ underlying incomplete circuit.
-       evalEnv :: Context  -- ^ global evaluation context.
-     }
 
 
--- | The evaluation monad.
-type Eval a = ExceptT EvalError (State EvalState) a
-
+-- * The evaluation functions for TCMonad.
 
 -- | Evaluate an expression with an underlying circuit, return value and the updated circuit.
+evaluate :: Morphism -> Exp -> TCMonad (Value, Morphism)
 evaluate circ e =
   do st <- get
      let gl = globalCxt $ lcontext st
@@ -55,14 +50,22 @@ evaluation e =
        Left e -> throwError $ EvalErr e
        Right r -> return r
 
--- | Look up a value from the local environment.
-lookupLEnv x lenv =
-  case Map.lookup x lenv of
-    Nothing -> error "from lookupLEnv"
-    Just v -> v
+-- * The Eval monad and eval function.
 
--- | Call-by-value evaluation, it evaluates an expression to
--- a value in the value domain.
+-- | The evaluation monad.
+type Eval a = ExceptT EvalError (State EvalState) a
+
+-- | Evaluator state, it contains an underlying circuit and
+-- a global context. 
+data EvalState =
+  ES { morph :: Morphism, -- ^ The underlying incomplete circuit.
+       evalEnv :: Context  -- ^ The global evaluation context.
+     }
+
+-- | Evaluate an expression to
+-- a value in the value domain. The eval function also takes an environment
+-- as argument and form a closure when evaluating a lambda abstraction or a lifted term.
+
 eval :: Map Variable Value -> Exp -> Eval Value
 eval lenv (Var x) =
   return $ lookupLEnv x lenv 
@@ -81,7 +84,9 @@ eval lenv a@(Const k) =
            DefinedFunction (Just (_, v, _)) -> return v
            DefinedMethod _ v -> return v
            DefinedInstFunction _ v -> return v
+
 eval lenv (Base k) = return $ VBase k
+
 eval lenv a@(LBase k) =
   do st <- get
      let genv = evalEnv st
@@ -180,7 +185,17 @@ eval lenv b@(Case m (B bd)) =
 eval lenv a@(Pos _ e) = error "position in eval"
 eval lenv a = error $ "from eval: " ++ (show $ disp a)
 
+-- * Helper functions for eval.
+
+-- | Look up a value from the local environment.
+lookupLEnv ::  Variable -> Map Variable Value -> Value
+lookupLEnv x lenv =
+  case Map.lookup x lenv of
+    Nothing -> error "from lookupLEnv"
+    Just v -> v
+
 -- | A helper function for evaluating various of applications.
+evalApp :: Value -> Value -> Eval Value    
 evalApp VUnBox v = return $ VApp VUnBox v
 evalApp (VForce (VApp VUnBox v)) w =
   case v of
@@ -274,7 +289,8 @@ evalApp v w =
                Just v -> v:res
                Nothing -> error $ "can't find variable " ++ (show $ disp x)
 
--- | A helper function for evaluating a box term.
+-- | Evaluate a box term.
+evalBox :: LEnv -> Exp -> Value -> Eval Value               
 evalBox lenv body uv =
   freshLabels (genNames uv) $ \ vs ->
    do st <- get
@@ -291,7 +307,13 @@ evalBox lenv body uv =
               morph' = Wired $ abst wires (VCircuit newMorph)
           in return morph'
 
--- | A helper function for evaluating a existsBox term
+-- | Evaluate an existsBox term. Note that
+-- it is tempting to combine 'evalExbox' and 'evalBox' into one function,
+-- but this will introduce bug, because we do not distinguish existential
+-- pair and the usual tensor pair at runtime, the evaluator may confuse
+-- the tensor pair with existential pair, thus making the wrong decision.
+-- So we define 'evalExbox' and 'evalBox' separately to enforce the assumptions.
+evalExbox :: LEnv -> Exp -> Value -> Eval Value        
 evalExbox lenv body uv =
   freshLabels (genNames uv) $ \ vs ->
    do st <- get
@@ -306,14 +328,14 @@ evalExbox lenv body uv =
               newMorph = Morphism ins (reverse gs) res'
               wires = getAllWires newMorph
               morph' = Wired $ abst wires (VCircuit newMorph)
-          in return (VPair n morph')
+          in return (VPair n morph')        
         Right a -> error $ "from eval_exBox\n" ++ (show $ disp a)
 
 
 
--- | Append a circuit to the underline circuit state according to a Binding
--- For efficiency reason we try prepend instead of append, so evalBox and evalExbox
--- has to reverse the list of gates as part of the post-processing. 
+-- | Append a circuit to the underline circuit state according to a binding.
+-- For efficiency reason we try prepend instead of append, so 'evalBox' and 'evalExbox'
+-- have to reverse the list of gates as part of the post-processing. 
 appendMorph :: Binding -> Morphism -> Eval Value
 appendMorph binding f@(Morphism fins fs fouts) =
   do st <- get
@@ -326,30 +348,8 @@ appendMorph binding f@(Morphism fins fs fouts) =
          do put st{morph = newCirc }
             return fouts'
 
--- | Rename the labels of a morphism. 
-rename (Morphism ins gs outs) m =
-  let ins' = renameTemp ins m
-      outs' = renameTemp outs m
-      gs' = renameGs gs m
-  in Morphism ins' gs' outs'
 
--- | Rename a template value.
-renameTemp (VLabel x) m =
-  case Map.lookup x m of
-    Nothing -> (VLabel x)
-    Just y -> VLabel y
-renameTemp a@(VConst _) m = a
-renameTemp VStar m = VStar
-renameTemp (VApp e1 e2) m = VApp (renameTemp e1 m) (renameTemp e2 m)
-renameTemp (VPair e1 e2) m = VPair (renameTemp e1 m) (renameTemp e2 m)
-renameTemp a m = error "applying renameTemp function to an ill-formed template"     
-
--- | Rename a list of gates
-renameGs gs m = map helper gs
-  where helper (Gate id params ins outs ctrls) =
-          Gate id params (renameTemp ins m) (renameTemp outs m) (renameTemp ctrls m)
-
--- | A binding is a map of labels 
+-- | A binding is a map of labels. 
 type Binding = Map Label Label
 
 -- | Obtain a binding from two simple terms. 
@@ -363,36 +363,65 @@ makeBinding w v =
                "\n" ++ (show $ disp v))
        else Map.fromList (zip ws vs)
 
--- | reverse a list of gate in theory, in reality it only
+-- | Rename the labels of a morphism according to a binding.
+rename :: Morphism -> Map Label Label -> Morphism            
+rename (Morphism ins gs outs) m =
+  let ins' = renameTemp ins m
+      outs' = renameTemp outs m
+      gs' = renameGs gs m
+  in Morphism ins' gs' outs'
+
+-- | Rename a template value according to a binding.
+renameTemp :: Value -> Map Label Label -> Value
+renameTemp (VLabel x) m =
+  case Map.lookup x m of
+    Nothing -> (VLabel x)
+    Just y -> VLabel y
+renameTemp a@(VConst _) m = a
+renameTemp VStar m = VStar
+renameTemp (VApp e1 e2) m = VApp (renameTemp e1 m) (renameTemp e2 m)
+renameTemp (VPair e1 e2) m = VPair (renameTemp e1 m) (renameTemp e2 m)
+renameTemp a m = error "applying renameTemp function to an ill-formed template"     
+
+-- | Rename a list of gates according to a binding.
+renameGs :: [Gate] -> Map Label Label -> [Gate]
+renameGs gs m = map helper gs
+  where helper (Gate id params ins outs ctrls) =
+          Gate id params (renameTemp ins m) (renameTemp outs m) (renameTemp ctrls m)
+
+   
+-- | Reverse a list of gate in theory, in reality it only
 -- changes the name of a gate to its adjoint, the gates are
 -- already stored in reverse order due to the way we implement 'appendMorph'.
 revGates :: [Gate] -> [Gate]
 revGates xs = revGatesh xs [] 
   where revGatesh [] gs = gs
         revGatesh ((Gate id params ins outs ctrls):res) gs =
-          do id' <- invertName id
-             revGatesh res ((Gate id' params outs ins ctrls):gs)
+          let id' = invertName id
+          in revGatesh res ((Gate id' params outs ins ctrls):gs)
 
 -- | Change the name of a gate to its adjoint
-invertName id | getName id == "Init0" = return $ Id "Term0"
-invertName id | getName id == "Init1" = return $ Id "Term1"
-invertName id | getName id == "Term1" = return $ Id "Init1"
-invertName id | getName id == "Term0" = return $ Id "Init0"
-invertName id | getName id == "H" = return $ Id "H"
-invertName id | getName id == "CNot" = return $ Id "CNot"
-invertName id | getName id == "Not_g" = return $ Id "Not_g"
-invertName id | getName id == "C_Not" = return $ Id "C_Not"
-invertName id | getName id == "QNot" = return $ Id "QNot"
-invertName id | getName id == "CNotGate" = return $ Id "CNotGate"
-invertName id | getName id == "ToffoliGate_10" = return $ Id "ToffoliGate_10"
-invertName id | getName id == "ToffoliGate_01" = return $ Id "ToffoliGate_01"
-invertName id | getName id == "ToffoliGate" = return $ Id "ToffoliGate"
+invertName :: Id -> Id             
+invertName id | getName id == "Init0" =  Id "Term0"
+invertName id | getName id == "Init1" =  Id "Term1"
+invertName id | getName id == "Term1" =  Id "Init1"
+invertName id | getName id == "Term0" =  Id "Init0"
+invertName id | getName id == "H" =  Id "H"
+invertName id | getName id == "CNot" =  Id "CNot"
+invertName id | getName id == "Not_g" =  Id "Not_g"
+invertName id | getName id == "C_Not" =  Id "C_Not"
+invertName id | getName id == "QNot" =  Id "QNot"
+invertName id | getName id == "CNotGate" =  Id "CNotGate"
+invertName id | getName id == "ToffoliGate_10" =  Id "ToffoliGate_10"
+invertName id | getName id == "ToffoliGate_01" =  Id "ToffoliGate_01"
+invertName id | getName id == "ToffoliGate" =  Id "ToffoliGate"
 invertName id | getName id == "Mea" = error "cannot invert Mea gate"
 invertName id | getName id == "Discard" = error "cannot invert Discard gate"
-invertName id = return $ Id $ getName id ++ "*"
+invertName id =  Id $ getName id ++ "*"
 
 
 -- | Generate a list of wirenames from a simple data type.
+genNames :: Value -> [String]
 genNames uv =
   let n = size uv
       ls = "l":ls
@@ -400,6 +429,7 @@ genNames uv =
   in names
 
 -- | Rename uv using fresh labels draw from vs
+toVal :: Value -> [Label] -> Value
 toVal uv vs = evalState (templateToVal uv) vs
 
 -- | Obtain a fresh template inhabitant of a simple type, with wirenames
@@ -424,7 +454,8 @@ templateToVal (VTensor e1 e2) =
 
 templateToVal a = error "applying templateToVal function to an ill-formed template"
 
--- | Size of a simple data type.
+-- | Get the size of a simple data type.
+size :: Num a => Value -> a
 size (VLBase x) = 1
 size (VConst _) = 0
 size VUnit = 0
@@ -433,6 +464,7 @@ size (VTensor e1 e2) = size e1 + size e2
 size a = error $ "applying size function to an ill-formed template:" ++ (show $ disp a)     
 
 -- | Obtain all the labels from the circuit.
+getAllWires :: Morphism -> [Label]
 getAllWires (Morphism ins gs outs) =
   let inWires = Set.fromList $ getWires ins
       outWires = Set.fromList $ getWires outs

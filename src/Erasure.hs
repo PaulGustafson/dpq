@@ -1,10 +1,9 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 -- | This module defines the 'erasure' function, it erases
 -- an annotated expression to a lambda expression without irrelevant annotations.
--- The erasrue function also checks if an irrelevant variable
--- is used as an explicit argument. 
 
-module Erasure where
+module Erasure (erasure) where
 
 import Syntax
 import Nominal
@@ -21,6 +20,10 @@ import qualified Data.Set as S
 import Debug.Trace
 
 
+-- | Erase a fully annotated expression to a lambda expression, for
+-- runtime evaluation.
+-- The erasrue function also checks if an irrelevant variable
+-- is used as an explicit argument. 
 
 erasure :: Exp -> TCMonad Exp
 erasure (Pos p a) = erasure a `catchError` \ e -> throwError $ collapsePos p e
@@ -239,7 +242,8 @@ erasure l@(Case e (B br)) =
 
 erasure a = error $ "from erasure: " ++ (show $ disp a)
 
-
+-- | Check if any irrelavant variables in the list is used explicitly in an expression.
+checkExplicit :: [Either (NoBind Exp) Variable] -> Exp -> TCMonad ()
 checkExplicit [] ann = return ()
 checkExplicit (Left a :xs) ann = checkExplicit xs ann
 checkExplicit (Right x :xs) ann =
