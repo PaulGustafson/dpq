@@ -490,27 +490,35 @@ toExp (VPair a b) = Pair (toExp a) (toExp b)
 data Decl = Object Position Id -- ^ Declaration for qubit or bit.
             
           | Data Position Id Exp [(Position, Id, Exp)]
-            -- ^ Id: the type constructor, Exp: a kind expression, [(Position, Id, Exp)]:
+            -- ^ Data type declaration.
+            -- Id: the type constructor, Exp: a kind expression, [(Position, Id, Exp)]:
             -- the list of data constructors with corresponding types. 
           | SimpData Position Id Int Exp [(Position, Maybe Int, Id, Exp)]
-            -- ^ Id: the type constructor, Int: the number of type arguments,
+            -- ^ Simple data type declaration.
+            -- Id: the type constructor, Int: the number of type arguments,
             -- Exp: partial kind annotation. In [(Position, Maybe Int, Id, Exp)],
             -- Maybe Int: the position where dependent pattern matching is performed.
             -- Id: data constructor, Exp: pretypes for the data constructors, to
             -- be further processed. 
           | Class Position Id Exp Id Exp [(Position, Id, Exp)]
-            -- ^ Id: class name, Exp: instance function type,
+            -- ^ Class declaration.
+            -- Id: class name, Exp: instance function type,
             -- [(Position, Id, Exp)]: list of methods and their definitions.
           | Instance Position Id Exp [(Position, Id, Exp)]
-            -- ^ Id: instance function name, Exp: instance function type,
+            -- ^ Instance declaration.
+            -- Id: instance function name, Exp: instance function type,
             -- [(Position, Id, Exp)]: list of methods and their definitions.
           | Def Position Id Exp Exp
-            -- ^ Function declaration, Id: name, Exp: type, Exp: definition
+            -- ^ Function declaration. Id: name, Exp: type, Exp: definition
           | GateDecl Position Id [Exp] Exp
+            -- ^ Gate declaration. Id: name, [Exp]: parameters, Exp: input/output.
           | ControlDecl Position Id [Exp] Exp
+            -- ^ Controlled gate declaration. Id: name, [Exp]: parameters, Exp: input/output.
           | ImportDecl Position String
+            -- ^ Importation.
           | OperatorDecl Position String Int String
+            -- ^ Operator declaration. String: operator name, Int: precedence, String: fixity.
           | Defn Position Id (Maybe Exp) Exp
-            -- ^ Function declaration in infer mode, Id: name, May Exp: maybe a partial type,
+            -- ^ Function declaration in infer mode. Id: name, May Exp: maybe a partial type,
             -- Exp: definition
 
