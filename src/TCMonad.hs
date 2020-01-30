@@ -448,7 +448,7 @@ shape (Pi (Abst x t) t2) =
 shape (PiImp (Abst x t) t2) =
   do t' <- shape t
      t2' <- shape t2
-     return $ PiImp' (abst x t') t2'
+     return $ PiImp (abst x t') t2'
 
 shape (Lam (Abst x t)) = 
   do t' <- shape t

@@ -101,29 +101,29 @@ data Exp =
     
   | PiImp (Bind [Variable] Exp) Exp -- ^ Implicit dependent types. 
 
-  | LamDep (Bind [Variable] Exp) -- ^ Dependent type abstraction. 
-  | LamDep' (Bind [Variable] Exp) -- ^ Implicit dependent type abstraction. 
+  | LamDep (Bind [Variable] Exp) -- ^ Linear dependent lambda abstraction (abstracting term). 
+  | LamDep' (Bind [Variable] Exp) -- ^ Intuitionistic dependent lambda abstraction (abstracting term). 
 
-  | AppDep Exp Exp
-  | AppDep' Exp Exp
+  | AppDep Exp Exp -- ^ Linear dependent application (term application). 
+  | AppDep' Exp Exp -- ^ Intuitionistic dependent application (term application). 
 
   -- explicit type abstraction and application
-  | LamDepTy (Bind [Variable] Exp)
-  | AppDepTy Exp Exp
+  | LamDepTy (Bind [Variable] Exp) -- ^ Dependent lambda abstraction (abstracting type). 
+  | AppDepTy Exp Exp -- ^ Dependent application (type application). 
 
-  -- Annotated lambda, this makes infering body using infer mode.
+
   | LamAnn Exp (Bind [Variable] Exp)
-  | LamAnn' Exp (Bind [Variable] Exp)
-
+    -- ^ Annotated lambda abstraction. This uses infer mode to infer the body. 
+  | LamAnn' Exp (Bind [Variable] Exp) -- ^ Shape of 'LamAnn'. 
   
-  | WithType Exp Exp -- ^ Annotated term  
+  | WithType Exp Exp -- ^ Annotated term.
 
-  -- Irrelavent quantification  
-  | Forall (Bind [Variable] Exp) Exp    
-  | LamType (Bind [Variable] Exp)
-  | LamTm (Bind [Variable] Exp)
-  | AppType Exp Exp 
-  | AppTm Exp Exp  
+  -- Irrelavent quantification.  
+  | Forall (Bind [Variable] Exp) Exp  -- ^ Irrelevant quantification.     
+  | LamType (Bind [Variable] Exp) -- ^ Irrelevant type abstraction.
+  | LamTm (Bind [Variable] Exp) -- ^ Irrelevant term abstraction.
+  | AppType Exp Exp -- ^ Irrelevant type application. 
+  | AppTm Exp Exp  -- ^ Irrelevant term application.
   -- others.  
   | PlaceHolder -- ^ Wildcard. 
   | Pos Position Exp -- ^ Position wrapper.
@@ -271,11 +271,6 @@ instance Disp Exp where
     fsep [braces ((hsep $ map (display flag) vs) <+> text "::" <+> display flag t)
     <+> text "->" , nest 2 $ display flag b]
 
-  display flag (PiImp' bd t) =
-    open bd $ \ vs b ->
-    fsep [braces ((hsep $ map (display flag) vs) <+> text "::" <+> display flag t)
-    <+> text "->'" , nest 2 $ display flag b]
-
   display flag (Pi' bd t) =
     open bd $ \ vs b ->
     fsep [parens ((hsep $ map (display flag) vs) <+> text "::" <+> display flag t)
@@ -353,16 +348,16 @@ instance Disp (Either (NoBind Exp) Variable) where
 
 -- | The value domain, for evaluation purpose.  
 data Value =
-  VLabel Label
+  VLabel Label -- ^ Labels.
   | VVar Variable -- ^ For the parameters and generic control in a gate. 
-  | VConst Id
-  | VTensor Value Value
-  | VUnit
-  | VLBase Id
-  | VBase Id
+  | VConst Id -- ^ Constructors.
+  | VTensor Value Value -- ^ Runtime tensor product for generating fresh labels. 
+  | VUnit -- ^ Runtime unit type for generating unit value.
+  | VLBase Id -- ^ Runtime simple types.
+  | VBase Id -- ^ Runtime non-simple type. 
   | VLam (Bind LEnv (Bind [Variable] Exp)) -- ^ Lambda forms a closure.
-  | VPair Value Value
-  | VStar
+  | VPair Value Value -- ^ Pair of values.
+  | VStar -- ^ Unit value. 
   | VLift (Bind LEnv Exp) -- ^ Lift also forms a closure.
   | VLiftCirc (Bind [Variable] (Bind LEnv Exp))
     -- ^ Circuit binding, [Variable] is like a lambda that handles parameter arguments
@@ -371,13 +366,13 @@ data Value =
     -- ^ Unbound circuit (incomplete). 
   | Wired (Bind [Label] Value)
     -- ^ Complete circuit.
-  | VApp Value Value
-  | VForce Value
-  | VBox
-  | VExBox
-  | VUnBox
-  | VRevert
-  | VRunCirc
+  | VApp Value Value -- ^ Applicative value. 
+  | VForce Value -- ^ Value version of 'Force'.
+  | VBox -- ^ Value version of 'Box'.
+  | VExBox -- ^ Value version of 'ExBox'.
+  | VUnBox -- ^ Value version of 'UnBox'.
+  | VRevert -- ^ Value version of 'Revert'.
+  | VRunCirc -- ^ Value version of 'RunCirc'.
   deriving (Show, NominalShow, NominalSupport, Generic)
 
 -- | Local value environment for evaluation. 
@@ -395,11 +390,12 @@ instance Bindable (Map Variable Value) where
           t' <- map_binding t
           pure ((k',v'):t')  
 
--- | Gate, [Value] is a list of parameters, the last three values
+-- | Gate, ['Value'] is a list of parameters, the last three values
 -- are input, output and control.          
 data Gate = Gate Id [Value] Value Value Value
   deriving (Show, NominalShow, NominalSupport, Generic)
 
+-- | A list of gates.
 type Gates = [Gate]
 
 -- | Morphism denotes an incomplete circuit, a completion would be
@@ -481,7 +477,7 @@ instance Disp Gate where
     <+> (braces $ (display flag ins)) <+> (braces $ (display flag outs))
     <+> (brackets $ display flag ctrls)
 
--- | Convert a 'basic value' from the value domain to an expression,
+-- | Convert a /basic value/ from the value domain to an expression,
 -- so that the type checker can take advantage of cbv.   
 toExp :: Value -> Exp
 toExp (VConst id) = Const id
@@ -491,7 +487,7 @@ toExp (VPair a b) = Pair (toExp a) (toExp b)
 
 -- | Declarations in abstract syntax, resolved from the declarations
 -- in the concrete syntax. 
-data Decl = Object Position Id
+data Decl = Object Position Id -- ^ Declaration for qubit or bit.
             
           | Data Position Id Exp [(Position, Id, Exp)]
             -- ^ Id: the type constructor, Exp: a kind expression, [(Position, Id, Exp)]:
