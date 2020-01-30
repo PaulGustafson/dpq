@@ -1,5 +1,7 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts, GeneralizedNewtypeDeriving #-}
--- | This module defines various of utility functions in the 'TCMonad'. 
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+-- | This module defines various of utility functions for the 'TCMonad'. 
 
 module TCMonad where
 
@@ -29,31 +31,36 @@ data Info =
        }
 
 -- | Definition and other related information about a top-level identifier.
-data Identification = DataConstr Id  -- ^ Data type id 
-                    | DefinedGate Value
+data Identification = DataConstr Id  -- ^ Data constructor, 'Id' is its type constructor. 
+                    | DefinedGate Value -- ^ Gate value.
                     | DefinedFunction (Maybe (Exp, Value, Maybe Exp))
-                    -- ^ Storing annotation, value, and may be an expression of a basic value.   
-                    | DefinedMethod Exp Value 
+                      -- ^ Defined function. Exp: annotation, Value: function value,
+                      -- and Maybe Exp: an expression of a basic value.   
+                    | DefinedMethod Exp Value
+                      -- ^ Method annotation and its value.
                     | DefinedInstFunction Exp Value
+                      -- ^ Annotated instance function and its value. 
                     | DataType DataClassifier [Id] (Maybe Exp)
                       -- ^ A data type, its classifier and its
-                      -- constructors, if it is simple type, then its runtime
+                      -- constructors. If it is simple type, then its runtime
                       -- template function.
-                    | DictionaryType Id [Id] -- ^ Dictionary constructor and its methods id
+                    | DictionaryType Id [Id]
+                    -- ^ Dictionary constructor and its methods id.
                     deriving (Show)
 
+-- | Data type classifier. 
 data DataClassifier =
-  Param 
-  | SemiParam -- ^ Semi-parameter data type, e.g., List a
+  Param -- ^ Parameter data type. 
+  | SemiParam -- ^ Semi-parameter data type, e.g., List a.
   | Simple -- ^ Types defined by the 'object' keyword. e.g. Qubit 
-  | SemiSimple (Maybe Int) -- ^ Types defined by the 'simple' keyword. e.g. Vec a n 
-  | Unknown 
+  | SemiSimple (Maybe Int) -- ^ Data types defined by the /simple/ keyword. E.g. @Vec a n@. 
+  | Unknown -- ^ None of the above.
   deriving (Show, Eq)
 
 -- | Local type checking context. 
 data LContext = LContext {
-  localCxt :: Map Variable VarInfo, -- ^ local variable info.
-  globalCxt  :: Context  -- ^ global typing context.
+  localCxt :: Map Variable VarInfo, -- ^ Local variable information.
+  globalCxt  :: Context  -- ^ Global typing context.
   }
 
 -- | A record that captures all the information about a variable
@@ -65,10 +72,11 @@ data VarInfo =
 
 -- | Information about a term variable or a type variable. 
 data VarIdentification = TermVar ZipCount (Maybe Exp)
-                         -- ^ a term variable's count and its definition if it is defined
-                         -- by let
+                         -- ^ Term variable, its count and its definition if it is defined
+                         -- by let expression. 
                        | TypeVar Bool
-                         -- ^ whether a type variable is a parameter variable
+                         -- ^ Type variable. The boolean indicates
+                         -- whether a type variable is a parameter variable.
 
 
 -- | Convert a global context to a local one. 
@@ -86,7 +94,7 @@ data InstanceContext = IC {
   globalInstance  :: GlobalInstanceCxt,  -- ^ Global instance identifiers and their types.
   goalInstance :: [(Variable, (Exp, Exp))]  -- ^ Current goal (constraint) variables that
                                              -- needed to be resolved. It has the format:
-                                  -- (<variable>, (<type>, <original-term-for-error-info)).
+                                  -- (variable, (type, original-term-for-error-info)).
   }
 
 -- | Convert a global instance context into a local one.
@@ -96,7 +104,6 @@ makeInstanceCxt gl =
 
 
 -- | The type checking monad tranformer. 
-
 newtype TCMonadT m a = TC{runTC :: ExceptT TypeError (StateT TypeState m) a}
   deriving (Functor, Monad, Applicative, MonadError TypeError, MonadState TypeState)
 
@@ -108,8 +115,8 @@ data TypeState = TS {
                      lcontext :: LContext, -- ^ Current local typing context.
                      subst :: Subst, -- ^ Substitution generated during the type checking.
                      clock :: Int, -- ^ A counter.  
-                     instanceContext :: InstanceContext,
-                     checkForallBound :: Bool, -- ^ whether or not to check Forall variable
+                     instanceContext :: InstanceContext, -- ^ A local instance context.
+                     checkForallBound :: Bool, -- ^ Whether or not to check Forall variable
                                               -- is well-quantified. It is uncheck when the
                                               -- type is intended to be used as instance type
                      infer :: Bool -- ^ If it is in infer mode.
@@ -120,7 +127,7 @@ data TypeState = TS {
 initTS :: Map Id Info -> GlobalInstanceCxt -> TypeState
 initTS gl inst = TS (fromGlobal gl) Map.empty 0 (makeInstanceCxt inst) True False
 
--- | A run function for 'TCMonadT'
+-- | A run function for 'TCMonadT'.
 runTCMonadT :: Context -> GlobalInstanceCxt -> 
                       TCMonadT m a -> m (Either TypeError a, TypeState)
 runTCMonadT env inst m =
@@ -137,11 +144,12 @@ setInfer x =
   do st <- get
      put st{infer = x}
 
-
+-- | Obtain the 'checkForallBound' flag.
 getCheckBound :: TCMonad Bool
 getCheckBound =
   get >>= \ x -> return $ checkForallBound x
 
+-- | Obtain the 'infer' flag.
 getInfer :: TCMonad Bool
 getInfer =
   get >>= \ x -> return $ infer x
@@ -171,7 +179,7 @@ lookupVar x =
               TermVar c _ -> return (a, Just c)
               _ -> return (a, Nothing)
 
--- | determine if a constructor is a constructor of a semi-simple type,
+-- | Determine if a constructor is a constructor of a semi-simple type,
 -- or a type constructor is a semi-simple type.
 
 isSemiSimple :: Id -> TCMonad (Bool, Maybe Int)
@@ -280,8 +288,8 @@ isParam (Exists (Abst x t) ty) =
 isParam a | otherwise = return False
 
 -- | Check if an expression is a semi-parameter type. For example,
--- List a and Vec a are both semi-parameter types because if a is a parameter type,
--- then both List a and Vec a are parameter types.
+-- @List a@ and @Vec a@ are both semi-parameter types because if @a@ is a parameter type,
+-- then both @List a@ and @Vec a@ are parameter types.
 isSemiParam :: Exp -> TCMonad Bool
 isSemiParam a | isKind a = return True
 isSemiParam (Unit) = return True
@@ -345,7 +353,7 @@ updateCount x =
                     gamma' = gamma {localCxt = lty'}
                 put ts{lcontext = gamma'}
 
--- | The shape operation, it does not transform a kind expression.
+-- | Get the shape of an expression. It does not transform a kind expression.
 shape a | isKind a = return a
 
 shape Unit = return Unit
@@ -557,6 +565,7 @@ removeVar x =
      put ts{lcontext = gamma'}
 
 -- | Check if a type class is well-formed.
+checkClass :: Exp -> TCMonad ()
 checkClass h =
   case flatten h of
     Nothing -> throwError $ NotAValidClass h
@@ -567,7 +576,7 @@ checkClass h =
   where ensureDict (DictionaryType _ _) _ = return ()
         ensureDict x h = throwError $ NotAValidClass h
 
--- | update parameter info if a type variable has a Parameter assumption
+-- | Update parameter info if a type variable has a 'Parameter' assumption
 updateParamInfo :: [Exp] -> TCMonad ()
 updateParamInfo [] = return ()
 updateParamInfo (p:ps) =
@@ -604,7 +613,8 @@ insertLocalInst x t =
          env' = env{localInstance = gamma'}
      put ts{instanceContext = env'}
 
--- | Dual of 'insertLocalInst'.
+-- | Remove a local instance assumption. 
+removeLocalInst :: Variable -> TCMonad ()
 removeLocalInst x =
   do ts <- get
      let env = instanceContext ts
@@ -612,7 +622,7 @@ removeLocalInst x =
          env' = env{localInstance = gamma'}
      put ts{instanceContext = env'}
 
--- | Generating a list of names that is freshed relatively to the
+-- | Generate a list of names that is freshed relatively to the
 -- clock value.
 newNames :: [String] -> TCMonad [String]
 newNames ns =
@@ -623,7 +633,7 @@ newNames ns =
      put ts{clock = j}
      return ns'
 
--- | check if a *program* is in value form.
+-- | Check if a term is in value form.
 isValue (Pos p e) = isValue e
 isValue (Var _) = return True
 isValue Star = return True
@@ -651,30 +661,31 @@ isValue (Force' (App' UnBox t)) = isValue t
 isValue a@(App UnBox t) = isValue t
 isValue a@(App' UnBox t) = isValue t
 
-isValue a@(App t t') = checkApp isValue a
-isValue a@(App' t t') = checkApp isValue a
-isValue a@(AppDep t t') = checkApp isValue a
-isValue a@(AppDep' t t') = checkApp isValue a
-isValue a@(AppDict t t') = checkApp isValue a
+isValue a@(App t t') = checkApp a
+isValue a@(App' t t') = checkApp a
+isValue a@(AppDep t t') = checkApp a
+isValue a@(AppDep' t t') = checkApp a
+isValue a@(AppDict t t') = checkApp a
 isValue a@(AppType t t') = isValue t
 isValue a@(AppTm t t') = isValue t
 isValue a@(RunCirc) = return True
 isValue _ = return False
 
--- | A helepr function for 'isValue'.
-checkApp f a = 
+-- | Check if an application is a value.
+checkApp :: Exp -> TCMonad Bool
+checkApp a = 
   case flatten a of
     Just (h, args) -> 
         do pc <- lookupId (fromEither h)
            case identification pc of
              DataConstr _ ->
-               do rs <- mapM f args
+               do rs <- mapM isValue args
                   return $ and rs
              DataType _ _ _ ->
-               do rs <- mapM f args
+               do rs <- mapM isValue args
                   return $ and rs
              DictionaryType _ _ ->
-               do rs <- mapM f args
+               do rs <- mapM isValue args
                   return $ and rs
              _ -> return False
              where fromEither (Left x) = x
@@ -752,6 +763,7 @@ getSubst =
 
 -- | Add a position information of an expression to the error message without duplicating
 -- position.
+withPosition :: Exp -> TypeError -> TypeError
 withPosition (Pos p e) er@(ErrPos _ _) = er
 withPosition (Pos p e) er = ErrPos p er
 withPosition _ er = er
@@ -796,6 +808,7 @@ addNewId x t =
 
 
 -- | Check whether a type contains any vacuous forall quantification.
+checkVacuous :: Position -> Exp -> TCMonad ()
 checkVacuous pos ty =
   case vacuousForall ty of
        Nothing -> return ()
@@ -812,6 +825,7 @@ addGlobalInst x t =
      put ts{instanceContext = env'}
 
 -- | Add an error position when possible.
+collapsePos :: Position -> TypeError -> TypeError
 collapsePos p a@(ErrPos _ _) = a
 collapsePos p a = ErrPos p a
 
