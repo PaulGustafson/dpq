@@ -190,13 +190,13 @@ proofInfer flag a@(AppDep' t1 t2) =
             if null (tail xs)
               then return m'
               else return $ Pi' (abst (tail xs) m') ty  
-       b@(PiImp' bd ty) -> open bd $ \ xs m ->
-         do proofCheck True t2 ty
-            let t2' = toEigen t2
-            m' <- betaNormalize (apply [(head xs, t2')] m)
-            if null (tail xs)
-              then return m'
-              else return $ PiImp' (abst (tail xs) m') ty  
+       -- b@(PiImp' bd ty) -> open bd $ \ xs m ->
+       --   do proofCheck True t2 ty
+       --      let t2' = toEigen t2
+       --      m' <- betaNormalize (apply [(head xs, t2')] m)
+       --      if null (tail xs)
+       --        then return m'
+       --        else return $ PiImp' (abst (tail xs) m') ty  
 
 proofInfer flag a@(AppDepTy t1 t2) =
   do t' <- proofInfer flag t1
@@ -225,13 +225,13 @@ proofInfer flag a@(AppDepTy t1 t2) =
             if null (tail xs)
               then return m'
               else return $ Pi' (abst (tail xs) m') ty
-       b@(PiImp' bd ty) | flag -> open bd $ \ xs m ->
-         do proofCheck True t2 ty
-            let t2' = toEigen t2
-            m' <- betaNormalize (apply [(head xs, t2')] m) >>= shape
-            if null (tail xs)
-              then return m'
-              else return $ PiImp' (abst (tail xs) m') ty
+       -- b@(PiImp' bd ty) | flag -> open bd $ \ xs m ->
+       --   do proofCheck True t2 ty
+       --      let t2' = toEigen t2
+       --      m' <- betaNormalize (apply [(head xs, t2')] m) >>= shape
+       --      if null (tail xs)
+       --        then return m'
+       --        else return $ PiImp' (abst (tail xs) m') ty
 
 
 proofInfer False a@(App t1 t2) =

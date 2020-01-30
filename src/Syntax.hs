@@ -42,66 +42,67 @@ import Debug.Trace
 -- the given constructor belongs to the parameter fragment. The core syntax contains
 -- the surface syntax and other forms of annotations for proof checking.
 data Exp =
-  Var Variable
-  | EigenVar Variable
-  | GoalVar Variable
-    -- User defined constant
-  | Const Id
-  | LBase Id
-  | Base Id
-    -- Arrows
-  | Lam (Bind [Variable] Exp) 
-  | Lam' (Bind [Variable] Exp)
+  Var Variable -- ^ Variable. 
+  | EigenVar Variable  -- ^ Eigenvariable, acts as constant during unification. 
+  | GoalVar Variable -- ^ Goal variable, to be substituted by a dictionary. 
 
-  | Arrow Exp Exp
-  | Arrow' Exp Exp
+  -- User defined constant
+  | Const Id  -- ^ Data constructors or functions. 
+  | LBase Id -- ^ Simple type constructors.
+  | Base Id  -- ^ (Non-simple) Data type constructors.
+
+  -- Arrows
+  | Lam (Bind [Variable] Exp) -- ^ Lambda abstraction for linear arrow type.
+  | Lam' (Bind [Variable] Exp) -- ^ Parameter lambda abstraction for parameter arrow type.
+
+  | Arrow Exp Exp -- ^ Linear arrow type. 
+  | Arrow' Exp Exp -- ^ Parameter arrow type.
     
-  | App Exp Exp
-  | App' Exp Exp
+  | App Exp Exp -- ^ Application. 
+  | App' Exp Exp -- ^ Parameter application.
 
     -- Dictionary abstraction and application.  
-  | AppDict Exp Exp
-  | Imply [Exp] Exp
-  | LamDict (Bind [Variable] Exp)
+  | AppDict Exp Exp -- ^ Dictionary application. 
+  | Imply [Exp] Exp -- ^ Constraint types. 
+  | LamDict (Bind [Variable] Exp) -- ^ Dictionary abstraction.
 
     -- Pair and existential  
-  | Tensor Exp Exp 
-  | Pair Exp Exp
-  | Let Exp (Bind Variable Exp) 
-  | LetPair Exp (Bind [Variable] Exp)
-  | LetPat Exp (Bind Pattern Exp)
-  | Exists (Bind Variable Exp) Exp
-  | Case Exp Branches
+  | Tensor Exp Exp -- ^ Tensor product. 
+  | Pair Exp Exp  -- ^ Pair constructor, also works for existential pair. 
+  | Let Exp (Bind Variable Exp)  -- ^ Single let expression. 
+  | LetPair Exp (Bind [Variable] Exp) -- ^ Let pair matching and existential pair matching.
+  | LetPat Exp (Bind Pattern Exp) -- ^ Let pattern matching. 
+  | Exists (Bind Variable Exp) Exp -- ^ Existential pair.
+  | Case Exp Branches -- ^ Case expression.
 
     -- Lift and force  
-  | Bang Exp
-  | Force Exp
-  | Force' Exp
-  | Lift Exp
+  | Bang Exp -- ^ Linear exponential type.
+  | Force Exp -- ^ Force. 
+  | Force' Exp -- ^ Force', the parameter version of Force.
+  | Lift Exp -- ^ Lift. 
 
     -- Circuit operations  
-  | Box
-  | ExBox
-  | UnBox
-  | RunCirc
-  | Revert 
-  | Circ Exp Exp
+  | Box -- ^ Circuit boxing. 
+  | ExBox -- ^ Existential circuit boxing. 
+  | UnBox -- ^ Circuit unboxing.
+  | RunCirc -- ^ Run classical circuits.
+  | Revert  -- ^ Obtain the adjoint of a circuit.
+  | Circ Exp Exp -- ^ The circuit type. 
     
     -- constants  
-  | Star
-  | Unit
-  | Set 
-  | Sort
+  | Star  -- ^ Unique inhabitant of unit type.
+  | Unit -- ^ The unit type.
+  | Set  -- ^ The kind for all types. 
+  | Sort  -- ^ The sort for all kinds. 
 
     -- Dependent types
-  | Pi (Bind [Variable] Exp) Exp
-  | Pi' (Bind [Variable] Exp) Exp
+  | Pi (Bind [Variable] Exp) Exp -- ^ Linear dependent types. 
+  | Pi' (Bind [Variable] Exp) Exp -- ^ Intuitionistic dependent types.
     
-  | PiImp (Bind [Variable] Exp) Exp
-  | PiImp' (Bind [Variable] Exp) Exp
+  | PiImp (Bind [Variable] Exp) Exp -- ^ Implicit dependent types. 
 
-  | LamDep (Bind [Variable] Exp)
-  | LamDep' (Bind [Variable] Exp)
+  | LamDep (Bind [Variable] Exp) -- ^ Dependent type abstraction. 
+  | LamDep' (Bind [Variable] Exp) -- ^ Implicit dependent type abstraction. 
 
   | AppDep Exp Exp
   | AppDep' Exp Exp
@@ -114,8 +115,8 @@ data Exp =
   | LamAnn Exp (Bind [Variable] Exp)
   | LamAnn' Exp (Bind [Variable] Exp)
 
-  -- Annotated term  
-  | WithType Exp Exp
+  
+  | WithType Exp Exp -- ^ Annotated term  
 
   -- Irrelavent quantification  
   | Forall (Bind [Variable] Exp) Exp    
@@ -124,8 +125,8 @@ data Exp =
   | AppType Exp Exp 
   | AppTm Exp Exp  
   -- others.  
-  | PlaceHolder
-  | Pos Position Exp
+  | PlaceHolder -- ^ Wildcard. 
+  | Pos Position Exp -- ^ Position wrapper.
   deriving (Eq, Generic, Nominal, NominalShow, NominalSupport, Show)
 
 -- | Branches for case expressions.
