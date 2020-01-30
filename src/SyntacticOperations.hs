@@ -10,14 +10,13 @@ import Nominal
 
 import qualified Data.Set as S
 
--- | Removing all the vacuous pi quantifiers.
+-- | Remove all the vacuous pi quantifiers.
 removeVacuousPi :: Exp -> Exp
 removeVacuousPi (Pos p e) = removeVacuousPi e
 removeVacuousPi (Forall (Abst xs m) ty) =
   Forall (abst xs $ removeVacuousPi m) (removeVacuousPi ty)
 removeVacuousPi (PiImp (Abst xs m) ty) =
-  PiImp (abst xs $ removeVacuousPi m) (removeVacuousPi ty)
-
+ PiImp (abst xs $ removeVacuousPi m) (removeVacuousPi ty)
 removeVacuousPi (Pi (Abst xs m) ty) =
   let fvs = getVars AllowEigen m
       xs' = map (\ x ->
@@ -41,7 +40,8 @@ removeVacuousPi (Imply ps ty2) =
 removeVacuousPi (Bang ty) = Bang $ removeVacuousPi ty
 removeVacuousPi a = a
 
--- | Detect vacuous forall quantifications, returns a list of vacuous variables, their type
+-- | Detect vacuous forall and implicit quantifications,
+-- return a list of vacuous variables, their type
 -- and the expression that they should occur in. 
 vacuousForall :: Exp -> Maybe (Maybe Position, [Variable], Exp, Exp)
 vacuousForall (Arrow t1 t2) =
@@ -55,11 +55,17 @@ vacuousForall (Pi (Abst vs m) ty) | otherwise =
     Nothing -> vacuousForall m
     Just p -> Just p
 
-vacuousForall (PiImp (Abst vs m) ty) | isKind ty = vacuousForall m
-vacuousForall (PiImp (Abst vs m) ty) | otherwise = 
-  case vacuousForall ty of
-    Nothing -> vacuousForall m
-    Just p -> Just p
+vacuousForall (PiImp bds ty) =
+  open bds $ \ vs m ->
+   let fvs = getVars NoImply m
+       vs' = S.fromList vs
+       p = S.isSubsetOf vs' fvs
+   in if p then
+        case vacuousForall ty of
+          Nothing -> vacuousForall m
+          Just p -> Just p
+      else let diff = S.toList $ S.difference vs' fvs in
+             Just (Nothing, diff, ty, m)
 
 vacuousForall (Imply ts t2) = vacuousForall t2
 vacuousForall (Bang t2) = vacuousForall t2
@@ -222,7 +228,8 @@ getVars b (Case t (B brs)) =
 getVars b (Pos p e) = getVars b e
 getVars b a = error $ "from getVars  " ++ show (disp a)
 
--- | A helper function for 'getVars'. 
+-- | Get variables according to 'VarSwitch'.
+varSwitch :: VarSwitch -> Exp -> S.Set Variable
 varSwitch AllowEigen (EigenVar x) = S.insert x S.empty
 varSwitch OnlyEigen (EigenVar x) = S.insert x S.empty
 varSwitch NoImply (EigenVar x) = S.insert x S.empty
@@ -234,7 +241,8 @@ varSwitch _ (Var x) = S.empty
 varSwitch GetGoal (GoalVar x) = S.insert x S.empty
 varSwitch _ (GoalVar x) = S.empty
 
--- | Flatten a n-tuple into a list. 
+-- | Flatten a n-tuple into a list.
+unPair :: (Num a, Ord a) => a -> Exp -> Maybe [Exp]
 unPair n (Pos _ e) = unPair n e
 unPair n (Pair x y) | n == 2 = Just [x, y]
 unPair n (Pair x y) | n > 2 =
@@ -242,14 +250,16 @@ unPair n (Pair x y) | n > 2 =
      return (r++[y])
 unPair _ _ = Nothing
 
--- | Flatten a n-value-tuple into a list. 
+-- | Flatten a n-value-tuple into a list.
+unVPair :: (Num t, Ord t) => t -> Value -> Maybe [Value]
 unVPair n (VPair x y) | n == 2 = Just [x, y]
 unVPair n (VPair x y) | n > 2 =
   do r <- unVPair (n-1) x
      return (r++[y])
 unVPair _ _ = Nothing
 
--- | Flatten a multi-tensor into a list. 
+-- | Flatten a multi-tensor into a list.
+unTensor :: (Num a, Ord a) => a -> Exp -> Maybe [Exp]
 unTensor n (Pos _ e) = unTensor n e
 unTensor n (Tensor x y) | n == 2 = Just [x, y]
 unTensor n (Tensor x y) | n > 2 =
@@ -258,8 +268,8 @@ unTensor n (Tensor x y) | n > 2 =
 unTensor _ _ = Nothing
 
 -- | Flatten a type expression into bodies and head, with variables intact.
--- e.g. flattenArrows ((x :: A1) -> A2 -> (P) => H) produces
--- ([(Just x, A1), (Nothing, A2), (Nothing, P)], H)
+-- e.g. @flattenArrows ((x :: A1) -> A2 -> (P) => H)@ produces
+-- @([(Just x, A1), (Nothing, A2), (Nothing, P)], H)@
 
 flattenArrows :: Exp -> ([(Maybe Variable, Exp)], Exp)
 flattenArrows (Pos p a) = flattenArrows a
@@ -299,11 +309,11 @@ removePrefixes flag (Imply bd ty) | flag =
 removePrefixes flag (Pos _ a) = removePrefixes flag a
 removePrefixes flag a = ([], a)
 
--- | Flatten an applicative expression, it can
--- be applied to both type and term expression. It return Nothing if the input is not
--- in a applicative form. Left indicates the identifier is a term constructor, Right 
+-- | Flatten an applicative expression. It can
+-- be applied to both type and term expression. It return 'Nothing' if the input is not
+-- in applicative form. 'Left' indicates the identifier is a term constructor, 'Right' 
 -- indicates the identifier is a type construtor.
--- 'flatten' also returns a list of arguments.
+-- It also returns a list of arguments.
 
 flatten :: Exp -> Maybe (Either Id Id, [Exp])
 flatten (Base id) = return (Right id, [])
@@ -345,7 +355,8 @@ vflatten _ = Nothing
 
 
 -- | Determine whether an expression is a kind expression. Note we allow
--- dependent kind such as: (a :: Type) -> (x :: !a) -> Type. 
+-- dependent kind such as: @(a :: Type) -> a -> Type@.
+isKind :: Exp -> Bool
 isKind (Set) = True
 isKind (Arrow k1 k2) = isKind k2
 isKind (Pi b ty) = open b $ \ vs b' -> isKind b'
@@ -354,6 +365,7 @@ isKind (Pos _ e) = isKind e
 isKind _ = False
 
 -- | Erase the positions from an expression.
+erasePos :: Exp -> Exp
 erasePos (Pos _ e) = erasePos e
 erasePos (Unit) = Unit
 erasePos (Set) = Set
@@ -411,23 +423,30 @@ erasePos (Case e (B br)) = Case (erasePos e) (B (map helper br))
   where helper (Abst p m) = abst p (erasePos m)
 erasePos e = error $ "from erasePos " ++ (show $ disp e)
 
-
+-- | Determine if an expression is an eigenvariable. 
+isEigenVar :: Exp -> Bool
 isEigenVar (EigenVar _) = True
 isEigenVar (Pos p e) = isEigenVar e
 isEigenVar _ = False
 
+-- | Determine if an expression is a constructor.
+isConst :: Exp -> Bool
 isConst (Const _) = True
 isConst (Pos p e) = isConst e
 isConst _ = False
 
+-- | Determine if a value is a circuit.
+isCirc :: Value -> Bool
 isCirc (Wired _) = True
 isCirc _ = False
 
 
--- | change eigenvariable to the usual variable
+-- | Convert all the eigenvariables in an expression to the usual variables.
+unEigen :: Exp -> Exp
 unEigen = unEigenBound []
 
--- | Helper function for unEigen
+-- | Convert all the eigenvariables in an expression to the usual variables,
+-- taking the input /vars/ into account.
 unEigenBound :: [Variable] -> Exp -> Exp
 unEigenBound vars (Pos p e) = Pos p (unEigenBound vars e)
 unEigenBound vars (Unit) = Unit
@@ -678,13 +697,13 @@ unEigenBound vars a@(Case e (B br)) =
           in (bv, (Left (NoBind x')):fv)
 unEigenBound vars a = error $ "from unEigenBound" ++ (show $ disp a)
 
--- | Flags for 'unwind'.
+-- | Flags for the 'unwind' function.
 data UnwindFlag = AppFlag | App'Flag | AppDep'Flag
                 | AppDepFlag | AppDictFlag 
   deriving (Show, Eq)
 
 
--- | unwind an applicative depending on app.
+-- | Unwind an applicative depending on the 'UnwindFlag'.
 unwind a (Pos _ e) = unwind a e
 
 unwind a@(AppFlag) (App t1 t2) =
@@ -704,16 +723,20 @@ unwind a@(AppDictFlag) (AppDict t1 t2) =
 
 unwind _ b = (b, [])
 
+-- | Unwind application. A helper function for 'unwind'.
+unwindHelper :: UnwindFlag -> Exp -> Exp -> (Exp, [Exp])
 unwindHelper a t1 t2 =
   let (h, args) = unwind a t1
    in (h, args++[t2])
       
 
+-- | Obtain a position information if the expression has one at the top level.
 obtainPos :: Exp -> Maybe Position
 obtainPos (Pos p e) = Just p
 obtainPos _ = Nothing
 
 -- | Obtain the labels from a simple term.
+getWires :: Value -> [Label]
 getWires (VLabel x) = [x]
 getWires (VConst _) = []
 getWires VStar = []
@@ -723,6 +746,7 @@ getWires a = error $ "applying getWires function to an ill-formed template:" ++ 
 
 
 -- | Check if a variable is used explicitly for runtime evaluation.
+isExplicit :: Variable -> Exp -> Bool
 isExplicit s (App t tm) =
    (isExplicit s t) || (isExplicit s tm)
 
@@ -835,7 +859,8 @@ isExplicit s (Const _) = False
 
 isExplicit s a = error $ "from isExplicit:" ++ (show $ disp a)
 
--- | convert all the free variables in an expression into eigenvariables.
+-- | Convert all the free variables in an expression into eigenvariables.
+toEigen :: Exp -> Exp
 toEigen t =
   let fvs = S.toList $ getVars NoEigen t
       sub = zip fvs (map EigenVar fvs)

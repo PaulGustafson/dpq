@@ -1,10 +1,10 @@
 {-# LANGUAGE  FlexibleInstances #-}
--- | This module implements substitution. 
+-- | This module implements the ususal capture-avoding substitution. 
 module Substitution where
 
 import Syntax
 import Utils
--- import SyntacticOperations
+
 
 
 import Nominal
@@ -14,7 +14,7 @@ import Data.Map (Map)
 import Text.PrettyPrint
 
 
--- | Substitution is represented as a map.
+-- | A substitution is represented as a map.
 type Subst = Map Variable Exp
 
 
@@ -25,9 +25,9 @@ instance Disp (Map Variable Exp) where
      where helper (x,  t) = display b x <+> text "|->" <+> display b t
 
 
--- | Capture avoiding substitution. Variables that happen
+-- | Substitute an expression. Variables that happen
 -- in the domain of substitution will be substituted, no matter
--- it is a goalvariable or eigenvariable.             
+-- it is a goal variable or eigenvariable.             
 substitute :: Subst -> Exp -> Exp           
 substitute s a@(Var y) =
   case Map.lookup y s of
@@ -207,7 +207,8 @@ substitute s (Case tm (B br)) =
 substitute s (Pos p e) = Pos p (substitute s e)
 substitute s a = error ("from substitute: " ++ show (disp a))  
 
--- | List version of the substitution.
+-- | Apply (list) substitution to an expression.
+apply :: [(Variable, Exp)] -> Exp -> Exp
 apply s t = let s' = Map.fromList s in substitute s' t
 
 -- | Merge two substitution.

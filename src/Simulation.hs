@@ -1,8 +1,8 @@
--- | This module simulates classical boolean circuits, i.e., circuits
+-- | This module simulates the classical boolean circuits, i.e., circuits
 -- that consist of {CNot, QNot, Init0, Init1, Term0, Term1, CNotGate,
 -- ToffoliGate, Not_g} from the "lib/Gates.dpq".
 
-module Simulation where
+module Simulation (runCircuit, SimulateError) where
 
 import SyntacticOperations hiding (toBool)
 import Syntax
@@ -60,6 +60,7 @@ runCircuit (Morphism minput gs moutput) input =
         makeOutput m (VApp x y) = 
           VApp (makeOutput m x) (makeOutput m y)
 
+-- | Simulation error data type.
 data SimulateError =
   NotSupported String
   | AssertionErr Label Bool Bool
@@ -84,15 +85,16 @@ instance Disp SimulateError where
     text "when running the simulation for the circuit:" $$
     vcat (map (display flag) gs)
 
--- | Boolean data type to Haskell bool. 
+-- | Convert a boolean data type to type 'Bool'.
+toBool :: Value -> Bool
 toBool (VConst x) | getName x == "True" = True
 toBool (VConst x) | getName x == "False" = False
 toBool _ = error "unknown boolean format, bools should be comming from the Prelude module"  
 
 
 
--- | Value lookup, since labels are linear, so
--- they will be garbage collected once a lookup is done.
+-- | Look up a value for a label. Since a label is used linearly,
+-- it will be garbage collected once the lookup is done.
 lookupValue :: Label -> Simulate Bool
 lookupValue x =
   do m <- get
@@ -110,8 +112,8 @@ updateValue x v =
      put $ Map.insert x v m
 
 
--- | Updating the current state according to the meaning of the
--- gate, Termination of a wired will invoke a runtime check.
+-- | Update the current state according to the meaning of the
+-- gate. The termination of a wired will invoke a runtime check.
 applyGate :: Gate -> Simulate ()
 applyGate (Gate id [] (VLabel input) (VLabel output) VStar) | getName id == "QNot" = 
   do v <- lookupValue input
@@ -181,11 +183,13 @@ applyGate (Gate name [] (VLabel input) (VLabel output) ctrl) | getName name == "
 applyGate (Gate name ps input output ctrl) =
   throwError $ NotSupported (getName name)
 
--- | Boolean to boolean data type.
+-- | Convert 'Bool' to a boolean data type.
+fromBool :: Bool -> Value
 fromBool True = VConst (Id "True")
 fromBool False = VConst (Id "False")
 
 -- | Add two booleans.
+booleanAdd :: Bool -> Bool -> Bool
 booleanAdd True False = True
 booleanAdd True True = False
 booleanAdd False True = True

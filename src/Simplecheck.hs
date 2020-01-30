@@ -1,7 +1,8 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 -- | This module implements a simplicity checker that checks the correctness
--- of the simple data type definition. 
+-- of a simple data type definition. 
 
 module Simplecheck (checkCoverage, checkIndices, preTypeToType) where
 
@@ -20,8 +21,9 @@ import Data.List
 import Control.Monad.Except
 import Debug.Trace
 
--- | Make sure the pattern matching is on the same argument in the simple type declaration.
--- The first argument is the length of the type arguments.  
+-- | Make sure pattern matching is on the same argument in the simple type declaration.
+-- The first argument /n/ is the length of the type arguments, /d/ is the name of the
+-- simple type constructor, /ls/ is a list of pattern matching positions from each clause.  
 checkIndices :: Int -> Id -> [Maybe Int] -> TCMonad (Maybe Int)
 checkIndices n d ls =
   case sequence ls of
@@ -51,13 +53,12 @@ checkCoverage d' cons =
          when (length css /= length cons) $ throwError $ CoverErr css cons d'
          when (not $ null (css \\ cons)) $ throwError (CoverErr css cons d')
 
--- | Convert a "pretype" expression from the simple data type declaration
+-- | Convert a /pretype/ expression 
 -- into an actual type. It will also check if the simple declaration is
 -- structurally decreasing (in the sense of primitive recursion). 
-
---  n is the number of type variables, k is the kind specified in the simple
--- declaration, i is the index, e is the pretype. preTypeToType will return
--- (<matched-constructor>, <type>)
+-- The input /n/ is the number of type variables, /k/ is the kind specified in the simple
+-- declaration, /i/ is the pattern matching index, /e/ is the pretype. 'preTypeToType'
+-- will return the matched constructor and the converted type.
 preTypeToType :: Int -> Exp -> Maybe Int -> Exp -> TCMonad (Maybe Id, Exp)
 preTypeToType n k i (Pos p e) =
   preTypeToType n k i e `catchError` \ e -> throwError $ collapsePos p e
@@ -68,7 +69,8 @@ preTypeToType n k i (Forall (Abst vs m) ty) =
      return (c, Forall (abst vs t) ty)
 preTypeToType n k i a = handleBody n k i a
 
--- | The helper function for preTypeToType that does the real work of the conversion.
+-- | Convert a pretype into a type. 
+handleBody :: Int -> Exp -> Maybe Int -> Exp -> TCMonad (Maybe Id, Exp)
 handleBody n k i m =
   do let (bds, h) = flattenArrows m
          Just (Right hid, args) = flatten h
@@ -118,8 +120,9 @@ handleBody n k i m =
                     in argTs'
                     else error $ "can't match " ++ (show $ disp h') ++ "against " ++ (show $ disp head)
 
--- | check the right hand side of the simple declaration is well-defined, i.e., they
--- for a well-defined primitive recursive definition.
+-- | Check the right hand side of the simple declaration is well-defined, i.e., they
+-- form a well-defined primitive recursive definition.
+checkBody :: Exp -> Id -> Exp -> TCMonad ()             
 checkBody h id (Pos p e) = checkBody h id e `catchError` \ e -> throwError $ collapsePos p e
 checkBody h id (Var x) = return ()
 
@@ -135,7 +138,8 @@ checkBody h id b | Just (Right kid, args) <- flatten b =
           when (not x) $ throwError (NotSimple b)
 checkBody h id b | otherwise = error $ "from checkBody:" ++ (show (disp b))
 
--- | First order subterm relation.
+-- | Determine if a term is a (first-order) subterm of another. 
+isSubterm :: Exp -> Exp -> Bool
 isSubterm (App t1 t2) (App t3 t4) =
   isSubterm t1 t3 && isSubterm t2 t4
 isSubterm (Var x) (Var y) | x == y = True

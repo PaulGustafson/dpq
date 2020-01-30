@@ -1,10 +1,16 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, FlexibleInstances, RankNTypes, GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass, PatternSynonyms, ViewPatterns, ApplicativeDo #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 {-|
-This module describes the abstract syntax of dpq. We use Peter Selinger's
+This module describes the abstract syntax of Proto-Quipper-D. We use Peter Selinger's
 nominal library to handle the affair of binding in abstract syntax.
 Please see <http://hackage.haskell.org/package/nominal here> for
 the documentation of nominal library.
@@ -126,7 +132,7 @@ data Exp =
 data Branches = B [Bind Pattern Exp]
               deriving (Eq, Generic, Show, NominalSupport, NominalShow, Nominal)
 
--- | Pattern can a bind term variable or a type variable, or have an instantiation (Left)
+-- | Pattern can a bind term variable or a type variable, or have an instantiation ('Left')
 -- that is bound at a higher-level. 
 data Pattern = PApp Id [Either (NoBind Exp) Variable] 
              deriving (Eq, Generic, NominalShow, NominalSupport, Nominal, Bindable, Show)

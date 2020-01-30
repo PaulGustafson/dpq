@@ -686,7 +686,7 @@ printCirc circ s = do
 printCirc_fd circ h = do
   render_file h Format_PDF (page_of_ocircuit pdf circ)
 
--- | 'refresh_gates' relabels each gate to ensure the input and output
+-- | Relabel each gate to ensure the input and output
 -- wires have the same label names.  It assumes each gate is regular,
 -- i.e., input and output should have the same arity for all the
 -- non-terminal and non-initial gates. It tries to re-use the label

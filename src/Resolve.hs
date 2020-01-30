@@ -1,4 +1,5 @@
--- | Resoving concrete syntax into abstract syntax.
+-- | This module implements the 'resolve' function that converts the
+-- concrete syntax into abstract syntax.
 module Resolve
        (
          ScopeError,
@@ -38,6 +39,7 @@ data Scope = Scope {
   scopeMap :: Map String (Exp, Position)
   }
 
+-- | The empty scope.
 emptyScope :: Scope
 emptyScope = Scope {
   scopeMap = Map.empty
@@ -94,7 +96,7 @@ lookupLScope lscope x =
     global = globalScope lscope
 
 
--- | Precise scope error information. Please see its Disp instance to see
+-- | Scope error information. Please see its 'Disp' instance to see
 -- the meaning of each error. 
 data ScopeError = NotInScope String 
                  | ConstrErr Exp
@@ -327,7 +329,7 @@ addConst p x f scope =
              scope' = scope{scopeMap = newMap}
          in return (id, scope')
 
--- | Resolve a concrete declaration into abstract declaration.
+-- | Resolve a concrete declaration into an abstract declaration.
 resolveDecl :: Scope -> C.Decl -> Resolve (Decl, Scope)
 resolveDecl scope (C.GateDecl p gn params t) =
   do (id, scope') <- addConst p gn Const scope 
