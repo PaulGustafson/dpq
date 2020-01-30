@@ -2,13 +2,36 @@ module AdderN where
 import "lib/Prelude.dpq"
 
 
-adder :: ! (Qubit -> Qubit -> Qubit -> WithGarbage (Qubit * Qubit))
-adder a b carry_in =
+adder' :: ! (Qubit -> Qubit -> Qubit -> WithGarbage (Qubit * Qubit))
+adder' a b carry_in =
      let (a1, a2, a3) = copyT a
          (b1, b2, b3) = copyT b
          (carry_in1, carry_in2, carry_in3) = copyT carry_in
      in do s <- [| bxor (bxor a1 b1) (pure carry_in1) |]
            carry_out <- [|bor [|bor (band a2 b2) (band a3 carry_in2)|] (band b3 carry_in3)|]
+           return (s, carry_out)
+
+adder'' :: ! (Qubit -> Qubit -> Qubit -> WithGarbage (Qubit * Qubit))
+adder'' a b carry_in =
+  do let (a1, a2, a3) = copyT a
+         (b1, b2, b3) = copyT b
+         (carry_in1, carry_in2, carry_in3) = copyT carry_in 
+     s <- [| bxor (bxor a1 b1) (pure carry_in1) |]
+     carry_out <- [|bor [|bor (band a2 b2) (band a3 carry_in2)|] (band b3 carry_in3)|]
+     return (s, carry_out)
+
+adder :: ! (Qubit -> Qubit -> Qubit -> WithGarbage (Qubit * Qubit))
+adder a b carry_in =
+     let (a1, a2, a3) = copyT a
+         (b1, b2, b3) = copyT b
+         (carry_in1, carry_in2, carry_in3) = copyT carry_in
+     in do r1 <- bxor a1 b1
+           s <- bxor r1 carry_in1
+           r2 <- band a2 b2
+           r3 <- band a3 carry_in2
+           r4 <- bor r2 r3
+           r5 <- band b3 carry_in3
+           carry_out <- bor r4 r5
            return (s, carry_out)
 
 

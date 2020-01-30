@@ -147,7 +147,8 @@ instance Disp Pattern where
             braces $ display flag x
           helper (Right x) = display flag x 
 
--- | A helper function for display various of applications. 
+-- | A helper function for display various of applications.
+          
 dispAt b s =
   if b then text "" else text ("@"++s)
 

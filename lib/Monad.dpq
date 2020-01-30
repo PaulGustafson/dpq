@@ -9,7 +9,7 @@ module Monad where
 -- will be desugared to:
 -- bind t (\ x . seq A (return C))
 
--- [f a b [g e]] will be desugared to:
+-- [| f a b [| g e|]|] will be desugared to:
 -- join (ap (ap (ap (pure f) a) b) (join (ap (pure g) e)))
 -- Note that this desugaring scheme of Idiom braket will always add join.
 
