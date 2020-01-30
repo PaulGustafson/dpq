@@ -1,5 +1,7 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts, GeneralizedNewtypeDeriving #-}
--- | This module defines various utility functions in the 'TopMonad'. 
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+-- | This module defines various utility functions for the 'TopMonad'. 
 module TopMonad where
 
 
@@ -97,7 +99,7 @@ data InterpreterState = InterpreterState {
   scope :: Scope,   -- ^ Scope information.
   context :: Context,  -- ^ Typing context.
   circ :: Morphism,  -- ^ Top level incomplete circuit.
-  mainExp :: Maybe (A.Value, A.Exp),   -- ^ Main value and its type.
+  mainExp :: Maybe (A.Value, A.Exp),  -- ^ Main value and its type.
   instCxt :: GlobalInstanceCxt, -- ^ Type class instance context.
   parserState :: ParserState,   -- ^ Infix operators table.
   parentFiles :: [String], -- ^ Parent files, for
@@ -122,6 +124,7 @@ getFilename = do
   return (filename s)
 
 -- | Get current top-level circuit.
+getCirc :: Top Morphism
 getCirc = do
   s <- getInterpreterState
   return (circ s)
@@ -139,6 +142,7 @@ getScope = do
   return (scope s)
 
 -- | Resolve an expression at top-level.
+topResolve :: C.Exp -> Top A.Exp
 topResolve t =
   do scope <- getScope
      scopeTop $ resolve (toLScope scope) t
@@ -149,7 +153,7 @@ scopeTop x = case runResolve x of
                  Left e -> throwError (ScopeErr e)
                  Right a -> return a
 
--- | perform an TCMonad action, will update Top 
+-- | Perform an 'TCMonad' action, will update 'Top'. 
 tcTop :: TCMonad a -> Top a
 tcTop m =
   do st <- getInterpreterState
@@ -165,7 +169,7 @@ tcTop m =
             putInstCxt inst'
             return e
 
--- | A top-level wrapper for 'typeInfer'.    
+-- | Infer a type at top-level. It is a wrapper for 'typeInfer'.    
 topTypeInfer :: A.Exp -> Top (A.Exp, A.Exp)
 topTypeInfer def = tcTop $
   do (ty, tm) <- typeInfer (isKind def) def
@@ -186,7 +190,8 @@ topTypeInfer def = tcTop $
              elimConstraint e a (A.Pos _ ty) = elimConstraint e a ty    
              elimConstraint e a t = return (a, t)
 
--- | Get current typing context.
+-- | Get the current typing context.
+getCxt :: Top Context
 getCxt = do
   s <- getInterpreterState
   return (context s)
@@ -218,7 +223,7 @@ getPath =
      let intp = interpreterstate s
      return (path intp)
 
--- | Update interpreter state.
+-- | Update the interpreter state.
 putInterpreterState :: InterpreterState -> Top ()
 putInterpreterState is = do
   s <- get
@@ -253,12 +258,14 @@ putScope scope = do
   putInterpreterState s'
 
 -- | Update top-level circuit.
+putCirc :: Morphism -> Top ()
 putCirc c = do
   s <- getInterpreterState
   let s' = s {circ = c}
   putInterpreterState s'      
   
 -- | Update counter.
+putCounter :: Int -> Top ()
 putCounter i = do
   s <- getInterpreterState
   let s' = s {counter = i}
@@ -272,33 +279,39 @@ putFilename x = do
   put s'
 
 -- | Get infix operator table.
+getPState :: Top ParserState
 getPState = do
   s <- getInterpreterState
   return (parserState s)
 
 -- | Update infix operator table.
+putPState :: ParserState -> Top ()
 putPState x = do
   s <- getInterpreterState
   let s' = s { parserState = x }
   putInterpreterState s'
 
 -- | Update the typing context.
+putCxt :: Map Id Info -> Top ()
 putCxt cxt = do
   s <- getInterpreterState
   let s' = s { context = cxt }
   putInterpreterState s'
 
 -- | Update the instance context.
+putInstCxt :: [(Id, A.Exp)] -> Top ()
 putInstCxt cxt = do
   s <- getInterpreterState
   let s' = s { instCxt = cxt }
   putInterpreterState s'
 
 
--- | Make a buildin class of the form @C x1 ... xn@, where "C" is the class name.
-makeBuildinClass d c n | n > 0 =
+-- | Make a buildin class of the form @C x1 ... xn@. The input /d/
+-- is the class name,  /n/ is the number of arguments for /c/. 
+makeBuildinClass :: Id -> Int -> Top ()
+makeBuildinClass d n | n > 0 =
   do i <- getCounter
-     dict <- addBuildin (BuildIn (i+1)) (c++"Dict") A.Const
+     dict <- addBuildin (BuildIn (i+1)) (getName d ++"Dict") A.Const
      putCounter (i+3)
      let names = map (\ i -> "x"++ show i) $ take n [0 .. ]
          dictType = freshNames names $
@@ -343,12 +356,14 @@ getCurrentImported =
      let intp = interpreterstate s
      return (importedFiles intp)
 
--- | Get the main function's information. 
+-- | Get the main function's information.
+getMain :: Top (Maybe (Value, A.Exp))
 getMain = do
   s <- getInterpreterState
   return (mainExp s)
 
 -- | Update main function.
+putMain :: Value -> A.Exp -> Top ()
 putMain v t = do
   s <- getInterpreterState
   let s' = s {mainExp = Just (v, t)}

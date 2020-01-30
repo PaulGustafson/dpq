@@ -3,7 +3,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE PatternSynonyms, ViewPatterns #-}
 
--- | Utility module.
+-- | This module implements various of utility functions. 
 
 module Utils where
 
@@ -42,13 +42,13 @@ instance Disp Variable where
   display True (Variable x (NoBind y)) = text y
   display False (Variable x _) = text (show x)
   
--- | An empty data type for classifying labels.
+-- | An empty data type for labels.
 data L
 instance AtomKind L where
   suggested_names _ = ["l"]
   expand_names _ xs = xs ++ [ x ++ (show n) | n <- [1..], x <- xs ]
 
--- | Label is used for representing the input/output of circuits. 
+-- | Labels are used for representing the input/output of circuits. 
 type Label = AtomOfKind L
 
 instance Disp (AtomOfKind L) where
@@ -58,7 +58,7 @@ instance Disp (AtomOfKind L) where
 pattern Abst :: (Bindable a, Nominal t) => a -> t -> Bind a t
 pattern Abst x t <- ((\ b -> open b (\ x b' -> (x, b'))) -> (x, t))
 
--- | Generating a list of fresh variables from a given list of strings.
+-- | Generate a list of fresh variables from a given list of strings.
 freshNames :: [String] -> ([Variable] -> t) -> t
 freshNames [] body = body []
 freshNames (n:ns) body =
@@ -68,7 +68,7 @@ freshNames (n:ns) body =
   where freshName s k =
           with_fresh $ \a -> k (Variable a (NoBind s))
 
--- | Generating a list of fresh labels from a given list of strings.
+-- | Generate a list of fresh labels from a given list of strings.
 freshLabels :: [String] -> ([Label] -> t) -> t
 freshLabels [] body = body []
 freshLabels (n:ns) body =
@@ -83,6 +83,7 @@ data Id = Id String
         deriving (Show, Eq, Ord, Generic, NominalShow, NominalSupport, Nominal, Bindable)
 
 -- | Get the name string from an identifier.
+getName :: Id -> String
 getName (Id s) = s
 
 instance Disp Id where
@@ -107,6 +108,7 @@ instance NominalShow SourcePos where
 
 -- | Obtain a string that is unique to a position, this is
 -- used to generate names for instance functions.
+hashPos :: Position -> String
 hashPos (P p) = (takeBaseName (sourceName p)) ++ (show $ sourceLine p)
 hashPos (DummyPos) = "dummyPos"
 hashPos (BuildIn i) = "buildIn"++ show i
@@ -131,7 +133,7 @@ class Disp a where
 -- | Determine whether or not to put a parenthesis on an expression e.
 -- If the current precedence level is higher than the precedence e, then
 -- we put a parenthesis on e.   
-dParen :: Disp a => Bool -> Int -> a -> Doc
+dParen :: (Disp a) => Bool -> Int -> a -> Doc
 dParen b level x =
    if level >= precedence x
    then parens $ display b  x 

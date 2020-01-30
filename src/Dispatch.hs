@@ -267,7 +267,7 @@ dispatch (Load verbose file) =
 
 -- | Initialize instances of simple class for unit and tensor product.
 initializeSimpleClass d = 
-  do vpairs1 <- makeBuildinClass d "Simple" 1
+  do vpairs1 <- makeBuildinClass d 1
      s <- topResolve (C.Base "Simple")
      i <- getCounter
      scope <- getScope
@@ -285,7 +285,7 @@ initializeSimpleClass d =
 
 -- | Initialize instances of SimpParam class for unit and tensor product.
 initializeSimpParam d = 
-  do vpairs1 <- makeBuildinClass d "SimpParam" 2
+  do vpairs1 <- makeBuildinClass d 2
      s <- topResolve (C.Base "SimpParam")
      i <- getCounter
      scope <- getScope
@@ -305,7 +305,7 @@ initializeSimpParam d =
 
 -- | Initialze instances of Parameter class for unit, bang type and tensor product.
 initializeParameterClass d = 
-  do vpairs1 <- makeBuildinClass d "Parameter" 1
+  do vpairs1 <- makeBuildinClass d 1
      s <- topResolve (C.Base "Parameter")
      i <- getCounter
      putCounter (i+4)

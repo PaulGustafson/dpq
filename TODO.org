@@ -1,6 +1,15 @@
-* TODO
+* Todo list
 
 ** polishing, documenting and testing. 
 
-** Unifying the existential pair and tensor pair.
+** DONE Unifying the existential pair and tensor pair.
 
+** TODO Implement a lazy circuit generation.
+
+** TODO Change the syntax to forall (x :: T) -> T and \ x -> t. 
+
+** TODO Handle the evaluation memory usage.
+
+** TODO Implement Agda style '?'. 
+
+** TODO Eliminate existsBox.

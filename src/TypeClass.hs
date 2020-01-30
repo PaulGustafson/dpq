@@ -1,7 +1,7 @@
 -- | This module implements a simple type class resolution. There is no supper class
 -- or cyclic detection. Our type class can work with dependent data types such as Vector.   
 
-module TypeClass where
+module TypeClass (resolveGoals, runMatch) where
 
 import Utils
 import Syntax

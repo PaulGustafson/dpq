@@ -1,9 +1,10 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 -- | This module implements a bi-directional algorithm for elaborating
 -- a surface level language into the core language. The elaborated programs
--- will be checked by the Proofchecking module. The elaboration aims for soundness, i.e.,
+-- will be checked by the "Proofchecking" module. The elaboration aims for soundness, i.e.,
 -- if the elaboration is successful, then it will past the proof-checker. Otherwise it
--- would indicate a bug in the elaboration. 
+-- would indicate there is a bug in the elaboration. 
 
 
 module Typechecking where
@@ -26,7 +27,7 @@ import Debug.Trace
 import Control.Monad.Except
 import Control.Monad.State
 
--- | Checking an expression against a type, the flag = True indicates
+-- | Check an expression against a type. The flag = True indicates
 --  it is kinding or sorting, flag = False indicates type checking.
 -- For simplicity, we do not allow direct mentioning
 -- of lambda, box, unbox, revert, runCirc, existsBox in types (these will give rise to
@@ -34,7 +35,7 @@ import Control.Monad.State
 
 typeCheck :: Bool -> Exp -> Exp -> TCMonad (Exp, Exp)
 
--- | Infering a type for a term. 
+-- | Infer a type for a term. 
 typeInfer :: Bool -> Exp -> TCMonad (Exp, Exp)
 
 typeInfer flag (Pos p e) =
@@ -761,6 +762,7 @@ typeCheck flag tm ty = equality flag tm ty
 
 
 -- | Infer a type for tm, and check if it is unifiable with ty.
+equality :: Bool -> Exp -> Exp -> TCMonad (Exp, Exp)
 equality flag tm ty =
   do ty' <- updateWithSubst ty
      if not (ty == ty') then typeCheck flag tm ty'
@@ -797,6 +799,7 @@ equality flag tm ty =
 -- | Normalize and unify two expressions (head and t), taking
 -- dependent pattern matching into account. Dependent pattern matching
 -- has the effect of reverting eigenvariables into variables.
+patternUnif :: Exp -> Bool -> Maybe Int -> Exp -> Exp -> TCMonad (Maybe (Map Variable Exp))
 patternUnif m isDpm index head t =
   if isDpm then
     case index of
@@ -826,7 +829,8 @@ patternUnif m isDpm index head t =
       
 -- | Normalize two expressions and then unify them.  
 -- There is a degree of freedom in implementing normalizeUnif function. It could be
--- further improved. 
+-- further improved.
+normalizeUnif :: Exp -> Exp -> TCMonad (Maybe (Map Variable Exp))
 normalizeUnif t1 t2 =
  do t1' <- resolveGoals t1
     t2' <- resolveGoals t2
@@ -854,7 +858,7 @@ normalizeUnif t1 t2 =
                return $ runUnify t1'' t2''
 
 
--- | Extending the typing environment with
+-- | Extend the typing environment with
 -- the environment induced by pattern. Its first argument is the list from 'Pattern'.
 -- Its second argument is the type of the constructor, its third argument is the constructor
 -- of the pattern. It will return the following, Exp: head of the type expression,
@@ -914,7 +918,8 @@ extendEnv (Right x : xs) (Pi bind ty) kid
 extendEnv a b kid = throwError $ ExtendEnvErr a b
 
 
--- | A helper function for infering a type for a type application. 
+-- | Infer a type for a type application.
+handleTypeApp :: Exp -> Exp -> Exp -> Exp -> TCMonad (Exp, Exp)
 handleTypeApp ann t' t1 t2 =
   case erasePos t' of
     Arrow k1 k2 ->
@@ -931,7 +936,8 @@ handleTypeApp ann t' t1 t2 =
            
     a -> throwError $ KAppErr t1 (App t1 t2) a  
 
--- | A helper function for infering a type for a term application. 
+-- | Infer a type for a term application.
+handleTermApp :: Bool -> Exp -> Exp -> Exp -> Exp -> Exp -> TCMonad (Exp, Exp)
 handleTermApp flag ann pos t' t1 t2 = 
   do (a1', rt, anEnv) <- addAnn flag pos ann t' []
      mapM (\ (x, t) -> addVar x t) anEnv
@@ -980,8 +986,9 @@ handleTermApp flag ann pos t' t1 t2 =
        b -> throwError $ ArrowErr t1 b
 
 
--- | Add annotations to the term 'a' according to its type if it is applied to some
--- other terms. 
+-- | Add annotations to the term /a/ according to its type if it is applied to some
+-- other terms.
+addAnn :: Bool -> Exp -> Exp -> Exp -> [(Variable, Exp)] -> TCMonad (Exp, Exp, [(Variable, Exp)])
 addAnn flag e a (Pos _ t) env = addAnn flag e a t env
 
 addAnn flag e a (Bang t) env =

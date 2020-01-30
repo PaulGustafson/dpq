@@ -1,3 +1,5 @@
+-- | This module defines the error data type and its 'Disp' instance for type checking.
+
 module TypeError where
 
 import Utils
@@ -12,7 +14,7 @@ import Prelude hiding ((<>))
 import Text.PrettyPrint
 import Control.Monad.Except
 
-
+-- | A data type for typing error.
 data TypeError = Unhandle Exp
                | ErrPos Position TypeError
                | NoDef Id
@@ -37,7 +39,7 @@ data TypeError = Unhandle Exp
                | MissBrErr Exp Exp
                | Vacuous Position [Variable] Exp Exp
                | NotParam Exp Exp
-               | EvalErr EvalError
+               | EvalErr EvalError -- ^ A wrapper for evaluation error.
                | Originated Exp TypeError
                | ResolveErr Exp
                | ErrDoc Doc
@@ -57,6 +59,7 @@ data TypeError = Unhandle Exp
                | TyAmbiguous (Maybe Id) Exp               
                | BangErr Exp Exp
                | PfErrWrapper Exp TypeError Exp
+               -- ^ A wrapper for proof checking error.
                | TensorExpErr Exp Exp
                | NotUnit
                | ImplicitCase Variable Exp
@@ -65,6 +68,7 @@ data TypeError = Unhandle Exp
                | ArityExistsErr Exp [Variable]
                deriving Show
 
+-- | A data type for evaluation errors.
 data EvalError = MissBranch Id Exp
                | UndefinedId Id 
                | PatternMismatch Pattern Value
@@ -103,6 +107,7 @@ instance Disp EvalError where
 
 -- | Add a position to an error message if the message does not already contain
 -- position information.
+addErrPos :: Position -> TypeError -> TypeError
 addErrPos p a@(ErrPos _ _) = a
 addErrPos p a = ErrPos p a
 

@@ -1,3 +1,6 @@
+-- | This module implements a version of first-order unification. We support
+-- a restricted version of unification for case expression and existential types.
+
 module Unification where
 
 import Syntax
@@ -12,7 +15,7 @@ import Control.Monad.State
 import Debug.Trace
 
 
--- | The run function for the unification. 
+-- | Run the unification function. 
 runUnify :: Exp -> Exp -> Maybe Subst
 runUnify t1 t2 =
   let t1' = erasePos t1
@@ -20,7 +23,7 @@ runUnify t1 t2 =
       (r, s) = runState (unify t1' t2') Map.empty
   in if r then Just s else Nothing
 
--- | Implement the syntactic unification. 
+-- | Unify two expressions. 
 -- There are eigenvariables for type checking, we only allow
 -- the unification of a eigenvariable [x] with itself and its variable counterpart x.
 -- (the unification of x and [x] can happen due to dependent pattern matching).
