@@ -151,7 +151,7 @@ instance Disp Pattern where
 -- | A helper function for display various of applications.
           
 dispAt b s =
-  if b then text "" else text ("@"++s)
+  if b then text "" else text (" @"++s)
 
 instance Disp Exp where
   display flag (Var x) = display flag x
@@ -208,30 +208,34 @@ instance Disp Exp where
      fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
 
   display flag a@(AppType t t') =
-    fsep [dParen flag (precedence a - 1) t, dispAt flag "AppType", dParen flag (precedence a) t']
+    fsep [dParen flag (precedence a - 1) t <> dispAt flag "AppType",
+          dParen flag (precedence a) t']
 
   display flag a@(App' t t') =
-    fsep [dParen flag (precedence a - 1) t, dispAt flag "App'", dParen flag (precedence a) t']
+    fsep [dParen flag (precedence a - 1) t <> dispAt flag "App'", dParen flag (precedence a) t']
 
   display flag (WithType m t) =
     fsep [text "withType" <+> display flag t <+> text ":", display flag m]
 
   display flag a@(AppDep t t') =
-       fsep [dParen flag (precedence a - 1) t, dispAt flag "AppDep",
+       fsep [dParen flag (precedence a - 1) t <> dispAt flag "AppDep",
              dParen flag (precedence a) t']
 
   display flag a@(AppDepTy t t') =
-       fsep [dParen flag (precedence a - 1) t, dispAt flag "AppDepTy",
+       fsep [dParen flag (precedence a - 1) t <> dispAt flag "AppDepTy",
              dParen flag (precedence a) t']
 
   display flag a@(AppDep' t t') =
-    fsep [dParen flag (precedence a - 1) t, dispAt flag "AppDep'", dParen flag (precedence a) t']
+    fsep [dParen flag (precedence a - 1) t <> dispAt flag "AppDep'",
+          dParen flag (precedence a) t']
     
   display flag a@(AppDict t t') =
-    fsep [dParen flag (precedence a - 1) t, dispAt flag "AppDict", dParen flag (precedence a) t']
+    fsep [dParen flag (precedence a - 1) t <> dispAt flag "AppDict",
+          dParen flag (precedence a) t']
     
   display flag a@(AppTm t t') =
-     fsep [dParen flag (precedence a - 1) t, dispAt flag "AppTm", dParen flag (precedence a) t']
+     fsep [dParen flag (precedence a - 1) t <> dispAt flag "AppTm",
+           dParen flag (precedence a) t']
     
   display flag a@(Bang t) = text "!" <> dParen flag (precedence a - 1) t
 
