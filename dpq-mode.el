@@ -3,6 +3,7 @@
 (require 'comint)
 (require 'compile)
 (set-face-foreground 'font-lock-builtin-face "#2aa198")
+(setq-default indent-tabs-mode nil)
 ;; (set-face-foreground 'font-lock-builtin-face "blue")
 ;; (set-face-foreground 'font-lock-constant-face "blue")
 ;; (set-face-foreground 'font-lock-comment-face "grey")

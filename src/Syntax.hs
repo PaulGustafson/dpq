@@ -165,44 +165,44 @@ instance Disp Exp where
   display flag (Pos _ e) = display flag e
   display flag (Lam bds) =
     open bds $ \ vs b ->
-    fsep [text "\\" , (hsep $ map (display flag) vs), text ".", nest 2 $ display flag b]
+    fsep [text "\\" , (hsep $ map (display flag) vs), text "->", nest 2 $ display flag b]
   display flag (LamAnn ty bds) =
     open bds $ \ vs b ->
-    fsep [text "\\(" , hsep $ map (display flag) vs, text "::", display flag ty,  text ").", nest 2 $ display flag b]
+    fsep [text "\\(" , hsep $ map (display flag) vs, text "::", display flag ty,  text ") ->", nest 2 $ display flag b]
 
   display flag (LamAnn' ty bds) =
     open bds $ \ vs b ->
-    fsep [text "\\'(" , hsep $ map (display flag) vs, text "::", display flag ty,  text ").", nest 2 $ display flag b]
+    fsep [text "\\'(" , hsep $ map (display flag) vs, text "::", display flag ty,  text ") ->", nest 2 $ display flag b]
 
   display flag (Lam' bds) =
     open bds $ \ vs b ->
-    fsep [text "\\'" , (hsep $ map (display flag) vs), text ".", nest 2 $ display flag b]
+    fsep [text "\\'" , (hsep $ map (display flag) vs), text "->", nest 2 $ display flag b]
   display flag (LamDict bds) =
     open bds $ \ vs b ->
-    fsep [text "\\dict" , (hsep $ map (display flag) vs), text ".", nest 2 $ display flag b]    
+    fsep [text "\\dict" , (hsep $ map (display flag) vs), text "->", nest 2 $ display flag b]    
   display flag (LamTm bds) =
     open bds $ \ vs b ->
-    fsep [text "\\tm" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
+    fsep [text "\\tm" , (hsep $ map (display flag) vs) <+> text "->", nest 2 $ display flag b]
     
   display flag (LamDep bds) =
     open bds $ \ vs b ->
-    fsep [text "\\dep" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
+    fsep [text "\\dep" , (hsep $ map (display flag) vs) <+> text "->", nest 2 $ display flag b]
 
   display flag (LamDepTy bds) =
     open bds $ \ vs b ->
-    fsep [text "\\depTy" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
+    fsep [text "\\depTy" , (hsep $ map (display flag) vs) <+> text "->", nest 2 $ display flag b]
 
   display flag (LamDep' bds) =
     open bds $ \ vs b ->
-    fsep [text "\\dep'" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
+    fsep [text "\\dep'" , (hsep $ map (display flag) vs) <+> text "->", nest 2 $ display flag b]
     
   display flag (LamType bds) =
     open bds $ \ vs b ->
-    fsep [text "\\ty" , (hsep $ map (display flag) vs) <+> text ".", nest 2 $ display flag b]
+    fsep [text "\\ty" , (hsep $ map (display flag) vs) <+> text "->", nest 2 $ display flag b]
 
   display flag (Forall bds t) =
     open bds $ \ vs b ->
-    fsep [text "forall", parens ((hsep $ map (display flag) vs) <+> text "::" <+> display flag t) <+> text ".", nest 5 $ display flag b]
+    fsep [text "forall", parens ((hsep $ map (display flag) vs) <+> text "::" <+> display flag t) <+> text "->", nest 5 $ display flag b]
 
   display flag a@(App t t') = 
      fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
@@ -282,8 +282,8 @@ instance Disp Exp where
     
   display flag (Exists bd t) =
     open bd $ \ v b ->
-    fsep [text "exists" <+> display flag v <+> text "::" <+> display flag t,
-           text "." , nest 2 $ display flag b]    
+    fsep [parens (display flag v <+> text "::" <+> display flag t),
+           text "*" , nest 2 $ display flag b]    
   display flag (Box) = text "box"
   display flag (ExBox) = text "existsBox"
   display flag (UnBox) = text "unbox" 
