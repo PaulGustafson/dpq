@@ -99,23 +99,23 @@ negateAnd2 a x y =
      r <- conjunction y z
      return r
 
-box_negateAnd2 :: exists n :: Nat . Circ(Qubit * Qubit * Qubit, Vec Qubit n * Qubit)
+box_negateAnd2 :: (n :: Nat) * Circ(Qubit * Qubit * Qubit, Vec Qubit n * Qubit)
 box_negateAnd2 = box_garbage (Qubit * Qubit * Qubit) Qubit $ uncurry $ uncurry negateAnd2
 
                             
 rotate :: ! (Qubit -> State (Qubit * Nat) Qubit)
 rotate x =
-  applyS $ \ s .
+  applyS $ \ s ->
     let (q, n) = s
         (x, q) = R n x q
     in (x, (q, S n))
                         
-cascadeRotation :: ! forall (n :: Nat) . Qubit -> Vec Qubit n -> Qubit * Vec Qubit n
+cascadeRotation :: ! forall (n :: Nat) -> Qubit -> Vec Qubit n -> Qubit * Vec Qubit n
 cascadeRotation q v = 
   let (r, st) = runState (H q, Z) $ mapM rotate v
   in (fst st, r)
 
-tower :: ! forall (n :: Nat) . Vec Qubit n -> Vec Qubit n
+tower :: ! forall (n :: Nat) -> Vec Qubit n -> Vec Qubit n
 tower v =
   case v of
     VNil -> VNil
@@ -123,9 +123,9 @@ tower v =
       let (x, xs) = cascadeRotation x xs
       in VCons x (tower xs)
 
-tower' :: ! forall (n :: Nat) . Vec Qubit n -> Vec Qubit n
-tower' v = depFold (\ x . Vec Qubit x)
-             (\ a b . let (a, b) = cascadeRotation a b
+tower' :: ! forall (n :: Nat) -> Vec Qubit n -> Vec Qubit n
+tower' v = depFold (\ x -> Vec Qubit x)
+             (\ a b -> let (a, b) = cascadeRotation a b
                       in VCons a b
              ) VNil v          
                       
@@ -133,5 +133,5 @@ tower' v = depFold (\ x . Vec Qubit x)
     
 box_negateAndRev :: Circ(Qubit * Qubit * Qubit * Qubit, Qubit * Qubit * Qubit * Qubit)
 box_negateAndRev = box (Qubit * Qubit * Qubit * Qubit) $
-   \ x . without_garbage2 (Qubit * Qubit * Qubit) Qubit
+   \ x -> without_garbage2 (Qubit * Qubit * Qubit) Qubit
                                 (uncurry $ uncurry negateAnd2) (switch $ uncurry CNot) x

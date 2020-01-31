@@ -7,7 +7,7 @@ simple Triple a b c :: Type where
   Triple a b c = T a b c
 
 
-toT :: ! forall a b c . (a * b) * c -> Triple a b c
+toT :: ! forall a b c -> (a * b) * c -> Triple a b c
 toT x = let (a, b, c) = x 
         in T a b c
 
@@ -18,7 +18,7 @@ simple Six a b c d e f :: Type where
   Six a b c d e f = ST a b c d e f
 
 
-with_ancilla :: ! forall a . Bool -> (Qubit -> a * Qubit) -> a
+with_ancilla :: ! forall a -> Bool -> (Qubit -> a * Qubit) -> a
 with_ancilla b body =
   case b of
     True ->
@@ -32,7 +32,7 @@ with_ancilla b body =
       let unit = Term0 ancilla in
       output
 
-map2 :: ! forall a b c d . !(a -> b -> c * d) -> List a -> List b -> List c * List d
+map2 :: ! forall a b c d -> !(a -> b -> c * d) -> List a -> List b -> List c * List d
 map2 f xs ys =
   case xs of
     Nil ->
@@ -45,7 +45,7 @@ map2 f xs ys =
           let (xs',ys') = map2 f xs ys in
           (Cons x' xs', Cons y' ys')
 
-map2_foldl :: ! forall s a b c d . !(s -> a -> b -> s * c * d) ->
+map2_foldl :: ! forall s a b c d -> !(s -> a -> b -> s * c * d) ->
                 s -> List a -> List b -> s * List c * List d   
 map2_foldl f ss as bs =
   case as of
@@ -60,7 +60,7 @@ map2_foldl f ss as bs =
 	      (s2, cs) = scs
 	  in  ((s2, Cons c cs), Cons d ds) 
 
-map2_foldr :: ! forall s a b c d . !(s -> a -> b -> s * c * d) -> s ->
+map2_foldr :: ! forall s a b c d -> !(s -> a -> b -> s * c * d) -> s ->
                  List a -> List b -> s * List c * List d
 map2_foldr f s as bs = 
    case as of
@@ -76,7 +76,7 @@ map2_foldr f s as bs =
 	       (s2, c) = s2c
 	    in ((s2, Cons c cs) , Cons d ds)
 
-map2r :: ! forall a b c d . !(a -> b -> c * d) -> List a -> List b -> List c * List d
+map2r :: ! forall a b c d -> !(a -> b -> c * d) -> List a -> List b -> List c * List d
 map2r f as bs =
   case as of
     Nil -> case bs of
@@ -88,12 +88,12 @@ map2r f as bs =
 	      (c, d) = f a b
 	  in (Cons c cs, Cons d ds)
 
-mapr :: ! forall a b . !(a -> b) -> List a -> List b 
+mapr :: ! forall a b -> !(a -> b) -> List a -> List b 
 mapr f l = case l of
                   Nil -> Nil 
                   Cons q qs -> Cons (f q) (mapr f qs)
 
-zipList :: ! forall a b .  List a -> List b -> List (a * b)
+zipList :: ! forall a b ->  List a -> List b -> List (a * b)
 zipList l1 l2 =
   case l1 of
     Nil -> case l2 of
@@ -102,7 +102,7 @@ zipList l1 l2 =
                   Cons y ys -> Cons (x, y) (zipList xs ys)
     
 
-loop :: ! forall a . Nat -> a -> !(a -> a) -> a
+loop :: ! forall a -> Nat -> a -> !(a -> a) -> a
 loop n x f =
   case n of
     Z -> x
@@ -114,9 +114,9 @@ qinit_register x = mapr initQubit x
 			  
 qterm_register :: ! (List Bool -> List Qubit -> List Unit)
 qterm_register bs qs = 
-  mapr ( \ x . let (b,q) = x in qterm b q) (zipList bs qs)
+  mapr ( \ x -> let (b,q) = x in qterm b q) (zipList bs qs)
 
-with_ancilla_reg :: ! forall a . List Bool -> (List Qubit -> a * List Qubit) -> a
+with_ancilla_reg :: ! forall a -> List Bool -> (List Qubit -> a * List Qubit) -> a
 with_ancilla_reg bs body =
   let
       qs = qinit_register bs
@@ -130,7 +130,7 @@ replicate n x = case n of
                    S n' -> Cons x (replicate n' x)
 
 
-for :: ! forall x . Nat -> Nat -> Nat -> x -> !(Nat -> x -> x) -> x
+for :: ! forall x -> Nat -> Nat -> Nat -> x -> !(Nat -> x -> x) -> x
 for a b s x f = 
   case ((s >= Z) && (a > b)) || ((s <= Z) && (a < b)) of
     True -> x
@@ -138,7 +138,7 @@ for a b s x f =
               for (a + s) b s x f  -- has bug in the type checker
 
 
-list_split :: ! forall a . Nat -> List a -> List a * List a
+list_split :: ! forall a -> Nat -> List a -> List a * List a
 list_split n xs =
   case n of
     Z -> (Nil, xs)
@@ -150,14 +150,14 @@ list_split n xs =
            (Cons h as, bs)
 
 
-sf_list_range :: ! forall a . Nat -> Nat -> List a -> List a * List a * List a
+sf_list_range :: ! forall a -> Nat -> Nat -> List a -> List a * List a * List a
 sf_list_range n m xs =
   let (as, after) = list_split (S m) xs in
   let (before, range) = list_split n as in
   ((before, range), after)
 
 
-with_list_range :: ! forall a t . Nat -> Nat -> List a -> (List a -> (List a * t)) -> (List a * t)
+with_list_range :: ! forall a t -> Nat -> Nat -> List a -> (List a -> (List a * t)) -> (List a * t)
 with_list_range n m as body =
  let T before as after = toT $ sf_list_range n m as
      (as, s) = body as
@@ -165,7 +165,7 @@ with_list_range n m as body =
   in (as, s)
 
 
-with_disjunction_aux :: ! forall a . List Qubit -> (Qubit -> a * List Qubit * Qubit) ->
+with_disjunction_aux :: ! forall a -> List Qubit -> (Qubit -> a * List Qubit * Qubit) ->
                           Triple a (List Qubit) (List Qubit)
 with_disjunction_aux qs body =
     case qs of
@@ -173,8 +173,8 @@ with_disjunction_aux qs body =
         let (a, as) = with_ancilla False body
         in T a as Nil
       Cons h t ->
-        let T a has t = with_disjunction_aux t (\ p .
-           let T a has p = with_ancilla False (\ q .
+        let T a has t = with_disjunction_aux t (\ p ->
+           let T a has p = with_ancilla False (\ q ->
   	    let T q p h = toT $ ToffoliGate False True q p h
                 (q, p) = CNotGate True q p
                 T a as q = toT $ body q
@@ -186,15 +186,15 @@ with_disjunction_aux qs body =
         in T a as (Cons h t)
               
 
-with_disjunction :: ! forall a . List Qubit -> (Qubit -> a * Qubit) -> a * List Qubit
+with_disjunction :: ! forall a -> List Qubit -> (Qubit -> a * Qubit) -> a * List Qubit
 with_disjunction qs body = 
-  let T a n qs = with_disjunction_aux qs (\ q .
+  let T a n qs = with_disjunction_aux qs (\ q ->
     let (a, q) = body q
     in ((a, Nil), q))
       Nil = n
   in (a, qs)
 
-map_foldr :: ! forall s a b . !(s -> a -> s * b) -> s -> List a -> s * List b
+map_foldr :: ! forall s a b -> !(s -> a -> s * b) -> s -> List a -> s * List b
 map_foldr f s l =
   case l of
     Nil -> (s, Nil)
@@ -203,9 +203,9 @@ map_foldr f s l =
       let (s2, a) = f s1 x in
       (s2, Cons a as)
 
-for_each_mapr :: ! forall s a b . List a -> s -> !(a -> s -> b * s) -> List b * s
+for_each_mapr :: ! forall s a b -> List a -> s -> !(a -> s -> b * s) -> List b * s
 for_each_mapr xs s body = 
-  let (s, ys) = map_foldr ( \ s a . let (x, y) = body a s in (y, x)) s xs in
+  let (s, ys) = map_foldr ( \ s a -> let (x, y) = body a s in (y, x)) s xs in
   (ys, s)
 
 
@@ -218,7 +218,7 @@ toffoliGate_if cond x ys zt =
     True -> ToffoliGate s t x y z
     False -> ((x, y), z)
 
-map_foldl :: ! forall a b s . !(s -> a -> s * b) -> s -> List a -> s * List b
+map_foldl :: ! forall a b s -> !(s -> a -> s * b) -> s -> List a -> s * List b
 map_foldl f s l =
   case l of
     Nil -> (s, Nil)
@@ -227,23 +227,23 @@ map_foldl f s l =
       let (s2, as) = map_foldl f s1 xs in
       (s2, Cons a as)
 
-number_elements :: ! forall a . List a -> List (a * Nat)
+number_elements :: ! forall a -> List a -> List (a * Nat)
 number_elements l =
-  let (x, y) = map_foldl ( \ n x . (S n, (x,n))) Z l
+  let (x, y) = map_foldl ( \ n x -> (S n, (x,n))) Z l
   in y
 
-for_each_map :: ! forall a b s . List a -> s -> !(a -> s -> b * s) -> (List b) * s
+for_each_map :: ! forall a b s -> List a -> s -> !(a -> s -> b * s) -> (List b) * s
 for_each_map xs s body = 
-  let (s, ys) = map_foldl ( \ s a . swap (body a s)) s xs in
+  let (s, ys) = map_foldl ( \ s a -> swap (body a s)) s xs in
   (ys, s)
 
-fst' :: ! forall a . (a * Nat) -> a
+fst' :: ! forall a -> (a * Nat) -> a
 fst' x = let (a, b) = x in a
 
-unnumber_elements :: ! forall a . List (a * Nat) -> List a
-unnumber_elements l = mapr ( \ a . fst' a) l
+unnumber_elements :: ! forall a -> List (a * Nat) -> List a
+unnumber_elements l = mapr ( \ a -> fst' a) l
 
-sf_head :: ! forall a . List a -> a * List a
+sf_head :: ! forall a -> List a -> a * List a
 sf_head l = case l of
                Cons x xs -> (x, xs)
 
@@ -253,7 +253,7 @@ qnot_if cond q =
     True -> QNot q
     False -> q
 
-sf_list_index :: ! forall a . Nat -> List a -> Triple (List a) a (List a)
+sf_list_index :: ! forall a -> Nat -> List a -> Triple (List a) a (List a)
 sf_list_index n as =
   case as of
     Cons h t -> 
@@ -264,14 +264,14 @@ sf_list_index n as =
          T (Cons h before) a after
 
 
-with_list_index :: ! forall a t . Nat -> List a -> (a -> a * t) -> List a * t
+with_list_index :: ! forall a t -> Nat -> List a -> (a -> a * t) -> List a * t
 with_list_index n as body =
   let T before a after = sf_list_index n as
       (a, s) = body a
       as = appendL before $ Cons a after
   in (as, s)
 
-for_each_map2 :: ! forall a b c d s . List a -> List b -> s -> !(a -> b -> s -> Triple c d s) ->
+for_each_map2 :: ! forall a b c d s -> List a -> List b -> s -> !(a -> b -> s -> Triple c d s) ->
                      Triple (List c)  (List d) s
 for_each_map2 xs ys s body =
   case xs of
@@ -285,7 +285,7 @@ for_each_map2 xs ys s body =
           in T (Cons a as) (Cons b bs) s2
 
 
-for_each_map3 :: ! forall a b c d e f s . List a -> List b -> List c -> s ->
+for_each_map3 :: ! forall a b c d e f s -> List a -> List b -> List c -> s ->
                       !(a -> b -> c -> s -> Quad d e f s) -> Quad (List d) (List e) (List f) s
 for_each_map3 xs ys zs s body =
   case xs of
@@ -314,13 +314,13 @@ twos_complement xs =
         False -> Cons False $ twos_complement t
         True -> Cons True $ mapr not t
 
-getTwo :: ! forall a . List a -> a * a
+getTwo :: ! forall a -> List a -> a * a
 getTwo l = let Cons h1 hs = l
                Cons h2 hs = hs
                Nil = hs
              in (h1, h2)
              
-getSix :: ! forall a . List a -> Six a a a a a a
+getSix :: ! forall a -> List a -> Six a a a a a a
 getSix l = let Cons h1 hs = l
                Cons h2 hs = hs
                Cons h3 hs = hs

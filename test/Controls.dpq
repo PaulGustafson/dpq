@@ -1,29 +1,29 @@
 module Controls where
 import "lib/Prelude.dpq"
 
-myCtrl :: ! forall v . (Simple v) => Qubit -> Qubit -> v -> (Qubit * Qubit) * v
+myCtrl :: ! forall v -> (Simple v) => Qubit -> Qubit -> v -> (Qubit * Qubit) * v
 myCtrl a b c = withControl c $ do
              a <- applyS $ H_g a
              b <- applyS $ H_g b
              applyS $ cnot a b
 
-myCtrl1 :: ! forall (s t :: Type) . (Simple s, Simple t) => Qubit -> Qubit -> s -> t ->
+myCtrl1 :: ! forall (s t :: Type) -> (Simple s, Simple t) => Qubit -> Qubit -> s -> t ->
                   Qubit * Qubit * t * s
 myCtrl1 a b c d =
         withControl c $ do
              a <- applyS $ H_g a
 	     -- without monad tranformer, we would have to
 	     -- explicitly use let and re-introduce the
-	     -- do notation.
+	     -- do notation->
              let (b, d) = withControl d $ applyS $ H_g b in
              do (a, b) <- applyS $ cnot a b
 	     	return (a, b, d)
 
 box_myCtrl1 :: Circ(Qubit * Qubit * Qubit * Qubit, Qubit * Qubit * Qubit * Qubit)
 box_myCtrl1 = box (Qubit * Qubit * Qubit * Qubit)
-                 $ \ x . (uncurry $ uncurry $ uncurry myCtrl1) x
+                 $ \ x -> (uncurry $ uncurry $ uncurry myCtrl1) x
 
-myCtrl2 :: ! forall (s t :: Type) . (Simple s, Simple t) => Qubit -> Qubit -> s -> t ->
+myCtrl2 :: ! forall (s t :: Type) -> (Simple s, Simple t) => Qubit -> Qubit -> s -> t ->
                 Qubit * Qubit * t * s
 myCtrl2 a b c d =
   runIdentity $ withControlT c $ do
@@ -33,36 +33,36 @@ myCtrl2 a b c d =
        (a, b) <- apply $ cnot a b
        return (a, b, d)
 
-myCtrl3 :: ! forall (s t :: Type) . (Simple s, Simple t) => Qubit -> Qubit -> s -> t ->
+myCtrl3 :: ! forall (s t :: Type) -> (Simple s, Simple t) => Qubit -> Qubit -> s -> t ->
                 Qubit * Qubit * (s * t)
 myCtrl3 a b c d = 
   runIdentity $ withControlT (c, d) $ do
-      -- a  way to thread control wires.
-       a <- apply $ \ x .
+      -- a  way to thread control wires->
+       a <- apply $ \ x ->
              let (c, d) = x
 	     	 (a, c) = H_g a c
 	     in (a, (c, d))
-       b <- apply $ \ x .
+       b <- apply $ \ x ->
               let (c, d) = x
 	          (b, d) = H_g b d
 	      in (b, (c, d))
       -- it is very easy to be wrong here because
       -- if we want cnot to be only controlled by
-      -- c, not both c and d.  
-       apply $ \ x .
+      -- c, not both c and d->  
+       apply $ \ x ->
               let (c, d) = x
 	          (a, b, c) = cnot a b c
 	      in ((a, b), (c, d))
 
 box_myCtrl :: Circ(Qubit * Qubit * Qubit, Qubit * Qubit * Qubit)
-box_myCtrl = box (Qubit * Qubit * Qubit) $ \ x . (uncurry $ uncurry myCtrl) x
+box_myCtrl = box (Qubit * Qubit * Qubit) $ \ x -> (uncurry $ uncurry myCtrl) x
 
 box_myCtrl2 :: Circ(Qubit * Qubit * Qubit * Qubit, Qubit * Qubit * Qubit * Qubit)
-box_myCtrl2 = box (Qubit * Qubit * Qubit * Qubit) $ \ x . (uncurry $ uncurry $ uncurry myCtrl2) x
+box_myCtrl2 = box (Qubit * Qubit * Qubit * Qubit) $ \ x -> (uncurry $ uncurry $ uncurry myCtrl2) x
 
 box_myCtrl3 :: Circ(Qubit * Qubit * Qubit * Qubit,
                  Qubit * Qubit * (Qubit * Qubit))
-box_myCtrl3 = box (Qubit * Qubit * Qubit * Qubit) $ \ x . (uncurry $ uncurry $ uncurry myCtrl3) x
+box_myCtrl3 = box (Qubit * Qubit * Qubit * Qubit) $ \ x -> (uncurry $ uncurry $ uncurry myCtrl3) x
 
 mycirc2 :: ! (Qubit * Qubit * Qubit ->  Qubit * Qubit * Qubit)
 mycirc2 x =
@@ -83,12 +83,12 @@ timestep :: ! (Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit)
 timestep a b c = 
   let (a, b, _) = myCtrl a b ()
       (c, ab) = Not_g c (a,b)
-      f = revertSimpleFunction (Qubit * Qubit) $ \ y . uncurry myCtrl y ()
+      f = revertSimpleFunction (Qubit * Qubit) $ \ y -> uncurry myCtrl y ()
       (a, b) = f (ab, ())
   in (a, b, c)
 
 box_timestep :: Circ(Qubit * Qubit * Qubit,  Qubit* Qubit* Qubit)
-box_timestep = box (Qubit * Qubit * Qubit) $ \ x . (uncurry $ uncurry timestep) x
+box_timestep = box (Qubit * Qubit * Qubit) $ \ x -> (uncurry $ uncurry timestep) x
 
 
 
@@ -99,14 +99,14 @@ box_timestep = box (Qubit * Qubit * Qubit) $ \ x . (uncurry $ uncurry timestep) 
 
 
 hadamard :: ! (Qubit -> State Qubit Qubit)
-hadamard q = applyS $ \ s . (q, H s)
+hadamard q = applyS $ \ s -> (q, H s)
 
-circ4 :: ! forall (n :: Nat) . Vec Qubit n -> Qubit -> Vec Qubit n * Qubit
+circ4 :: ! forall (n :: Nat) -> Vec Qubit n -> Qubit -> Vec Qubit n * Qubit
 circ4 l x =
   let l' = map H l in
   runState x $
-     do l'' <- mapM (\ q . 
-                  do x <- applyS (\ x . CNot x q)
+     do l'' <- mapM (\ q -> 
+                  do x <- applyS (\ x -> CNot x q)
                      q <- swapState x
                      return q
                      )
@@ -114,24 +114,24 @@ circ4 l x =
         return $ map H l''
 
 box_circ4 :: Circ(Vec Qubit 4 * Qubit, Vec Qubit 4 * Qubit)
-box_circ4 = box (Vec Qubit 4 * Qubit) $ \ x . uncurry circ4 x
+box_circ4 = box (Vec Qubit 4 * Qubit) $ \ x -> uncurry circ4 x
 
 
 
-circ5 :: ! forall  (n :: Nat) .  Vec Qubit n -> State Qubit (Vec Qubit n) 
+circ5 :: ! forall  (n :: Nat) ->  Vec Qubit n -> State Qubit (Vec Qubit n) 
 circ5 l =
   do l' <- mapM hadamard l
-     mapM (\ q . 
-          do x' <- applyS (\ x . CNot x q)
+     mapM (\ q -> 
+          do x' <- applyS (\ x -> CNot x q)
              q' <- swapState x'
              return q'
         ) l'
 
-loopV :: ! forall (a :: Type) (n :: Nat) .
+loopV :: ! forall (a :: Type) (n :: Nat) ->
            !(a -> a) -> State (a * Vec a n) Unit
-loopV f = applyS $ \ v . let (s, v) = v in ((), (s, map f v))
+loopV f = applyS $ \ v -> let (s, v) = v in ((), (s, map f v))
 
-mapAcc :: ! forall s a b (n :: Nat) . !(s -> a -> s * b) -> s -> Vec a n -> s * Vec b n
+mapAcc :: ! forall s a b (n :: Nat) -> !(s -> a -> s * b) -> s -> Vec a n -> s * Vec b n
 mapAcc f s l =
   case l of
     VNil -> (s, VNil)
@@ -140,20 +140,20 @@ mapAcc f s l =
           (s2, as) = mapAcc f s1 xs
       in (s2, VCons a as)
 
-loopAcc :: ! forall a (n :: Nat) . !(a -> a -> a * a) -> State (a * Vec a n) Unit
-loopAcc f = applyS $ \ p . let (q, v) = p in ((), mapAcc f q v)
+loopAcc :: ! forall a (n :: Nat) -> !(a -> a -> a * a) -> State (a * Vec a n) Unit
+loopAcc f = applyS $ \ p -> let (q, v) = p in ((), mapAcc f q v)
 
-circ6 :: ! forall (n :: Nat) . Unit -> State (Qubit * Vec Qubit n) Unit
+circ6 :: ! forall (n :: Nat) -> Unit -> State (Qubit * Vec Qubit n) Unit
 circ6 u =
     do loopV H
        loopAcc CNot
        loopV H
-circ9 :: ! forall (n :: Nat) . (Vec Qubit n) -> Qubit -> Vec Qubit n * Qubit
+circ9 :: ! forall (n :: Nat) -> (Vec Qubit n) -> Qubit -> Vec Qubit n * Qubit
 circ9 l x = 
- runState x $ mapM (\ q . applyS (\ x . CNot x q)) l
+ runState x $ mapM (\ q -> applyS (\ x -> CNot x q)) l
 
 main :: Circ(Vec Qubit 4 * Qubit, Vec Qubit 4 * Qubit)
-main = box (Vec Qubit 4 * Qubit) $ \ x . uncurry circ9 x
+main = box (Vec Qubit 4 * Qubit) $ \ x -> uncurry circ9 x
 
 
 

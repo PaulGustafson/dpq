@@ -55,10 +55,10 @@ nAdderRev :: ! (n :: Nat) -> Circ(Qubit * Vec Qubit n * Vec Qubit n,
                                    Vec Qubit n * Qubit *
 				     (Qubit * Vec Qubit n * Vec Qubit n))
 
-nAdderRev n = box (Qubit * Vec Qubit n * Vec Qubit n) $ \ x .
+nAdderRev n = box (Qubit * Vec Qubit n * Vec Qubit n) $ \ x ->
   let c = without_garbage (Qubit * Vec Qubit n * Vec Qubit n)
             (Vec Qubit n * Qubit)
-            (\ x . let (carry_in, a, b) = x in nAdder n carry_in a b) 
+            (\ x -> let (carry_in, a, b) = x in nAdder n carry_in a b) 
             copy 
   in c x
 
@@ -66,9 +66,9 @@ nAdderRev n = box (Qubit * Vec Qubit n * Vec Qubit n) $ \ x .
 --                                    Vec Qubit n * Qubit *
 -- 				     (Qubit * Vec Qubit n * Vec Qubit n))
 
-nAdderRev' (n :: Nat) = boxCirc $ \ x .
+nAdderRev' (n :: Nat) = boxCirc $ \ x ->
   let c = withoutGarbage
-            (\ x . let (carry_in, a, b) = x in nAdder n carry_in a b) 
+            (\ x -> let (carry_in, a, b) = x in nAdder n carry_in a b) 
             copy 
   in c x
 
@@ -86,13 +86,13 @@ adding = (False, [True, False, False, True], [True, True, False, True])
 -- (VCons True $ VCons False $ VCons True $ VCons False VNil)
 --                    (VCons False $ VCons True $ VCons False $ VCons True VNil)
 
--- Due to the set up of runCirc, the call of runCirc always need annotation.
+-- Due to the set up of runCirc, the call of runCirc always need annotation->
 -- Moreover, we don't want to turn type class into
--- full blown prolog. 
+-- full blown prolog-> 
 testAdd :: Vec Bool 4 * Bool * (Bool * Vec Bool 4 * Vec Bool 4)
 testAdd = runCirc nAdderRev_test1 adding
 
-binaryToNat :: ! forall (n :: Nat) . Vec Bool n -> Nat
+binaryToNat :: ! forall (n :: Nat) -> Vec Bool n -> Nat
 binaryToNat v =
   case v of
     VNil -> Z
@@ -102,7 +102,7 @@ binaryToNat v =
 	False -> mul 2 (binaryToNat xs)
 
 idCirc :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n)
-idCirc n = box (Vec Qubit n) $ \ x . x
+idCirc n = box (Vec Qubit n) $ \ x -> x
 
 
 
@@ -130,14 +130,14 @@ resCirc = idCirc (binaryToNat res)
 -- data Prop2 (x :: Vec Bool one) = Pr2
 
 
--- tes :: ! forall a . !(a -> a)
+-- tes :: ! forall a -> !(a -> a)
 -- tes x = x
 
 -- t :: Prop res2
 -- t = Pr 
 
 -- idCirc1 :: Circ(Vec Qubit 1, Vec Qubit 1)
--- idCirc1 = box (Vec Qubit 1) (\ x . x)
+-- idCirc1 = box (Vec Qubit 1) (\ x -> x)
 
 -- t' :: Prop1 idCirc1
 -- t' = Pr1

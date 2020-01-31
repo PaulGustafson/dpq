@@ -1,7 +1,7 @@
 module QftAdder where
 import "test/Qft.dpq"
 
-qft_adder_h :: ! forall (m :: Nat) . Nat -> Qubit -> Vec Qubit m -> Vec Qubit m * Qubit
+qft_adder_h :: ! forall (m :: Nat) -> Nat -> Qubit -> Vec Qubit m -> Vec Qubit m * Qubit
 qft_adder_h n b l = case l of
        	     	        VNil -> (VNil, b)
                         VCons q' qs' ->
@@ -10,7 +10,7 @@ qft_adder_h n b l = case l of
 		            in (VCons c res, b'')
 		    
 
-qft_adder :: ! forall (n :: Nat) . Vec Qubit n -> Vec Qubit n -> Vec Qubit n * Vec Qubit n
+qft_adder :: ! forall (n :: Nat) -> Vec Qubit n -> Vec Qubit n -> Vec Qubit n * Vec Qubit n
 qft_adder as bs = case bs of
                       VNil -> (as, VNil)
                       VCons b bs ->
@@ -22,7 +22,7 @@ qft_adder as bs = case bs of
 
 
 adderBox :: ! (n :: Nat) -> Circ(Vec Qubit n * Vec Qubit n, Vec Qubit n * Vec Qubit n) 
-adderBox n = box (Vec Qubit n * Vec Qubit n) $ \ x . let (a, b) = x in qft_adder a b 
+adderBox n = box (Vec Qubit n * Vec Qubit n) $ \ x -> let (a, b) = x in qft_adder a b 
 
 adderBox_t1 :: Circ(Vec Qubit 4 * Vec Qubit 4, Vec Qubit 4 * Vec Qubit 4) 
 adderBox_t1 = adderBox 4
@@ -33,9 +33,9 @@ adderBox_t1 = adderBox 4
 extendWires :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n) ->
                Circ(Vec Qubit n * Vec Qubit n, Vec Qubit n * Vec Qubit n)
 extendWires n circ = box (Vec Qubit n * Vec Qubit n) $
-                       \ x . let (a, b) = x in (a, (unbox circ) b)
+                       \ x -> let (a, b) = x in (a, (unbox circ) b)
 
-withComputed :: ! forall a b . Circ(a, b) -> Circ(b, b) -> (a -> a)
+withComputed :: ! forall a b -> Circ(a, b) -> Circ(b, b) -> (a -> a)
 withComputed circ c arg =
   let circ_rev = unbox (revert circ)
       c' = unbox c
@@ -45,7 +45,7 @@ withComputed circ c arg =
 
 qft_adder_inplace :: ! (n :: Nat) -> Circ(Vec Qubit n * Vec Qubit n, Vec Qubit n * Vec Qubit n)
 qft_adder_inplace n =
-  box (Vec Qubit n * Vec Qubit n) $ \ x . 
+  box (Vec Qubit n * Vec Qubit n) $ \ x -> 
     (withComputed (extendWires n $ qft_little_headian_Box n) (adderBox n)) x
 
 -- qft_adder_inplace_t1 = qft_adder_inplace four

@@ -1,58 +1,58 @@
 module Monad where
 
 -- Note: Need to define the following in order to support do block and idiom braket:
--- pure, bind, ap, join, seq.
+-- pure, bind, ap, join, seq->
 
 -- do x <- t
 --    A   
 --    return C
 -- will be desugared to:
--- bind t (\ x . seq A (return C))
+-- bind t (\ x -> seq A (return C))
 
 -- [| f a b [| g e|]|] will be desugared to:
 -- join (ap (ap (ap (pure f) a) b) (join (ap (pure g) e)))
--- Note that this desugaring scheme of Idiom braket will always add join.
+-- Note that this desugaring scheme of Idiom braket will always add join->
 
 class Monad (m :: Type -> Type) where
-  return :: forall a . a -> m a
-  bind :: forall a b . m a -> (a -> m b) -> m b
+  return :: forall a -> a -> m a
+  bind :: forall a b -> m a -> (a -> m b) -> m b
 
 
 
 infixl 20 >>=
 
-(>>=) :: ! forall (m :: Type -> Type) .
+(>>=) :: ! forall (m :: Type -> Type) ->
             (Monad m) =>
-              forall (a b :: Type) .
+              forall (a b :: Type) ->
                  m a -> (a -> m b) -> m b
 (>>=) = bind
 
 infixl 20 >>
 
-pure :: ! forall (m :: Type -> Type) .
-           (Monad m) => forall a . a -> m a
+pure :: ! forall (m :: Type -> Type) ->
+           (Monad m) => forall a -> a -> m a
 pure = return
 
-seq :: ! forall (m :: Type -> Type) .
+seq :: ! forall (m :: Type -> Type) ->
             (Monad m) =>
-              forall b .
+              forall b ->
                  m Unit -> m b -> m b
-seq x f = x >>= \ u . f 
+seq x f = x >>= \ u -> f 
 
-(>>) :: ! forall (m :: Type -> Type) .
+(>>) :: ! forall (m :: Type -> Type) ->
             (Monad m) =>
-              forall b .
+              forall b ->
                  m Unit -> m b -> m b
 (>>) = seq
 
-join :: ! forall a (m :: Type -> Type) . (Monad m) => m (m a) -> m a
+join :: ! forall a (m :: Type -> Type) -> (Monad m) => m (m a) -> m a
 join mma =
-  mma >>= \ ma . ma
+  mma >>= \ ma -> ma
 
-ap :: ! forall a b (m :: Type -> Type) . (Monad m) =>  m (a -> b) -> m a -> m b
+ap :: ! forall a b (m :: Type -> Type) -> (Monad m) =>  m (a -> b) -> m a -> m b
 ap f x =
-  f >>= \ g .
-  x >>= \ y .
+  f >>= \ g ->
+  x >>= \ y ->
   return (g y)
 
 infixl 16 <*>
@@ -60,16 +60,16 @@ infixl 16 <*>
 infixl 16 <$>
 
 
-(<*>) :: ! forall a b (m :: Type -> Type) . (Monad m) =>  m (a -> b) -> m a -> m b
+(<*>) :: ! forall a b (m :: Type -> Type) -> (Monad m) =>  m (a -> b) -> m a -> m b
 (<*>) = ap 
 
-fmap :: ! forall a b (m :: Type -> Type) . (Monad m) => (a -> b) -> m a -> m b
+fmap :: ! forall a b (m :: Type -> Type) -> (Monad m) => (a -> b) -> m a -> m b
 fmap f x =
-  x >>= \ x' . return (f x')
+  x >>= \ x' -> return (f x')
 
-(<$>) :: ! forall a b (m :: Type -> Type) . (Monad m) => (a -> b) -> m a -> m b
+(<$>) :: ! forall a b (m :: Type -> Type) -> (Monad m) => (a -> b) -> m a -> m b
 (<$>) = fmap
   
 class MonadTrans (t :: (Type -> Type) -> Type -> Type) where
-  lift :: forall (m :: Type -> Type) a . (Monad m) => m a -> t m a
+  lift :: forall (m :: Type -> Type) a -> (Monad m) => m a -> t m a
 

@@ -59,7 +59,7 @@ instance QuantumOp Qubit where
   copy q = CNot (Init0 ()) q  
   cnots q1 q2 = CNot q1 q2
 
-instance forall a b . (QuantumOp a, QuantumOp b, Simple a, Simple b) =>
+instance forall a b -> (QuantumOp a, QuantumOp b, Simple a, Simple b) =>
                         QuantumOp (a * b) where
 
   unary g p = let (p1, p2) = p in (unary g p1, unary g p2)

@@ -411,7 +411,7 @@ atomExp = wrapPos (
        <|> caseExp
        <|> letExp
        <|> doExp
-       <|> existsType
+
        <|> lamAnn
        <|> lam
        <|> idiomExp
@@ -421,6 +421,7 @@ atomExp = wrapPos (
        <|> withAnn
        <|> piType
        <|> impType
+       <|> existsType
        <|> appExp
        <?> "expression")
 
@@ -533,13 +534,14 @@ implicitType =
 -- | Parse an existential type.
 existsType :: Parser Exp
 existsType =
- do reserved "exists"
-    v <- var
-    reservedOp "::"
-    ty <- typeExp
-    reservedOp "."
-    t <- typeExp
-    return $ Exists v ty t
+-- do -- reserved "exists"
+  do (v, ty) <- try $ parens $ do {v <- var;
+                                   reservedOp "::";
+                                   ty <- typeExp;
+                                   return (v, ty)}
+     reservedOp "*"
+     t <- typeExp
+     return $ Exists v ty t
 
 -- | Parse an instance type.
 instanceType :: Parser Exp
@@ -547,7 +549,7 @@ instanceType =
   do r <- option [] (do {reserved "forall";
                          vs <- many1 ((ann >>= \ x -> return x) <|>
                                       (impAnn >>= \ x -> return x));
-                         reservedOp ".";
+                         reservedOp "->";
                          return vs})
      t <- try impType <|> appExp 
      return $ makeType r t
@@ -569,7 +571,7 @@ forallType :: Parser Exp
 forallType =
  do vs <- try $ do reserved "forall"
                    vs <- many1 (try ann <|> impAnn)
-                   reservedOp "."
+                   reservedOp "->"
                    return vs
     t <- typeExp
     return $ Forall vs t
@@ -603,7 +605,7 @@ lamAnn = do
   (v, ty) <-  try $
               do reservedOp "\\"
                  ann
-  reservedOp "."
+  reservedOp "->"
   t <- term
   return $ LamAnn v ty t
 
@@ -612,7 +614,7 @@ lam :: Parser Exp
 lam =
  do reservedOp "\\"
     vs <- many1 var
-    reservedOp "."
+    reservedOp "->"
     t <- term
     return $ Lam vs t
 

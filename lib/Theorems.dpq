@@ -2,7 +2,7 @@ module Thereoms where
 import "lib/Nat.dpq"
 import "lib/Class.dpq"
 
--- Some equalities about nat, for manual equality conversion.
+-- Some equalities about nat, for manual equality conversion->
 
 addS1 :: ! (n m :: Nat) -> Eq Nat (add (S n) m) (S (add n m))
 addS1 n m = refl
@@ -54,7 +54,7 @@ minusZ n = case n of
 boolBot :: ! (n m :: Nat) -> Eq Bool False True -> Eq Nat n m
 boolBot n m pf =
   let E pf = pf in 
-    E (\ p hy . pf (\ b . 
+    E (\ p hy -> pf (\ b -> 
          case b of
            False -> p n
            True -> p m ) hy)

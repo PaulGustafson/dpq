@@ -10,7 +10,7 @@ share a = let b = Init0 ()
 
 plus_minus :: ! (Bool -> Circ(Unit, Qubit))
 plus_minus b = 
-               box Unit $ \ u .
+               box Unit $ \ u ->
                 case b of
                   True -> H (Init1 ())
                   False -> H (Init0 ())
@@ -23,7 +23,7 @@ shareCirc = box Qubit share
 
 bell00 :: Circ (Unit, Qubit * Qubit) 
 bell00 =  box Unit $
-          \ t .
+          \ t ->
            let -- f = unbox $ plus_minus False
                a = unbox (plus_minus False) () 
        	       (a, b) = share a
@@ -72,7 +72,7 @@ share_generic n l =
   in (l, res')
 
 shareCircG :: Circ (Vec Qubit (S (S Z)), Vec Qubit (S (S Z)) * Vec Qubit (S (S Z)))            
-shareCircG = box (Vec Qubit (S (S Z))) $ \ x . share_generic (S (S Z)) x
+shareCircG = box (Vec Qubit (S (S Z))) $ \ x -> share_generic (S (S Z)) x
 
 
 
@@ -83,7 +83,7 @@ bell_generic n =
     in (a, b)
 
 bell_g_box :: ! (n :: Nat) -> Circ(Unit, Vec Qubit n * Vec Qubit n)
-bell_g_box n = box Unit $ \ u .  bell_generic n
+bell_g_box n = box Unit $ \ u ->  bell_generic n
 
 
 alice_generic :: ! (n :: Nat) -> Vec Qubit n -> Vec Qubit n -> Vec Bit n * Vec Bit n
@@ -93,7 +93,7 @@ alice_generic n q a = let (a', q') = unzip $ zipWith CNot a q
 
 alice_g_box :: ! (n :: Nat) -> Circ (Vec Qubit n * Vec Qubit n, Vec Bit n * Vec Bit n)
 alice_g_box n = box (Vec Qubit n * Vec Qubit n) $
-      \ x . let (q, a) = x in alice_generic n q a
+      \ x -> let (q, a) = x in alice_generic n q a
                   
 
 
@@ -107,7 +107,7 @@ bob_generic n b u = let (x, y) = u
 
 bob_g_box :: ! (n :: Nat) -> Circ (Vec Qubit n * (Vec Bit n * Vec Bit n), Vec Qubit n)
 bob_g_box n = box (Vec Qubit n * (Vec Bit n * Vec Bit n)) $
-              \ x . let (q, a) = x in bob_generic n q a
+              \ x -> let (q, a) = x in bob_generic n q a
                
 
 
@@ -117,12 +117,12 @@ tele_generic n q = let (a, b) = bell_generic n
                        b = bob_generic n b (x, y) in b
 
 teleBox :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n)
-teleBox n = box (Vec Qubit n) $ \ x . tele_generic n x
+teleBox n = box (Vec Qubit n) $ \ x -> tele_generic n x
 teleBox_t1 :: Circ (Vec Qubit 9, Vec Qubit 9)
 teleBox_t1 = teleBox 9
 
 teleBox' :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n)
-teleBox' n = box (Vec Qubit n) $ \ x . tele_generic n x
+teleBox' n = box (Vec Qubit n) $ \ x -> tele_generic n x
 
 
 

@@ -5,7 +5,7 @@ simple Triple a b c :: Type where
   Triple a b c = T a b c
 
 
-toT :: ! forall a b c . (a * b) * c -> Triple a b c
+toT :: ! forall a b c -> (a * b) * c -> Triple a b c
 toT x = let (a, b, c) = x 
         in T a b c
 
@@ -19,7 +19,7 @@ simple Five a b c d e :: Type where
   Five a b c d e = F a b c d e
 
 
-with_ancilla :: ! forall a . Bool -> (Qubit -> a * Qubit) -> a
+with_ancilla :: ! forall a -> Bool -> (Qubit -> a * Qubit) -> a
 with_ancilla b body =
     let ancilla = initQubit b
         (output, ancilla) = body ancilla 
@@ -38,7 +38,7 @@ with_ancilla b body =
   --     let unit = Term0 ancilla in
   --     output
 
-map2 :: ! forall a b c d (n :: Nat) . !(a -> b -> c * d) -> Vec a n -> Vec b n ->
+map2 :: ! forall a b c d (n :: Nat) -> !(a -> b -> c * d) -> Vec a n -> Vec b n ->
             Vec c n * Vec d n
 map2 f xs ys =
   case xs of
@@ -53,7 +53,7 @@ map2 f xs ys =
           (VCons x' xs', VCons y' ys')
 
 
-map2_foldl :: ! forall s a b c d (n :: Nat) . !(s -> a -> b -> s * c * d) ->
+map2_foldl :: ! forall s a b c d (n :: Nat) -> !(s -> a -> b -> s * c * d) ->
                 s -> Vec a n -> Vec b n -> s * Vec c n * Vec d n  
 map2_foldl f ss as bs =
   case as of
@@ -68,7 +68,7 @@ map2_foldl f ss as bs =
 	      (s2, cs) = scs
 	  in  ((s2, VCons c cs), VCons d ds) 
 
-map2_foldr :: ! forall s a b c d (n :: Nat) . !(s -> a -> b -> s * c * d) -> s ->
+map2_foldr :: ! forall s a b c d (n :: Nat) -> !(s -> a -> b -> s * c * d) -> s ->
                  Vec a n -> Vec b n -> s * Vec c n * Vec d n
 map2_foldr f s as bs = 
    case as of
@@ -84,7 +84,7 @@ map2_foldr f s as bs =
 	       (s2, c) = s2c
 	    in ((s2, VCons c cs) , VCons d ds)
 
-map2r :: ! forall a b c d (n :: Nat) . !(a -> b -> c * d) -> Vec a n -> Vec b n ->
+map2r :: ! forall a b c d (n :: Nat) -> !(a -> b -> c * d) -> Vec a n -> Vec b n ->
             Vec c n * Vec d n
 map2r f as bs =
   case as of
@@ -100,21 +100,21 @@ map2r f as bs =
 
 
 
-loop :: ! forall a . Nat -> a -> !(a -> a) -> a
+loop :: ! forall a -> Nat -> a -> !(a -> a) -> a
 loop n x f =
   case n of
     Z -> x
     S n' -> f (loop n' x f)
 
-qinit_register :: ! forall (n :: Nat) . Vec Bool n -> Vec Qubit n
+qinit_register :: ! forall (n :: Nat) -> Vec Bool n -> Vec Qubit n
 qinit_register x = map initQubit x
 
 
-qterm_register :: ! forall (n :: Nat) . Vec Bool n -> Vec Qubit n -> Vec Unit n
+qterm_register :: ! forall (n :: Nat) -> Vec Bool n -> Vec Qubit n -> Vec Unit n
 qterm_register bs qs = map qterm' (zip bs qs)
   
--- \ x . let (b,q) = x in qterm b q
-with_ancilla_reg :: ! forall a (n :: Nat) . Vec Bool n -> (Vec Qubit n -> a * Vec Qubit n) -> a
+-- \ x -> let (b,q) = x in qterm b q
+with_ancilla_reg :: ! forall a (n :: Nat) -> Vec Bool n -> (Vec Qubit n -> a * Vec Qubit n) -> a
 with_ancilla_reg bs body =
   let qs = qinit_register bs
       (res,qs) = body qs
@@ -127,7 +127,7 @@ replicate n x = case n of
                    S n' -> VCons x (replicate n' x)
 
 
-for :: ! forall x . Nat -> Nat -> Nat -> x -> !(Nat -> x -> x) -> x
+for :: ! forall x -> Nat -> Nat -> Nat -> x -> !(Nat -> x -> x) -> x
 for a b s x f = 
   case ((s >= Z) && (a > b)) || ((s <= Z) && (a < b)) of
     True -> x
@@ -140,7 +140,7 @@ list_split a n m xs =
   case n of
     Z -> (VNil, xs)
     S n' ->  
-     case subst (\ x . Vec a x) (addS1 n' m) xs of 
+     case subst (\ x -> Vec a x) (addS1 n' m) xs of 
         VCons h t -> 
          let (as, bs) = list_split a n' m t in
            (VCons h as, bs)
@@ -165,7 +165,7 @@ sf_list_range a l n m xs =
   ((before, range), after)
 
 -- n m same as sf_list_range
-with_list_range :: ! forall t . (a :: Type) -> (l n m :: Nat) -> Vec a (add (add n m) l) ->
+with_list_range :: ! forall t -> (a :: Type) -> (l n m :: Nat) -> Vec a (add (add n m) l) ->
                       (Vec a m -> (Vec a m * t)) -> Vec a (add (add n m) l) * t
 with_list_range a l n m as body =
  let T before as after = toT $ sf_list_range a l n m as
@@ -174,7 +174,7 @@ with_list_range a l n m as body =
   in (as, s)
 
 
-with_disjunction_aux :: ! forall a (n m :: Nat) . Vec Qubit n ->
+with_disjunction_aux :: ! forall a (n m :: Nat) -> Vec Qubit n ->
                            (Qubit -> a * Vec Qubit m * Qubit) ->
                            Triple a (Vec Qubit m) (Vec Qubit n)
 with_disjunction_aux qs body = 
@@ -183,8 +183,8 @@ with_disjunction_aux qs body =
         let (a, as) = with_ancilla False body
         in T a as VNil
       VCons h t ->
-        let T a has t = with_disjunction_aux t (\ p .
-           let T a has p = with_ancilla False (\ q .
+        let T a has t = with_disjunction_aux t (\ p ->
+           let T a has p = with_ancilla False (\ q ->
             let T q p h = toT $ ToffoliGate False True q p h
                 (q, p) = CNotGate True q p
                 T a as q = toT $ body q
@@ -196,16 +196,16 @@ with_disjunction_aux qs body =
         in T a as (VCons h t)
               
 
-with_disjunction :: ! forall a (n :: Nat) . Vec Qubit n ->
+with_disjunction :: ! forall a (n :: Nat) -> Vec Qubit n ->
                        (Qubit -> a * Qubit) -> a * Vec Qubit n
 with_disjunction qs body = 
-  let T a n qs = with_disjunction_aux qs (\ q .
+  let T a n qs = with_disjunction_aux qs (\ q ->
     let (a, q) = body q
     in ((a, VNil), q))
       VNil = n
   in (a, qs)
 
-map_foldr :: ! forall s a b (n :: Nat) . !(s -> a -> s * b) -> s -> Vec a n -> s * Vec b n
+map_foldr :: ! forall s a b (n :: Nat) -> !(s -> a -> s * b) -> s -> Vec a n -> s * Vec b n
 map_foldr f s l =
   case l of
     VNil -> (s, VNil)
@@ -214,9 +214,9 @@ map_foldr f s l =
       let (s2, a) = f s1 x in
       (s2, VCons a as)
 
-for_each_mapr :: ! forall s a b (n :: Nat) . Vec a n -> s -> !(a -> s -> b * s) -> Vec b n * s
+for_each_mapr :: ! forall s a b (n :: Nat) -> Vec a n -> s -> !(a -> s -> b * s) -> Vec b n * s
 for_each_mapr xs s body = 
-  let (s, ys) = map_foldr ( \ s a . let (x, y) = body a s in (y, x)) s xs in
+  let (s, ys) = map_foldr ( \ s a -> let (x, y) = body a s in (y, x)) s xs in
   (ys, s)
 
 
@@ -229,7 +229,7 @@ toffoliGate_if cond x ys zt =
     True -> ToffoliGate s t x y z
     False -> ((x, y), z)
 
-map_foldl :: ! forall a b s (n :: Nat) . !(s -> a -> s * b) -> s -> Vec a n -> s * Vec b n
+map_foldl :: ! forall a b s (n :: Nat) -> !(s -> a -> s * b) -> s -> Vec a n -> s * Vec b n
 map_foldl f s l =
   case l of
     VNil -> (s, VNil)
@@ -238,32 +238,32 @@ map_foldl f s l =
       let (s2, as) = map_foldl f s1 xs in
       (s2, VCons a as)
 
-number_elements :: ! forall a (n :: Nat) . Vec a n -> Vec (a * Nat) n
+number_elements :: ! forall a (n :: Nat) -> Vec a n -> Vec (a * Nat) n
 number_elements l =
-  let (x, y) = map_foldl ( \ n x . (S n, (x,n))) Z l
+  let (x, y) = map_foldl ( \ n x -> (S n, (x,n))) Z l
   in y
 
-for_each_map :: ! forall a b s (n :: Nat) . Vec a n -> s -> !(a -> s -> b * s) -> (Vec b n) * s
+for_each_map :: ! forall a b s (n :: Nat) -> Vec a n -> s -> !(a -> s -> b * s) -> (Vec b n) * s
 for_each_map xs s body = 
-  let (s, ys) = map_foldl ( \ s a . swap (body a s)) s xs in
+  let (s, ys) = map_foldl ( \ s a -> swap (body a s)) s xs in
   (ys, s)
 
-fst' :: ! forall a . (a * Nat) -> a
+fst' :: ! forall a -> (a * Nat) -> a
 fst' x = let (a, b) = x in a
 
-unnumber_elements :: ! forall a (n :: Nat) . Vec (a * Nat) n -> Vec a n
-unnumber_elements l = map (\ x . fst' x) l
+unnumber_elements :: ! forall a (n :: Nat) -> Vec (a * Nat) n -> Vec a n
+unnumber_elements l = map (\ x -> fst' x) l
 
 -- Below is an example of limitation of the
--- type checking algorithm. The following is not possible because
+-- type checking algorithm-> The following is not possible because
 -- it requires type checker first put enough force to fst',
 -- and then cleverly lift it a bang type and pass to mapr
 -- unnumber_elements l = mapr fst' l 
 
--- The basic guideline is application introduce force, abstraction introduce lift.
--- hence the eta-expansion in this particular case. 
+-- The basic guideline is application introduce force, abstraction introduce lift->
+-- hence the eta-expansion in this particular case-> 
 
-sf_head :: ! forall a (n :: Nat) . Vec a (S n)  -> a * Vec a n
+sf_head :: ! forall a (n :: Nat) -> Vec a (S n)  -> a * Vec a n
 sf_head l = case l of
                VCons x xs -> (x, xs)
 
@@ -285,16 +285,16 @@ sf_list_index a n l as =
          let T before a after = sf_list_index a n' l (subst (Vec a) (addS1 n' l) t) in
          T (VCons h before) a after
 
--- there is a type conversion for with_list_index.
-with_list_index :: ! forall t . (a :: Type) -> (n m :: Nat) -> Vec a (S (add n m)) ->
+-- there is a type conversion for with_list_index->
+with_list_index :: ! forall t -> (a :: Type) -> (n m :: Nat) -> Vec a (S (add n m)) ->
                         (a -> a * t) -> Vec a (S (add n m)) * t
 with_list_index b n m as body =
   let T before a after = sf_list_index b n m as
       (a, s) = body a
-      as = subst (\ x . Vec b x) (addS n m) $ before ++ (VCons a after)
+      as = subst (\ x -> Vec b x) (addS n m) $ before ++ (VCons a after)
   in (as, s)
 
-for_each_map2 :: ! forall a b c d s (n :: Nat) . Vec a n -> Vec b n -> s ->
+for_each_map2 :: ! forall a b c d s (n :: Nat) -> Vec a n -> Vec b n -> s ->
                     !(a -> b -> s -> Triple c d s) ->
                      Triple (Vec c n)  (Vec d n) s
 for_each_map2 xs ys s body =
@@ -309,7 +309,7 @@ for_each_map2 xs ys s body =
           in T (VCons a as) (VCons b bs) s2
 
 
-for_each_map3 :: ! forall a b c d e f s (n :: Nat) . Vec a n -> Vec b n -> Vec c n -> s ->
+for_each_map3 :: ! forall a b c d e f s (n :: Nat) -> Vec a n -> Vec b n -> Vec c n -> s ->
                       !(a -> b -> c -> s -> Quad d e f s) -> Quad (Vec d n) (Vec e n) (Vec f n) s
 for_each_map3 xs ys zs s body =
   case xs of
@@ -330,7 +330,7 @@ cnotGate_if cond x y s =
     True -> CNotGate s x y
     False -> (x, y)
 
-twos_complement :: ! forall (n :: Nat) . Vec Bool n -> Vec Bool n
+twos_complement :: ! forall (n :: Nat) -> Vec Bool n -> Vec Bool n
 twos_complement xs = 
   case xs of
     VNil -> VNil
@@ -339,13 +339,13 @@ twos_complement xs =
         False -> VCons False (twos_complement t)
         True -> VCons True (map not t)
 
-getTwo :: ! forall a . Vec a (S (S Z)) -> a * a
+getTwo :: ! forall a -> Vec a (S (S Z)) -> a * a
 getTwo l = let VCons h1 hs = l
                VCons h2 hs = hs
                VNil = hs
             in (h1, h2)
 
-getSix :: ! forall a . Vec a 6 -> Six a a a a a a
+getSix :: ! forall a -> Vec a 6 -> Six a a a a a a
 getSix l = let VCons h1 hs = l
                VCons h2 hs = hs
                VCons h3 hs = hs
@@ -384,7 +384,7 @@ minor' n l = cong S (addS' n l)
 
 major :: ! (n l :: Nat) -> Eq Nat (add n l) ((add (add Z n) l))
 major n l = refl
--- cong (\ x . add x l) (major0 n)
+-- cong (\ x -> add x l) (major0 n)
 
 major' :: ! (n l :: Nat) -> Eq Nat ((S (add n l))) (S (add (add Z n) l))
 major' n l = refl
@@ -408,30 +408,30 @@ ha1 n l = cong S (addS' n l)
 
 
      -- trans (trans (addS (add n (S Z)) l) $
-     --                 cong (\ x . S (add x l)) (addS n Z))
+     --                 cong (\ x -> S (add x l)) (addS n Z))
      --                    $ trans (cong S (minor (add n Z) l))
-     --                        (cong (\ x . S (add (S x) l)) (addZ n))
+     --                        (cong (\ x -> S (add (S x) l)) (addZ n))
                          
 
 addSSZ' :: ! (n l :: Nat) ->
            Eq Nat (add (add n (S (S Z))) l) (S (S (add n l))) 
-addSSZ' n l = trans (cong (\ x . add x l) (addS n (S Z))) $
-                 cong (\ x . add (S x) l) (symAdd n (S Z))
+addSSZ' n l = trans (cong (\ x -> add x l) (addS n (S Z))) $
+                 cong (\ x -> add (S x) l) (symAdd n (S Z))
 
 -- 
 -- addSSZ' n l
- -- trans (cong (\ x . add x l) (addSS n Z)) $ cong (\ x . S (S (add x l))) (addZ n)
+ -- trans (cong (\ x -> add x l) (addSS n Z)) $ cong (\ x -> S (S (add x l))) (addZ n)
  --                     
 
 addSZ :: ! (n l :: Nat) ->
             Eq Nat (add (add n (S Z)) (S l)) (S (S (add n l)))
-addSZ n l = trans (cong (\ x . add x (S l)) (symAdd n (S Z))) $
+addSZ n l = trans (cong (\ x -> add x (S l)) (symAdd n (S Z))) $
                 cong S (addS n l)
 
      -- trans (trans (addS (add n (S Z)) l) $
-     --                 cong (\ x . S (add x l)) (addS n Z))
+     --                 cong (\ x -> S (add x l)) (addS n Z))
      --                    $ trans (cong S (minor (add n Z) l))
-     --                        (cong (\ x . S (add (S x) l)) (addZ n))
+     --                        (cong (\ x -> S (add (S x) l)) (addZ n))
 
 addSSZ :: ! (n l :: Nat) -> Eq Nat (S (S (add n l))) (add (add n (S (S Z))) l)
 addSSZ n l = sym (add (add n (S (S Z))) l) (addSSZ' n l)

@@ -8,7 +8,7 @@ data Nat = Z | S Nat
 
 data Maybe a = Nothing | Just a
 
-iterN :: ! forall a . Nat -> !(a -> a) -> a -> a
+iterN :: ! forall a -> Nat -> !(a -> a) -> a -> a
 iterN n f b = case n of
                   Z -> b
   		  S n' -> f (iterN n' f b)
@@ -28,7 +28,7 @@ minus n m = case n of
 	               S m' -> minus n' m'
 
 mul :: ! (Nat -> Nat -> Nat)
-mul n m = iterN n (\ x . add m x) 0
+mul n m = iterN n (\ x -> add m x) 0
 
 pred :: ! (Nat -> Nat)
 pred n = case n of
@@ -36,7 +36,7 @@ pred n = case n of
             S m -> m
             
 exponential :: ! (Nat -> Nat -> Nat)
-exponential e n = iterN n (\ x . mul e x) 1
+exponential e n = iterN n (\ x -> mul e x) 1
 
 
 less :: ! (Nat -> Nat -> Bool)
@@ -80,7 +80,7 @@ isEven n = not (isOdd n)
 
 
 
-eitherOr :: ! forall a . (x :: Bool) -> !(Eq Bool x True -> a) -> !(Eq Bool x False -> a) -> a
+eitherOr :: ! forall a -> (x :: Bool) -> !(Eq Bool x True -> a) -> !(Eq Bool x False -> a) -> a
 eitherOr x f1 f2 =
   case x of
     True -> f1 refl 
