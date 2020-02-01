@@ -11,7 +11,7 @@ ntimes a n circ =
              in box a $ \ x -> circ' (c x)
 
 
-compose :: !  forall b c -> (a :: Type) -> (Simple a, Simple c) =>
+compose :: !  forall b c -> (a :: Type) -> (Simple a, Simple b, Simple c) =>
                Circ(a, b) -> Circ(b, c) -> Circ(a, c)
 compose a circ1 circ2 =
     let f1 = unbox circ1

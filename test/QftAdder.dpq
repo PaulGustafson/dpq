@@ -35,7 +35,7 @@ extendWires :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n) ->
 extendWires n circ = box (Vec Qubit n * Vec Qubit n) $
                        \ x -> let (a, b) = x in (a, (unbox circ) b)
 
-withComputed :: ! forall a b -> Circ(a, b) -> Circ(b, b) -> (a -> a)
+withComputed :: ! forall a b -> (Simple a, Simple b) => Circ(a, b) -> Circ(b, b) -> (a -> a)
 withComputed circ c arg =
   let circ_rev = unbox (revert circ)
       c' = unbox c

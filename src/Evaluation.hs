@@ -195,8 +195,10 @@ lookupLEnv x lenv =
     Just v -> v
 
 -- | A helper function for evaluating various of applications.
-evalApp :: Value -> Value -> Eval Value    
-evalApp VUnBox v = return $ VApp VUnBox v
+evalApp :: Value -> Value -> Eval Value
+
+evalApp VUnBox v | Wired _ <- v = return $ VApp VUnBox v
+evalApp VUnBox v | otherwise = return VUnBox
 evalApp (VForce (VApp VUnBox v)) w =
   case v of
     Wired bd ->
@@ -224,7 +226,7 @@ evalApp (VApp (VApp (VApp VRunCirc  _) _) (Wired (Abst _ (VCircuit m)))) input =
     Right r -> return r
 
 
-evalApp VRevert m' =
+evalApp (VApp (VApp VRevert _) _) m' =
   case m' of
     Wired bd ->
       open bd $ \ ws (VCircuit (Morphism ins gs outs)) ->

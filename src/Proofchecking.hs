@@ -278,16 +278,20 @@ proofInfer flag Revert =
   freshNames ["a", "b"] $ \ [a, b] ->
   let va = Var a
       vb = Var b
+      simpClass = Id "Simple"
       t1 = Arrow (Circ va vb) (Circ vb va)
-      ty = Forall (abst [a, b] t1) Set
+      t1' = Imply [App' (Base simpClass) va , App' (Base simpClass) vb] t1
+      ty = Forall (abst [a, b] t1') Set
   in return ty
 
 proofInfer flag UnBox =
   freshNames ["a", "b"] $ \ [a, b] ->
   let va = Var a
       vb = Var b
+      simpClass = Id "Simple"
       t1 = Arrow (Circ va vb) (Bang (Arrow va vb))
-      ty = Forall (abst [a, b] t1) Set
+      t1' = Imply [App' (Base simpClass) va , App' (Base simpClass) vb] t1
+      ty = Forall (abst [a, b] t1') Set
   in return ty
 
 proofInfer flag t@(Box) = freshNames ["a", "b"] $ \ [a, b] ->
