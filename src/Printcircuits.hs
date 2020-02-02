@@ -722,6 +722,18 @@ refresh_gates m (Gate name [] VStar output VStar : gs) (h:s)
         (gs', newMap') = refresh_gates m' gs s
     in (Gate name [] VStar (VLabel h) VStar : gs', newMap')
 
+-- All the other possible initialization.
+refresh_gates m (Gate name vs VStar output ctrl : gs) s =
+  let (gs', newMap') = refresh_gates m gs s
+  in (Gate name vs VStar output ctrl : gs', newMap')
+
+-- All the other possible termination.
+refresh_gates m (Gate name vs input VStar ctrl : gs) s =
+  let input' = renameTemp input m
+      (gs', newMap') = refresh_gates m gs s
+  in (Gate name vs input' VStar ctrl : gs', newMap')
+
+
 refresh_gates m (Gate name vs input output ctrl : gs) s =
   let newInput = renameTemp input m
       newCtrl = renameTemp ctrl m
