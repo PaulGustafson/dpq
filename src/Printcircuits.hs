@@ -491,6 +491,12 @@ render_gate fs (Gate name [] (VLabel w) VStar VStar) x ys maxh
       t = render_term fs "1" x y
   in (return (), t)
 
+render_gate fs (Gate name [] (VLabel w) VStar VStar) x ys maxh
+  | getName name == "Discard" =
+  let y = ys `mapLookup` w
+      t = render_term fs "" x y
+  in (return (), t)
+
 
 render_gate fs (Gate name params (VPair (VLabel w) (VLabel c)) output ctrl) x ys maxh
   | "C_" `isPrefixOf` (getName name) =
@@ -694,6 +700,12 @@ printCirc_fd circ h = do
 refresh_gates m [] s = ([], m)
 refresh_gates m (Gate name [] input VStar VStar : gs) s
   | getName name == "Term0" || getName name == "Term1" =
+    let newInput = renameTemp input m
+        (gs', newMap') = refresh_gates m gs (getWires newInput ++ s)
+    in (Gate name [] newInput VStar VStar : gs', newMap')
+
+refresh_gates m (Gate name [] input VStar VStar : gs) s
+  | getName name == "Discard" =
     let newInput = renameTemp input m
         (gs', newMap') = refresh_gates m gs (getWires newInput ++ s)
     in (Gate name [] newInput VStar VStar : gs', newMap')
