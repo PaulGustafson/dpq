@@ -208,13 +208,13 @@ instance forall a (n m :: Nat) -> (BooleanLogic a) => BooleanLogic (VecZipper a 
           return $ VZ rs1 rs2 rs3
   
 
-run_garbage :: ! forall a -> WithGarbage a -> ( n :: Nat) * (Vec Qubit n) * a
-run_garbage comp = let WG x a = comp in let (n, v) = x in (n, (v, a))
+runGarbage :: ! forall a -> WithGarbage a -> (n :: Nat) * (Vec Qubit n) * a
+runGarbage comp = let WG x a = comp in let (n, v) = x in (n, (v, a))
 
 box_garbage :: ! (a b :: Type) -> (Simple a , Simple b) =>
                !(a -> WithGarbage b) ->  (n :: Nat) * Circ(a, Vec Qubit n * b)
 box_garbage a b f =
-  let (n, circ) = existsBox a (\n -> Vec Qubit n * b) (\x -> run_garbage (f x))
+  let (n, circ) = existsBox a (\n -> Vec Qubit n * b) (\x -> runGarbage (f x))
   in (n, circ)
 
 boxGarbage :: ! {a b :: Type} -> (Simple a , Simple b) =>
@@ -237,7 +237,7 @@ with_computed a b ex g = \ input ->
 without_garbage :: ! forall c -> (a b :: Type) -> (Simple a , Simple b) =>
                !(a -> WithGarbage b) -> (b -> c * b) -> (a -> c * a)
 without_garbage a b f g =
-   with_computed a b (\ x -> run_garbage (f x)) g    
+   with_computed a b (\ x -> runGarbage (f x)) g    
 
 withoutGarbage :: ! forall c -> {a b :: Type} -> (Simple a , Simple b) =>
                !(a -> WithGarbage b) -> (b -> c * b) -> (a -> c * a)
@@ -259,7 +259,7 @@ with_computed2 x y ex g = \ input ->
 without_garbage2 :: ! forall c d -> (a b :: Type) -> (Simple a , Simple b) =>
                !(a -> WithGarbage b) -> (b * d -> b * c) -> (a * d -> a * c)
 without_garbage2 a b f g y =
-  with_computed2 a b (\ x -> run_garbage (f x)) g y   
+  with_computed2 a b (\ x -> runGarbage (f x)) g y   
 
 
 

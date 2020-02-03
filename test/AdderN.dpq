@@ -12,8 +12,8 @@ adder' a b carry_in =
            return (s, carry_out)
 
 adder'' :: ! (Qubit -> Qubit -> Qubit -> WithGarbage (Qubit * Qubit))
-adder'' a b carry_in =
-  do let (a1, a2, a3) = copyT a
+adder'' a b carry_in = do
+     let (a1, a2, a3) = copyT a
          (b1, b2, b3) = copyT b
          (carry_in1, carry_in2, carry_in3) = copyT carry_in 
      s <- [| bxor (bxor a1 b1) (pure carry_in1) |]

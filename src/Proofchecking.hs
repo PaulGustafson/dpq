@@ -331,7 +331,7 @@ proofInfer flag t@(ExBox) =
          output = Exists (abst n $ Imply [simpP] (Circ va (App' vp vn))) (vb)
          beforePi = Arrow t1 output
          r = Pi (abst [a] $
-                 Forall (abst [b] (Imply [paramB] $ Pi (abst [p] $ Imply [simpA] beforePi) kp)) Set) Set
+                 Forall (abst [b] (Imply [simpA, paramB] $ Pi (abst [p] $ beforePi) kp)) Set) Set
      return r
 
 proofInfer flag (Star) = return Unit
