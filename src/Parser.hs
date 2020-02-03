@@ -186,7 +186,7 @@ decls = do
         <|> classDecl <|> instanceDecl
         <|> controlDecl <|>  gateDecl <|>  objectDecl <|>  dataDecl
         <|> operatorDecl
-        <|> try funDecl <|> funDef <?> "top level declaration") 
+        <|> funDecl <|> funDef <?> "top level declaration") 
   st <- getState
   eof
   return (bs, st)
@@ -784,20 +784,24 @@ wrapPos par =
         pos x y = Pos x y
 
 -- | Parse the inside of an idiom braket.
-applicativeExp :: Parser Exp
-applicativeExp =
-   manyLines (do{head <- wrapPos $ try varExp <|> try constExp <|> parens term <|> idiomExp;
-                return $ foldl' (\ z x -> App (App (Var "ap") z) x)
-                (App (Var "pure") head)}) (wrapPos $ arg)
-  where arg = try varExp <|> try constExp <|> parens term <|> idiomExp
+-- applicativeExp :: Parser Exp
+-- applicativeExp =
+--    manyLines (do{head <- wrapPos $ try varExp <|> try constExp <|> parens term <|> idiomExp;
+--                 return $ foldl' (\ z x -> App (App (Var "ap") z) x)
+--                 (App (Var "pure") head)}) (wrapPos $ arg)
+--   where arg = try varExp <|> try constExp <|> parens term <|> idiomExp
               
 
 -- | Parse an idiom braket. We apply a /join/ to the /applicativeExp/.
 idiomExp :: Parser Exp
 idiomExp = do try $ reservedOp "[|"
-              t <- applicativeExp
+              t <- term -- applicativeExp
+              let t' = toApplicative t
               reservedOp "|]"
-              return (App (Var "join") t)
+              return (App (Var "join") t')
+  where toApplicative (App t t') = App (App (Var "ap") (toApplicative t)) t'
+        toApplicative (Pos p e) = Pos p (toApplicative e)
+        toApplicative head = App (Var "pure") head
 
 -- | A data type for all the statements in do notation. 
 data DoBinding = LetStmt [Binding] | PatternBind (Binding, Exp) | Stmt Exp                
@@ -888,7 +892,7 @@ dpqStyle = Token.LanguageDef
                     "round"
                   ]
                , Token.reservedOpNames =
-                    [ ".", "\\", "<-", "->", "::",  "*", "()", "!", "_", ":", "=", "=>"]
+                    [ ".", "\\", "<-", "->", "::",  "*", "()", "!", "_", ":", "=", "=>", "[|", "|]"]
                 }
 
 -- | Parse a Proto-Quipper-D token.
