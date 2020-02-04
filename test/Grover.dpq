@@ -45,7 +45,7 @@ nfoldZ n a c b d1 d2 =
       (a'', c''', b'') = cascade' (a', b', c'')
   in (d1', d2', a'', c''', b'')
 
-{-
+
 box_nfoldZ :: ! (n :: Nat) -> Circ(Vec Qubit n * Qubit * Vec Qubit n * Qubit * Qubit,
                                 Qubit * Qubit * Vec Qubit n * Qubit * Vec Qubit n)
 box_nfoldZ n =
@@ -55,4 +55,4 @@ box_nfoldZ n =
 testNfoldZ :: Circ(Vec Qubit 4 * Qubit * Vec Qubit 4 * Qubit * Qubit,
                                 Qubit * Qubit * Vec Qubit 4 * Qubit * Vec Qubit 4)
 testNfoldZ = box_nfoldZ 4
--}
+
