@@ -85,7 +85,8 @@ command :: Parser Command
 command =
   do whiteSpace 
      quit <|> help <|> typing <|> reload <|> load <|> printing <|>
-       displaying <|> displayEx <|> annotation <|> showCirc <|> eval
+       displaying <|> displayEx <|> annotation <|>
+       showCirc <|> gateC <|> eval
 
 -- | Parse show top-level circuit command.
 showCirc :: Parser Command     
@@ -170,6 +171,14 @@ eval =
   do t <- term
      eof
      return $ Eval t
+
+gateC =
+  do reserved ":g"
+     name <- option Nothing $ (stringLiteral >>= \ x -> return $ Just x)
+     t <- term
+     eof
+     return $ GateCount name t
+
 
 
 -- * Parsers for various of declarations

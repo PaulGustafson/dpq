@@ -7,7 +7,7 @@ import Utils
 import Substitution
 
 import Nominal
-
+import Data.List
 import qualified Data.Set as S
 
 -- | Remove all the vacuous pi quantifiers.
@@ -865,3 +865,14 @@ toEigen t =
   let fvs = S.toList $ getVars NoEigen t
       sub = zip fvs (map EigenVar fvs)
   in apply sub t
+
+-- | Count the number of gates in a circuit.
+gateCount Nothing (Wired (Abst _ (VCircuit (Morphism _ gs _)))) = genericLength gs
+gateCount (Just n) (Wired (Abst _ (VCircuit (Morphism _ gs _)))) =
+  helper n gs 0
+  where helper n [] m = m
+        helper n (Gate d _ _ _ _:s) m
+          | getName d == n = helper n s (m+1)
+          | otherwise = helper n s m
+        
+

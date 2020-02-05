@@ -101,7 +101,7 @@ qft_both_Box :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n)
 qft_both_Box n = boxCirc $ \ x -> qft_both n x
 
 -- main :: Circ(Vec Qubit 9, Vec Qubit 9)
-main = qft_both_Box 9
+-- main = qft_both_Box 9
 
 
 

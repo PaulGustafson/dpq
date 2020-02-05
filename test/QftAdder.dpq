@@ -50,5 +50,5 @@ qft_adder_inplace n =
 
 -- qft_adder_inplace_t1 = qft_adder_inplace four
 
-qft_adder_inplace_t2 ::   Circ(Vec Qubit 9  * Vec Qubit 9, Vec Qubit 9  * Vec Qubit 9)
-qft_adder_inplace_t2 = qft_adder_inplace 9
+main :: Circ(Vec Qubit 9  * Vec Qubit 9, Vec Qubit 9  * Vec Qubit 9)
+main = qft_adder_inplace 9

@@ -147,6 +147,37 @@ dispatch (Print e file) =
          do liftIO $ print (text "not a circuit")
             return True
 
+dispatch (GateCount name e) =
+  do e' <- topResolve e
+     (t', et') <- topTypeInfer e'
+     et <- tcTop $ erasure et'
+     case t' of
+       A.Circ _ _ ->
+         do res <- tcTop $ evaluation et
+            let n = gateCount name res
+            case name of
+              Nothing ->
+                do liftIO $ print (text "total gate:" $$ text (show n))
+                   return True
+              Just g ->
+                do liftIO $ print (text (g++":") $$ text (show n))  
+                   return True
+       A.Exists (Abst n (A.Circ _ _)) _ ->
+         do res <- tcTop $ evaluation et
+            case res of
+              A.VPair m circ -> 
+                do let n = gateCount name res
+                   case name of
+                     Nothing ->
+                       do liftIO $ print (text "total gate:" $$ text (show n))
+                          return True
+                     Just g ->
+                       do liftIO $ print (text (g++":") $$ text (show n))  
+                          return True
+       ty -> 
+         do liftIO $ print (text "not a circuit")
+            return True
+
 dispatch (DisplayEx e) =
   do e' <- topResolve e
      (t', et) <- topTypeInfer e'
