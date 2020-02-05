@@ -110,10 +110,15 @@ eval lenv (Tensor e1 e2) =
      e2' <- eval lenv e2
      return $ VTensor e1' e2'
 
-eval lenv a@(Lam body) = return $ VLam $ abst lenv body
-
-eval lenv a@(Lift body) = return $ VLift $ abst lenv body
-
+eval lenv a@(LamV vs body) =
+  -- return $ VLam $ abst lenv body
+  do let (lenv', _) = Map.partitionWithKey (\ k a -> k `elem` vs) lenv
+     return $ VLam $ abst lenv' body
+     
+eval lenv a@(LiftV vs body) = -- return $ VLift $ abst lenv body
+  do let (lenv', _) = Map.partitionWithKey (\ k a -> k `elem` vs) lenv
+     return $ VLift $ abst lenv' body
+     
 eval lenv UnBox = return VUnBox
 eval lenv Revert = return VRevert
 eval lenv a@(Box) = return VBox

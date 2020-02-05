@@ -154,6 +154,7 @@ getVars b (Pi' bind t) =
 getVars b (Exists bind t) =
   getVars b t `S.union`
   (open bind $ \ xs m -> getVars b m `S.difference` S.fromList [xs])
+getVars b (LamV vs bind) = S.fromList vs
 getVars b (Lam bind) =
   open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs
 getVars b (LamAnn ty bind) =
@@ -212,6 +213,7 @@ getVars b (Force' t) = getVars b t
 getVars b (Box) = S.empty
 getVars b (ExBox) = S.empty
 getVars b (Lift t) = getVars b t
+getVars b (LiftV vs t) = S.fromList vs
 getVars b (Case t (B brs)) =
   getVars b t `S.union` S.unions (map helper brs)
   where helper bind = open bind $ \ ps m ->
@@ -398,6 +400,7 @@ erasePos (RunCirc) = RunCirc
 erasePos (Box) = Box
 erasePos a@(ExBox) = a
 erasePos (Lift e) = Lift $ erasePos e
+erasePos (LiftV vs e) = LiftV vs $ erasePos e
 erasePos (Force e) = Force $ erasePos e
 erasePos (Force' e) = Force' $ erasePos e
 erasePos (Circ e1 e2) = Circ (erasePos e1) (erasePos e2)
@@ -408,6 +411,7 @@ erasePos (Pi' (Abst vs b) e) = Pi' (abst vs (erasePos b)) (erasePos e)
 erasePos (Exists (Abst vs b) e) = Exists (abst vs (erasePos b)) (erasePos e)
 erasePos (Forall (Abst vs b) e) = Forall (abst vs (erasePos b)) (erasePos e)
 erasePos (Lam (Abst vs b)) = Lam (abst vs (erasePos b))
+erasePos (LamV ws (Abst vs b)) = LamV ws (abst vs (erasePos b))
 erasePos (LamAnn ty (Abst vs b)) = LamAnn (erasePos ty) (abst vs (erasePos b))
 erasePos (LamAnn' ty (Abst vs b)) = LamAnn' (erasePos ty) (abst vs (erasePos b))
 erasePos (Lam' (Abst vs b)) = Lam' (abst vs (erasePos b)) 
