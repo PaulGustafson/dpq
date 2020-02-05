@@ -408,22 +408,13 @@ testPositions =
 -- main = test_small_board (False, a_small_board_red)
 large_board (x :: Unit) = box_checkwin_red (5 @ 7 - 1) 7 refl refl
 large_board' (x :: Unit) = box_checkwin_red (9 @ 7 - 1) 9 refl refl
--- main = large_board' ()
+main = large_board ()
+
+
+-- Statistics, after using strict map and map partition, memory grow is
+-- very slow, which is good.
 -- large_board ()
--- large_board ()
+-- time: 3m26, mem: ~20%, 511195
 
--- some performance statistics:
--- 0-> box_checkwin_red (mul 2 7 - one) 5 refl refl
--- 25s, 4% Mem on a 16g desktop
--- printing circuit 36s, 7%Mem, ~9%
--- 1-> box_checkwin_red (mul 5 7 - one) 7 refl refl 
--- 5m35s, 6m20s, at least 45%Mem on a 16g desktop
--- after optimization of linear variable
--- 4m 5, 66%Mem
--- printing circuit out of Mem-> Hmmm
-
--- printing the circuit seems to be the bottleneck currently
--- due to large memory usage->
--- 2-> box_checkwin_red (mul 9 7 - one) 9 refl refl
--- 25m+ out of memory
-
+-- large_board' ()
+-- mem: 70%

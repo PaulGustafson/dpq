@@ -1,4 +1,5 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts#-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 -- | This module implements a closure-based call-by-value evaluation.
 -- It still has memory problem when generating super-large circuits.
 
@@ -17,8 +18,8 @@ import Control.Monad.State
 import Control.Monad.Identity
 import Control.Monad.Except
 
-import qualified Data.Map as Map
-import Data.Map (Map)
+import qualified Data.Map.Strict as Map
+import Data.Map.Strict (Map)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Debug.Trace
@@ -112,11 +113,13 @@ eval lenv (Tensor e1 e2) =
 
 eval lenv a@(LamV vs body) =
   -- return $ VLam $ abst lenv body
-  do let (lenv', _) = Map.partitionWithKey (\ k a -> k `elem` vs) lenv
+  do -- let (lenv', _) = Map.partitionWithKey (\ k a -> k `elem` vs) lenv
+     let lenv' = subMap lenv vs
      return $ VLam $ abst lenv' body
      
 eval lenv a@(LiftV vs body) = -- return $ VLift $ abst lenv body
-  do let (lenv', _) = Map.partitionWithKey (\ k a -> k `elem` vs) lenv
+  do -- let (lenv', _) = Map.partitionWithKey (\ k a -> k `elem` vs) lenv
+     let lenv' = subMap lenv vs
      return $ VLift $ abst lenv' body
      
 eval lenv UnBox = return VUnBox
@@ -482,3 +485,11 @@ getAllWires (Morphism ins gs outs) =
           Set.fromList (getWires outs) `Set.union`
           Set.fromList (getWires ctrls)
 
+-- | Obtain a submap from a map.
+subMap m vs =
+  let m' = map (\ k -> case Map.lookup k m of
+                         Just v -> (k, v)
+                         Nothing -> error $ "from subMap, can't find:" ++ show k
+               ) vs
+      m'' = Map.fromList m'
+  in m''
