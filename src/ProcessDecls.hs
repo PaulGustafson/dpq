@@ -374,10 +374,9 @@ process (SimpData pos d n k0 eqs) =
      elaborateInstance pos instParam insTy' []
      elaborateInstance pos instPS insTy'' []
      tfunc <- makeTypeFun n k2 (zip constructors (zip inds tys))
-     tfunc' <- erasure tfunc
      let tp = Info {classifier = erasePos k,
                    identification = DataType (SemiSimple indx) constructors
-                                    (Just (erasePos tfunc'))
+                                    (Just (erasePos tfunc))
                    }
      addNewId d tp
 
@@ -541,7 +540,7 @@ makeGate id ps t =
           g = Gate id params inExp' outExp' VStar
           morph = Wired $ abst (ins ++ outs) (VCircuit $ Morphism inExp' [g] outExp')
           env = Map.fromList [(y, morph)] 
-          unbox_morph = LamV [y] $ etaPair (length inss) (Force $ App UnBox (Var y))
+          unbox_morph = etaPair (length inss) (Force $ App UnBox (Var y))
           res =
             if null xs then VLift (abst env unbox_morph)
                 else VLiftCirc (abst xs (abst env unbox_morph))
@@ -563,7 +562,7 @@ makeGate id ps t =
           freshNames (getName "y" n) $ \ xs ->
           let xs' = map Var xs
               pairs = foldl Pair (head xs') (tail xs')
-          in abst xs (App e pairs)
+          in Lam $ abst xs (App e pairs)
 
 -- | Construct a generic controlled gate from a controlled declaration.
 makeControl :: Id -> [Exp] -> Exp -> Value
@@ -586,7 +585,9 @@ makeControl id ps t =
           morph = Wired $ abst (ins ++ outs) (VCircuit $ Morphism inExp' [g] outExp')
           env = Map.fromList [(y, morph)] 
           unbox_morph = etaPair (length inss) (Force $ App UnBox (Var y)) c
-          res = open unbox_morph $ \ ys m ->
+          res = case unbox_morph of
+            Lam bd ->
+              open bd $ \ ys m ->
               VLiftCirc $ abst ((d:xs)++ys ++ [c]) (abst env m)
       in res
   where makeInOut (Arrow t t') =
@@ -606,7 +607,7 @@ makeControl id ps t =
           freshNames (getName "y" n) $ \ xs ->
           let xs' = map Var xs
               pairs = foldl Pair (head xs') (tail xs')
-          in (abst (xs) (Pair (App e pairs) (Var c))) 
+          in Lam (abst (xs) (Pair (App e pairs) (Var c))) 
 
 
 -- | Make a type function for runtime labels generation. The input /n/
