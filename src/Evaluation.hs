@@ -123,12 +123,12 @@ eval lenv RunCirc = return VRunCirc
 eval lenv (App m n) =
   do v <- eval lenv m
      w <- eval lenv n
-     evalApp v w
+     v `seq` w `seq` evalApp v w
 
 eval lenv (Pair m n) = 
   do v <- eval lenv m
      w <- eval lenv n
-     return (VPair v w)
+     v `seq` w `seq` return (VPair v w)
 
 eval lenv (Let m bd) =
   do m' <- eval lenv m
