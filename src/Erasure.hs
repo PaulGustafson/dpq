@@ -95,46 +95,46 @@ erasure (AppTm e1 e2) = erasure e1
 
 erasure a@(Lam (Abst xs m)) =
   do m' <- erasure m
-     let vs = S.toList $ getVars AllowEigen m' `S.difference` (S.fromList xs)
+     let vs = S.toList $ getVars AllowEigen m'
      return $ LamV vs (abst xs m') 
 
 erasure a@(LamAnn _ (Abst xs m)) =
   do m' <- erasure m
-     let vs = S.toList $ getVars AllowEigen m' `S.difference` (S.fromList xs)
+     let vs = S.toList $ getVars AllowEigen m'
      return $ LamV vs (abst xs m') 
 
 erasure a@(LamAnn' _ (Abst xs m)) =
   do m' <- erasure m
-     let vs = S.toList $ getVars AllowEigen m' `S.difference` (S.fromList xs)
+     let vs = S.toList $ getVars AllowEigen m'
      return $ LamV vs (abst xs m') 
 
 -- Convert lam' to lam
 erasure a@(Lam' (Abst xs m)) =
   do m' <- erasure m
-     let vs = S.toList $ getVars AllowEigen m' `S.difference` (S.fromList xs)
+     let vs = S.toList $ getVars AllowEigen m'
      return $ LamV vs (abst xs m')
 
 erasure a@(LamDict (Abst xs m)) =
   do m' <- erasure m
-     let vs = S.toList $ getVars AllowEigen m' `S.difference` (S.fromList xs)
+     let vs = S.toList $ getVars AllowEigen m'
      return $ LamV vs (abst xs m') 
 
 erasure (WithType ann t) = erasure ann
 
-erasure a@(LamDep (Abst ys m)) =
+erasure (LamDep (Abst ys m)) =
   do m' <- erasure m
-     let vs = S.toList $ getVars AllowEigen m' `S.difference` (S.fromList ys)
+     let vs = S.toList $ getVars AllowEigen m'
      return $ LamV vs (abst ys m') 
 
-erasure a@(LamDepTy (Abst ys m)) =
+erasure (LamDepTy (Abst ys m)) =
   do m' <- erasure m
-     let vs = S.toList $ getVars AllowEigen m' `S.difference` (S.fromList ys)
+     let vs = S.toList $ getVars AllowEigen m'
      return $ LamV vs (abst ys m') 
 
 
-erasure a@(LamDep' (Abst ys m)) =
+erasure (LamDep' (Abst ys m)) =
   do m' <- erasure m
-     let vs = S.toList $ getVars AllowEigen m' `S.difference` (S.fromList ys)
+     let vs = S.toList $ getVars AllowEigen m'
      return $ LamV vs (abst ys m') 
 
 erasure (LamTm bd) =
