@@ -21,6 +21,7 @@ import Control.Monad.Except
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import Data.Set (Set)
+import Data.List
 import qualified Data.Set as Set
 import Debug.Trace
 
@@ -485,11 +486,14 @@ getAllWires (Morphism ins gs outs) =
           Set.fromList (getWires outs) `Set.union`
           Set.fromList (getWires ctrls)
 
--- | Obtain a submap from a map.
+-- | Obtain a submap from a map /m/ with domain /vs/.
 subMap m vs =
-  let m' = map (\ k -> case Map.lookup k m of
-                         Just v -> (k, v)
-                         Nothing -> error $ "from subMap, can't find:" ++ show k
-               ) vs
-      m'' = Map.fromList m'
-  in m''
+  let ns = Map.keys m \\ vs
+  in foldl' (\ m n -> Map.delete n m) m ns
+
+  -- let m' = map (\ k -> case Map.lookup k m of
+  --                        Just v -> (k, v)
+  --                        Nothing -> error $ "from subMap, can't find:" ++ show k
+  --              ) vs
+  --     m'' = Map.fromList m'
+  -- in m''
