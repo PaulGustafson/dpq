@@ -36,6 +36,10 @@ qftTwice n l = qft n (qft n l)
 qftBox :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n) 
 qftBox n = box (Vec Qubit n) (\ x -> qft n x)
 
+qft4 :: Circ(Vec Qubit 4, Vec Qubit 4) 
+qft4 = qftBox 4
+
+
 -- qftBox_t1 = qftBox nine
 
 -- qftBox_t2 = qftBox (nine + nine)
@@ -49,8 +53,6 @@ qft2Box n = box (Vec Qubit n) $ \ x -> qftUnbox n x
 -- qft2Box_t1 = qft2Box (five + five)
  
 
-qft4 :: Circ(Vec Qubit 4, Vec Qubit 4) 
-qft4 = qftBox 4
 
 
 

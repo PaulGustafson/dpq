@@ -17,7 +17,7 @@ compose a circ1 circ2 =
     let f1 = unbox circ1
         f2 = unbox circ2
      in box a $ \ x -> f2 (f1 x)
-
+{-
 testH :: Circ(Qubit, Qubit)
 testH = ntimes Qubit 3 (box Qubit H)
 
@@ -125,3 +125,4 @@ test2 :: Circ(VecZipper  Qubit  (S  (S  (S  Z)))  Z,
 test2 = boxSecond'' 3 0 6
 
 
+-}

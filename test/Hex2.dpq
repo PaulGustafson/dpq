@@ -408,7 +408,7 @@ testPositions =
 -- main = test_small_board (False, a_small_board_red)
 large_board (x :: Unit) = box_checkwin_red (5 @ 7 - 1) 7 refl refl
 large_board' (x :: Unit) = box_checkwin_red (9 @ 7 - 1) 9 refl refl
-main = large_board ()
+-- main = large_board ()
 
 
 -- Statistics, after using strict map and map partition, memory grow is
