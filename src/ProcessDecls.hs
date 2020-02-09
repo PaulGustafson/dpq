@@ -541,7 +541,7 @@ makeGate id ps t =
           g = Gate id params inExp' outExp' VStar
           morph = Wired $ abst (ins ++ outs) (VCircuit $ Morphism inExp' [g] outExp')
           env = Map.fromList [(y, (morph, 1))] 
-          unbox_morph = ELam $ etaPair (length inss) (EForce $ EApp EUnBox (EVar y))
+          unbox_morph = ELam [y] $ etaPair (length inss) (EForce $ EApp EUnBox (EVar y))
           res = VLiftCirc (abst xs (abst env unbox_morph))
             -- if null xs then VLift (abst env unbox_morph)
             --     else VLiftCirc (abst xs (abst env unbox_morph))

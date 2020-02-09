@@ -38,7 +38,7 @@ evaluate circ e =
   do st <- get
      let gl = globalCxt $ lcontext st
          (r, s) = runState (runExceptT $ eval e)
-                  ES{morph = circ, evalEnv = gl, localEvalEnv = Map.empty}
+                  ES{morph = circ, evalEnv = gl, localEvalEnv = Map.empty, gcSize = 10000}
      case r of
        Left e -> throwError $ EvalErr e
        Right r -> return (r, morph s)
@@ -49,7 +49,8 @@ evaluation e =
   do st <- get
      let gl = globalCxt $ lcontext st
          (r, _) = runState (runExceptT $ eval e)
-                  ES{morph = Morphism VStar [] VStar, evalEnv = gl, localEvalEnv = Map.empty}
+                  ES{morph = Morphism VStar [] VStar, evalEnv = gl, localEvalEnv = Map.empty,
+                     gcSize = 10000}
      case r of
        Left e -> throwError $ EvalErr e
        Right r -> return r
@@ -64,7 +65,8 @@ type Eval a = ExceptT EvalError (State EvalState) a
 data EvalState =
   ES { morph :: Morphism, -- ^ The underlying incomplete circuit.
        evalEnv :: Context,  -- ^ The global evaluation context.
-       localEvalEnv :: Map Variable (Value, Int)
+       localEvalEnv :: Map Variable (Value, Integer, Integer, [Variable]),
+       gcSize :: Integer
      }
 
 -- | Evaluate an expression to
@@ -108,7 +110,7 @@ eval a@(ELBase k) =
 eval (EForce m) =
   do m' <- eval m
      case m' of
-       VLift e -> eval e
+       VLift _ e -> eval e
        w@(VLiftCirc _) -> return w
        v@(VApp VUnBox _) -> return $ VForce v
 
@@ -117,9 +119,9 @@ eval (ETensor e1 e2) =
      e2' <- eval e2
      return $ VTensor e1' e2'
 
-eval a@(ELam body) = return (VLam body)
+eval a@(ELam ws body) = return (VLam ws body)
      
-eval a@(ELift body) = return (VLift body)
+eval a@(ELift ws body) = return (VLift ws body)
      
 eval EUnBox = return VUnBox
 eval ERevert = return VRevert
@@ -202,23 +204,41 @@ eval a = error $! "from eval: "
 lookupLEnv x =
   do st <- get
      let lenv = localEvalEnv st
+         size = gcSize st
      case Map.lookup x lenv of
-       Nothing -> error $ "from lookupLEnv" ++ show x ++ (show $ disp lenv)
-       Just (v, n) ->
-         do let lenv' = if n-1 == 0 then
-                          Map.delete x lenv
-                        else Map.insert x (v, n-1) lenv
+       Nothing -> error $ "from lookupLEnv:" ++ show x
+                  -- ++ (show $ disp lenv)
+                  
+       Just (v, n, ref, ps) | toInteger (Map.size lenv) <= size ->
+         do let lenv' = Map.insert x (v, n-1, ref, ps) lenv
             put st{localEvalEnv = lenv'}
             return v
---            trace ("find:"++ (show x)++":"++ show (n-1)) $ return v
---            trace ("env:"++ show (disp lenv')) $ return v
+       Just (v, n, ref, ps) | otherwise ->
+         do let lenv' = Map.insert x (v, n-1, ref, ps) lenv
+                lenv'' = garbageCollection lenv'
+                afterGCSize = toInteger (Map.size lenv'')
+                size' = if afterGCSize >= size then afterGCSize+10000
+                        else if size - afterGCSize < 1000 then size+10000 else size
+            put st{localEvalEnv = lenv'', gcSize = size'}
+            return v    
 
 addDefinition (x, n) m =
   do st <- get
-     let lenv' = if n == 0 then localEvalEnv st else Map.insert x (m, n) (localEvalEnv st)
+     let vs = vars m
+         lenv = localEvalEnv st
+         lenv' = if n == 0 then lenv
+                 else Map.insert x (m, n, 0, vs) (addRef vs lenv) 
      put st{localEvalEnv = lenv'}
 
 
+addRef [] lenv = lenv
+addRef (v:vs) lenv =
+  case Map.lookup v lenv of
+    Nothing -> error "from addRef"
+    Just (val, n, ref, ps) ->
+      let lenv' = Map.insert v (val, n , ref+1, ps) lenv
+      in addRef vs lenv'
+  
 -- | A helper function for evaluating various of applications.
 evalApp :: Value -> Value -> Eval Value
 
@@ -236,12 +256,12 @@ evalApp (VForce (VApp VUnBox v)) w =
 
 evalApp (VApp (VApp (VApp VBox q) _) _) v =
   case v of
-    VLift m -> evalBox m q
+    VLift _ m -> evalBox m q
     VApp VUnBox w -> return w
 
 evalApp (VApp (VApp (VApp (VApp VExBox q) _) _) _) v =  
   case v of
-    VLift body ->
+    VLift _ body ->
       evalExbox body q
 
 evalApp (VApp (VApp (VApp VRunCirc  _) _) (Wired (Abst _ (VCircuit m)))) input =
@@ -262,7 +282,7 @@ evalApp a@(Wired _) w = return a
 evalApp v w = 
   let (h, res) = unwindVal v
   in case h of
-    VLam bd -> handleBody (res ++ [w]) bd
+    VLam _ bd -> handleBody (res ++ [w]) bd
     VLiftCirc (Abst vs (Abst lenv e)) -> 
         do let args = res ++ [w]
                lvs = length vs
@@ -276,7 +296,7 @@ evalApp v w =
                      mapM_ (\(x, (v, n)) -> addDefinition (x, n) v) (lenv' ++ sub)
                      e' <- eval e
                      case e' of
-                       VLam bd -> handleBody ws bd
+                       VLam _ bd -> handleBody ws bd
                        _ -> return $! foldl VApp e' ws
         
     _ -> return $! VApp v w
@@ -300,7 +320,7 @@ evalApp v w =
                         do m' <- eval m
                            m' `seq` ws `seq` return $! foldl' VApp m' ws
         -- Perform substitution on the variables in a circuit.
-        updateCirc :: [(Variable, Value)] -> LEnv -> [(Variable, (Value, Int))]
+        updateCirc :: [(Variable, Value)] -> LEnv -> [(Variable, (Value, Integer))]
         updateCirc sub lenv =
              let (x, (circ, n)):[] = Map.toList lenv
                  Wired (Abst wires (VCircuit (Morphism ins
@@ -520,6 +540,26 @@ subMap !m !vs =
   --     m'' = Map.fromList m'
   -- in m''
 
-deleteMap !m =
-  let ns = Map.keys m
-  in ns `seq` foldl' (\ m n -> Map.delete n m) m ns
+-- deleteMap !m =
+--   let ns = Map.keys m
+--   in ns `seq` foldl' (\ m n -> Map.delete n m) m ns
+
+garbageCollection lenv =
+  let lenv' = Map.foldlWithKey' (\ m k (_, n, ref, ps) -> tryDelete k n ref ps m) lenv lenv
+  in lenv'
+  where
+        tryDelete k n ref ps m | n <= 0 && ref <= 0 =
+          let m' = Map.delete k m
+              m'' = decrRef ps m'
+          in m''
+        tryDelete k n ref ps m | otherwise = m
+        decrRef [] m = m
+        decrRef (v:vs) m =
+          case Map.lookup v m of
+            Nothing -> error "from decrRef"
+            Just (val, n, ref, ps) ->
+              let m' = Map.insert v (val, n, ref-1, ps) m
+              in decrRef vs m'
+        
+                             
+          

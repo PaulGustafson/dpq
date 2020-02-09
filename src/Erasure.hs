@@ -19,6 +19,7 @@ import Control.Monad.State
 import Debug.Trace
 import Text.PrettyPrint
 import qualified Data.Set as S
+import Data.List
 import Debug.Trace
 
 
@@ -75,11 +76,6 @@ erasure (Pair e1 e2) =
      e2' <- erasure e2
      return $ EPair e1' e2'
 
--- erasure (Circ e1 e2) =
---   do e1' <- erasure e1
---      e2' <- erasure e2
---      return $ Circ e1' e2'
-
 erasure (Tensor e1 e2) =
   do e1' <- erasure e1
      e2' <- erasure e2
@@ -99,32 +95,37 @@ erasure a@(Lam (Abst xs m)) =
   do m' <- erasure m
      let ns = countVar xs m'
          xs' = zip xs ns
-     return $ ELam (abst xs' m') 
+         ws = evars m' \\ xs
+     return $ ELam ws (abst xs' m') 
 
 erasure a@(LamAnn _ (Abst xs m)) =
   do m' <- erasure m
      let ns = countVar xs m'
          xs' = zip xs ns
-     return $ ELam (abst xs' m') 
+         ws = evars m' \\ xs
+     return $ ELam ws (abst xs' m') 
 
 erasure a@(LamAnn' _ (Abst xs m)) =
   do m' <- erasure m
      let ns = countVar xs m'
          xs' = zip xs ns
-     return $ ELam (abst xs' m') 
+         ws = evars m' \\ xs
+     return $ ELam ws (abst xs' m') 
 
 -- Convert lam' to lam
 erasure a@(Lam' (Abst xs m)) =
   do m' <- erasure m
      let ns = countVar xs m'
          xs' = zip xs ns
-     return $ ELam (abst xs' m') 
+         ws = evars m' \\ xs
+     return $ ELam ws (abst xs' m') 
 
 erasure a@(LamDict (Abst xs m)) =
   do m' <- erasure m
      let ns = countVar xs m'
          xs' = zip xs ns
-     return $ ELam (abst xs' m') 
+         ws = evars m' \\ xs
+     return $ ELam ws (abst xs' m') 
 
 erasure (WithType ann t) = erasure ann
 
@@ -132,20 +133,23 @@ erasure a@(LamDep (Abst ys m)) =
   do m' <- erasure m
      let ns = countVar ys m'
          xs' = zip ys ns
-     return $ ELam (abst xs' m') 
+         ws = evars m' \\ ys
+     return $ ELam ws (abst xs' m') 
 
 erasure a@(LamDepTy (Abst ys m)) =
   do m' <- erasure m
      let ns = countVar ys m'
          xs' = zip ys ns
-     return $ ELam (abst xs' m') 
+         ws = evars m' \\ ys
+     return $ ELam ws (abst xs' m') 
 
 
 erasure a@(LamDep' (Abst ys m)) =
   do m' <- erasure m
      let ns = countVar ys m'
          xs' = zip ys ns
-     return $ ELam (abst xs' m') 
+         ws = evars m' \\ ys
+     return $ ELam ws (abst xs' m') 
 
 erasure (LamTm bd) =
   open bd $ \ xs m -> erasure m
@@ -155,7 +159,8 @@ erasure (LamType bd) =
 
 erasure (Lift t) =
   do t' <- erasure t
-     return (ELift t')
+     let fvs = evars t'
+     return (ELift fvs t')
 
 erasure (Force t) = EForce <$> erasure t
 erasure (Force' t) = EForce <$> erasure t
@@ -291,10 +296,10 @@ checkExplicit (Right x :xs) ann =
   do when (isExplicit x ann) $ throwError $ ImplicitCase x ann
      checkExplicit xs ann
 
-countVar :: [Variable] -> EExp -> [Int]
+countVar :: [Variable] -> EExp -> [Integer]
 countVar xs e =
   map (helper e) xs
-  where helper :: EExp -> Variable -> Int
+  where helper :: EExp -> Variable -> Integer
         helper (EVar y) x | x == y = 1
                           | otherwise = 0
         helper (EConst _) x = 0
@@ -311,8 +316,8 @@ countVar xs e =
         helper (EPair t1 t2) x = helper t1 x + helper t2 x
         helper (ETensor t1 t2) x = helper t1 x + helper t2 x
         helper (EArrow t1 t2) x = helper t1 x + helper t2 x
-        helper (ELam (Abst _ e)) x = 10000+(helper e x)
-        helper (ELift e) x = 10000+(helper e x)
+        helper (ELam _ (Abst _ e)) x = (helper e x)
+        helper (ELift _ e) x = (helper e x)
         helper (EForce e) x = helper e x
         helper (ELet e (Abst _ e2)) x =
           helper e x + helper e2 x
@@ -322,7 +327,7 @@ countVar xs e =
           helper e x + helper e2 x
         helper (ECase e (EB brs)) x =
           helper e x + helper2 brs x
-        helper2 :: [Bind EPattern EExp] -> Variable -> Int  
+        helper2 :: [Bind EPattern EExp] -> Variable -> Integer  
         helper2 brs x =
           maximum $ map (\ b -> open b $ \ _ m -> helper m x) brs
 
