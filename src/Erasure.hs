@@ -311,8 +311,8 @@ countVar xs e =
         helper (EPair t1 t2) x = helper t1 x + helper t2 x
         helper (ETensor t1 t2) x = helper t1 x + helper t2 x
         helper (EArrow t1 t2) x = helper t1 x + helper t2 x
-        helper (ELam (Abst _ e)) x = helper e x
-        helper (ELift e) x = helper e x
+        helper (ELam (Abst _ e)) x = 10000+(helper e x)
+        helper (ELift e) x = 10000+(helper e x)
         helper (EForce e) x = helper e x
         helper (ELet e (Abst _ e2)) x =
           helper e x + helper e2 x

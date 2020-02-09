@@ -24,7 +24,7 @@ import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import Data.Set (Set)
 import Data.List
-import qualified Data.Set as Set
+import qualified Data.Set as S
 import Debug.Trace
 
 
@@ -203,17 +203,19 @@ lookupLEnv x =
   do st <- get
      let lenv = localEvalEnv st
      case Map.lookup x lenv of
-       Nothing -> error $ "from lookupLEnv"-- ++ show x ++ (show $ disp lenv)
+       Nothing -> error $ "from lookupLEnv" ++ show x ++ (show $ disp lenv)
        Just (v, n) ->
-         do let lenv' = if n-1 == 0 then Map.delete x lenv
+         do let lenv' = if n-1 == 0 then
+                          Map.delete x lenv
                         else Map.insert x (v, n-1) lenv
             put st{localEvalEnv = lenv'}
             return v
+--            trace ("find:"++ (show x)++":"++ show (n-1)) $ return v
 --            trace ("env:"++ show (disp lenv')) $ return v
 
 addDefinition (x, n) m =
   do st <- get
-     let lenv' = Map.insert x (m, n) (localEvalEnv st)
+     let lenv' = if n == 0 then localEvalEnv st else Map.insert x (m, n) (localEvalEnv st)
      put st{localEvalEnv = lenv'}
 
 
@@ -497,14 +499,14 @@ size a = error $! "applying size function to an ill-formed template:" ++ (show $
 -- | Obtain all the labels from the circuit.
 getAllWires :: Morphism -> [Label]
 getAllWires (Morphism ins gs outs) =
-  let inWires = Set.fromList $! getWires ins
-      outWires = Set.fromList $! getWires outs
-      gsWires = Set.unions $! map getGateWires gs
-  in Set.toList (inWires `Set.union` outWires `Set.union` gsWires)
+  let inWires = S.fromList $! getWires ins
+      outWires = S.fromList $! getWires outs
+      gsWires = S.unions $! map getGateWires gs
+  in S.toList (inWires `S.union` outWires `S.union` gsWires)
   where getGateWires (Gate _ _ ins outs ctrls) =
-          Set.fromList (getWires ins) `Set.union`
-          Set.fromList (getWires outs) `Set.union`
-          Set.fromList (getWires ctrls)
+          S.fromList (getWires ins) `S.union`
+          S.fromList (getWires outs) `S.union`
+          S.fromList (getWires ctrls)
 
 -- | Obtain a submap from a map /m/ with domain /vs/.
 subMap !m !vs =

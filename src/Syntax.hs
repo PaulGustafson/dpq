@@ -467,7 +467,7 @@ instance Disp Value where
 instance Disp (Map Variable (Value, Int)) where
    display flag l =
      vcat $
-     map (\ (x, (y, n)) -> display flag x<> text ":" <> int n <+> text ":=" <+> display flag y) (Map.toList l)
+     map (\ (x, (y, n)) -> display False x<> text ":" <> int n <+> text ":=" <+> display flag y) (Map.toList l)
    
 instance Disp Morphism where
   display flag (Morphism ins gs outs) =
@@ -577,7 +577,7 @@ instance Disp EExp where
   display flag (ERevert) = text "revert"
   display flag (ERunCirc) = text "runCirc"
   display flag (ELam (Abst vs e)) = 
-    sep [text "\\elam", hsep (map (\ (x, y) -> display flag x <> text ":" <> int y) vs) , text ".", nest 2 (display flag e)]
+    sep [text "\\elam", hsep (map (\ (x, y) -> display False x <> text ":" <> int y) vs) , text ".", nest 2 (display flag e)]
   display flag (ELift e) = 
    text "elift" <+> display flag e
 
@@ -591,12 +591,12 @@ instance Disp EExp where
 
   display flag (ELet m bd) =
     open bd $ \ (x, n) b ->
-    fsep [text "elet" <+> display flag x <> text ":" <> int n <+> text "=", display flag m,
+    fsep [text "elet" <+> display False x <> text ":" <> int n <+> text "=", display flag m,
           text "in" <+> display flag b]
     
   display flag (ELetPair m bd) =
     open bd $ \ xs b ->
-    fsep [text "elet" <+> parens (hsep $ punctuate comma $ map (\ (x, n) -> display flag x <> text ":" <> int n) xs),
+    fsep [text "elet" <+> parens (hsep $ punctuate comma $ map (\ (x, n) -> display False x <> text ":" <> int n) xs),
           text "=", display flag m,
           text "in" <+> display flag b]
 
@@ -608,7 +608,45 @@ instance Disp EExp where
 instance Disp EPattern where
   display flag (EPApp id vs) =
     display flag id <+>
-    hsep (map (\ (x, n) -> parens (display flag x <> text ":" <> int n)) vs) 
+    hsep (map (\ (x, n) -> parens (display False x <> text ":" <> int n)) vs) 
 
           
-          
+evars a@(EVar y) = S.insert y S.empty
+evars (EApp t tm) =
+   (evars t) `S.union` (evars tm)
+evars (ELam bind) =
+  open bind $
+  \ ys m -> S.difference (evars m) (S.fromList $ map fst ys)
+evars (EPair t tm) =
+   (evars t) `S.union` (evars tm)
+
+evars (EForce t) = (evars t)
+evars (ELift t) = (evars t)
+evars (ELet m bd) =
+  let m' = evars m in
+    open bd $ \ (y, _) b -> S.union m'(S.difference (evars b) (S.fromList [y])) 
+
+evars (ELetPair m bd) =
+  let m' = evars m in
+    open bd $ \ y b -> S.union m'(S.difference (evars b) (S.fromList $ map fst y)) 
+
+
+evars (ELetPat m bd) =
+  let m' = evars m in
+   open bd $ \ (EPApp id ps) b ->
+    S.union m' (S.difference (evars b) (S.fromList $ map fst ps)) 
+
+        
+evars (ECase tm (EB br)) =
+  (evars tm) `S.union` (helper' br)
+  where helper' br =
+          S.unions $ map (\ b -> open b $
+                                 \ (EPApp id ps) m ->
+                                 S.difference (evars m) $ S.fromList $ map fst ps)
+                        br
+evars _ = S.empty
+vars (VLam (Abst _ e)) = evars e
+vars (VLift e) = evars e
+vars (VPair e1 e2) = S.union (vars e1) (vars e2)
+vars (VTensor e1 e2) = S.union (vars e1) (vars e2)
+vars _ = S.empty

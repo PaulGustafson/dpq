@@ -63,7 +63,8 @@ teleCirc = box Qubit tele
 
 
 plus_minus_generic :: ! (n :: Nat) -> Bool -> Vec Qubit n
-plus_minus_generic n b = let qs = initVec n b in map H qs
+plus_minus_generic n b = map H (initVec n b)
+
 
 share_generic :: ! (n :: Nat) -> Vec Qubit n -> Vec Qubit n * Vec Qubit n
 share_generic n l =
@@ -84,7 +85,6 @@ bell_generic n =
 
 bell_g_box :: ! (n :: Nat) -> Circ(Unit, Vec Qubit n * Vec Qubit n)
 bell_g_box n = box Unit $ \ u ->  bell_generic n
-
 
 alice_generic :: ! (n :: Nat) -> Vec Qubit n -> Vec Qubit n -> Vec Bit n * Vec Bit n
 alice_generic n q a = let (a', q') = unzip $ zipWith CNot a q
@@ -108,8 +108,6 @@ bob_generic n b u = let (x, y) = u
 bob_g_box :: ! (n :: Nat) -> Circ (Vec Qubit n * (Vec Bit n * Vec Bit n), Vec Qubit n)
 bob_g_box n = box (Vec Qubit n * (Vec Bit n * Vec Bit n)) $
               \ x -> let (q, a) = x in bob_generic n q a
-               
-
 
 tele_generic :: ! (n :: Nat) -> Vec Qubit n -> Vec Qubit n
 tele_generic n q = let (a, b) = bell_generic n
@@ -121,7 +119,8 @@ teleBox n = box (Vec Qubit n) $ \ x -> tele_generic n x
 
 teleBox_t1 :: Circ (Vec Qubit 9, Vec Qubit 9)
 teleBox_t1 = teleBox 9
-{-
+
+
 teleBox' :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n)
 teleBox' n = box (Vec Qubit n) $ \ x -> tele_generic n x
 
@@ -132,4 +131,3 @@ coin x = H $ initQubit False
 
 main :: Circ(Unit, Qubit)
 main = box Unit coin
--}
