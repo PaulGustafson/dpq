@@ -8,6 +8,7 @@ module TCMonad where
 import Utils
 import Syntax
 import TypeError
+
 import Substitution
 import SyntacticOperations
 import Nominal
@@ -40,7 +41,7 @@ data Identification = DataConstr Id  -- ^ Data constructor, 'Id' is its type con
                       -- ^ Method annotation and its value.
                     | DefinedInstFunction Exp Value
                       -- ^ Annotated instance function and its value. 
-                    | DataType DataClassifier [Id] (Maybe Exp)
+                    | DataType DataClassifier [Id] (Maybe EExp)
                       -- ^ A data type, its classifier and its
                       -- constructors. If it is simple type, then its runtime
                       -- template function.

@@ -220,7 +220,6 @@ box_checkwin_red (m x_max :: Nat) (pf1 :: Eq Bool (x_max > Z) True)
 -- A thunk of small_board to prevent immediate evaluation->
 small_board (x :: Unit) = box_checkwin_red (mul 2 7) 5 refl refl
 
-main = small_board ()
 test_small_board :: ! (Bool * Vec Bool (S (mul 2 7)) ->
                         Bool * Vec Bool (S (mul 2 7)))
 test_small_board x = runCirc (small_board ()) x
@@ -236,7 +235,8 @@ a_small_board_red =
   $ VCons True $ VCons True $ VCons True $ VCons True $ VCons True VNil
 
 
--- main = test_small_board (False, a_small_board_blue)
+main = box_checkwin_red (9 @ 7 - 1) 9 refl refl
+-- test_small_board (False, a_small_board_blue)
 
   
         

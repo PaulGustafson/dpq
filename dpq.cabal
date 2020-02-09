@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: bcd4b2650ca5594785a8b92c274f6da0f900109f77ab9cc28890cfebfce433a4
+-- hash: 281ef1d694af8fd2ffda84a68de88658070c1ccd0612587061b7d1d2c9e55443
 
 name:           dpq
 version:        0.0.1
@@ -77,7 +77,7 @@ executable dpq
       Paths_dpq
   hs-source-dirs:
       executable
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N -O3 -fforce-recomp
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -O3
   build-depends:
       base >=4.7 && <5
     , containers

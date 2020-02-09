@@ -1,9 +1,11 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 -- | This module defines the 'erasure' function, it erases
 -- an annotated expression to a lambda expression without irrelevant annotations.
 
-module Erasure (erasure) where
+module Erasure (erasure, countVar) where
 
 import Syntax
 import Nominal
@@ -20,74 +22,74 @@ import qualified Data.Set as S
 import Debug.Trace
 
 
+
 -- | Erase a fully annotated expression to a lambda expression, for
 -- runtime evaluation.
 -- The erasrue function also checks if an irrelevant variable
 -- is used as an explicit argument. 
 
-erasure :: Exp -> TCMonad Exp
+erasure :: Exp -> TCMonad EExp
 erasure (Pos p a) = erasure a `catchError` \ e -> throwError $ collapsePos p e
-erasure Star = return Star
-erasure Unit = return Unit
-erasure Set = return Set
-erasure a@(Var x) = return a
-erasure a@(EigenVar x) = return a
-erasure a@(GoalVar x) = return a
-erasure a@(Const t) = return a
-erasure a@(Base t) = return a
-erasure a@(LBase t) = return a
+erasure Star = return EStar
+erasure Unit = return EUnit
+erasure a@(Var x) = return (EVar x)
+erasure a@(EigenVar x) = return (EVar x)
+erasure a@(GoalVar x) = return (EVar x)
+erasure a@(Const t) = return (EConst t)
+erasure a@(Base t) = return (EBase t)
+erasure a@(LBase t) = return (ELBase t)
 
 erasure (App e1 e2) =
   do e1' <- erasure e1
      e2' <- erasure e2
-     return $ App e1' e2'
+     return $ EApp e1' e2'
 
 -- Convert app' to app
 erasure (App' e1 e2) =
   do e1' <- erasure e1
      e2' <- erasure e2
-     return $ App e1' e2'
+     return $ EApp e1' e2'
 
 erasure (AppDict e1 e2) =
   do e1' <- erasure e1
      e2' <- erasure e2
-     return $ App e1' e2'
+     return $ EApp e1' e2'
 
 erasure (AppDep e1 e2) =
   do e1' <- erasure e1
      e2' <- erasure e2
-     return $ App e1' e2'
+     return $ EApp e1' e2'
 
 erasure (AppDepTy e1 e2) =
   do e1' <- erasure e1
      e2' <- erasure e2
-     return $ App e1' e2'
+     return $ EApp e1' e2'
 
 erasure (AppDep' e1 e2) =
   do e1' <- erasure e1
      e2' <- erasure e2
-     return $ App e1' e2'
+     return $ EApp e1' e2'
 
 erasure (Pair e1 e2) =
   do e1' <- erasure e1
      e2' <- erasure e2
-     return $ Pair e1' e2'
+     return $ EPair e1' e2'
 
-erasure (Circ e1 e2) =
-  do e1' <- erasure e1
-     e2' <- erasure e2
-     return $ Circ e1' e2'
+-- erasure (Circ e1 e2) =
+--   do e1' <- erasure e1
+--      e2' <- erasure e2
+--      return $ Circ e1' e2'
 
 erasure (Tensor e1 e2) =
   do e1' <- erasure e1
      e2' <- erasure e2
-     return $ Tensor e1' e2'
+     return $ ETensor e1' e2'
 
 
 erasure (Arrow e1 e2) =
   do e1' <- erasure e1
      e2' <- erasure e2
-     return $ Arrow e1' e2'
+     return $ EArrow e1' e2'
 
 erasure (AppType e1 e2) = erasure e1
 
@@ -95,47 +97,55 @@ erasure (AppTm e1 e2) = erasure e1
 
 erasure a@(Lam (Abst xs m)) =
   do m' <- erasure m
-     let vs = S.toList $ getVars AllowEigen m' `S.difference` (S.fromList xs)
-     return $ LamV vs (abst xs m') 
+     let ns = countVar xs m'
+         xs' = zip xs ns
+     return $ ELam (abst xs' m') 
 
 erasure a@(LamAnn _ (Abst xs m)) =
   do m' <- erasure m
-     let vs = S.toList $ getVars AllowEigen m' `S.difference` (S.fromList xs)
-     return $ LamV vs (abst xs m') 
+     let ns = countVar xs m'
+         xs' = zip xs ns
+     return $ ELam (abst xs' m') 
 
 erasure a@(LamAnn' _ (Abst xs m)) =
   do m' <- erasure m
-     let vs = S.toList $ getVars AllowEigen m' `S.difference` (S.fromList xs)
-     return $ LamV vs (abst xs m') 
+     let ns = countVar xs m'
+         xs' = zip xs ns
+     return $ ELam (abst xs' m') 
 
 -- Convert lam' to lam
 erasure a@(Lam' (Abst xs m)) =
   do m' <- erasure m
-     let vs = S.toList $ getVars AllowEigen m' `S.difference` (S.fromList xs)
-     return $ LamV vs (abst xs m')
+     let ns = countVar xs m'
+         xs' = zip xs ns
+     return $ ELam (abst xs' m') 
 
 erasure a@(LamDict (Abst xs m)) =
   do m' <- erasure m
-     let vs = S.toList $ getVars AllowEigen m' `S.difference` (S.fromList xs)
-     return $ LamV vs (abst xs m') 
+     let ns = countVar xs m'
+         xs' = zip xs ns
+     return $ ELam (abst xs' m') 
 
 erasure (WithType ann t) = erasure ann
 
 erasure a@(LamDep (Abst ys m)) =
   do m' <- erasure m
-     let vs = S.toList $ getVars AllowEigen m' `S.difference` (S.fromList ys)
-     return $ LamV vs (abst ys m') 
+     let ns = countVar ys m'
+         xs' = zip ys ns
+     return $ ELam (abst xs' m') 
 
 erasure a@(LamDepTy (Abst ys m)) =
   do m' <- erasure m
-     let vs = S.toList $ getVars AllowEigen m' `S.difference` (S.fromList ys)
-     return $ LamV vs (abst ys m') 
+     let ns = countVar ys m'
+         xs' = zip ys ns
+     return $ ELam (abst xs' m') 
 
 
 erasure a@(LamDep' (Abst ys m)) =
   do m' <- erasure m
-     let vs = S.toList $ getVars AllowEigen m' `S.difference` (S.fromList ys)
-     return $ LamV vs (abst ys m') 
+     let ns = countVar ys m'
+         xs' = zip ys ns
+     return $ ELam (abst xs' m') 
 
 erasure (LamTm bd) =
   open bd $ \ xs m -> erasure m
@@ -145,29 +155,32 @@ erasure (LamType bd) =
 
 erasure (Lift t) =
   do t' <- erasure t
-     let vs = S.toList $ getVars AllowEigen t'
-     return (LiftV vs t')
+     return (ELift t')
 
-erasure (Force t) = Force <$> erasure t
-erasure (Force' t) = Force <$> erasure t
+erasure (Force t) = EForce <$> erasure t
+erasure (Force' t) = EForce <$> erasure t
 
-erasure (UnBox) = return UnBox
+erasure (UnBox) = return EUnBox
 
-erasure (Revert) = return Revert
-erasure (RunCirc) = return RunCirc
+erasure (Revert) = return ERevert
+erasure (RunCirc) = return ERunCirc
 
-erasure a@(Box) = return a
-erasure a@(ExBox) = return a
+erasure a@(Box) = return EBox
+erasure a@(ExBox) = return EExBox
 
 erasure (Let m bd) = open bd $ \ vs b -> 
   do m' <- erasure m
+
      b' <- erasure b
-     return $ Let m' (abst vs b') 
+     let n:[] = countVar [vs] b'
+     return $ ELet m' (abst (vs, n) b') 
      
 erasure (LetPair m bd) = open bd $ \ xs b ->
   do m' <- erasure m
      b' <- erasure b
-     return $ LetPair m' (abst xs b') 
+     let ns = countVar xs b'
+         xs' = zip xs ns
+     return $ ELetPair m' (abst xs' b') 
 
 erasure (LetPat m bd) = open bd $ \ pa b ->
   case pa of
@@ -176,80 +189,97 @@ erasure (LetPat m bd) = open bd $ \ pa b ->
          m' <- erasure m
          funP <- lookupId kid
          let ty = classifier funP
-         args' <- helper ty args b 
-         return $ LetPat m' (abst (PApp kid args') b')
+         args' <- helper ty args b b'
+         return $ ELetPat m' (abst (EPApp kid args') b')
   where 
         -- The only way a data constructor can have a Pi type
         -- is when it is an existential type. 
-        helper (Pi bds t) args b | not (isKind t) =
+        helper (Pi bds t) args b b' | not (isKind t) =
           open bds $ \ ys m ->
           do let (vs, res) = splitAt (length ys) args
-             vs' <- helper m res b
-             return $ vs++vs'
+                 vs1 = map (\ (Right x) -> x) vs
+                 ns = countVar vs1 b'
+                 vs2 = zip vs1 ns
+             vs' <- helper m res b b'
+             return $ vs2++vs'
 
-        helper (Forall bds t) args b =
+        helper (Forall bds t) args b b' =
           open bds $ \ ys m ->
           let (vs, res) = splitAt (length ys) args in
           do checkExplicit vs b
-             helper m res b
+             helper m res b b'
 
-        helper (Arrow t1 t2) (x:xs) b =
-          do vs' <- helper t2 xs b
-             return $ x:vs'
+        helper (Arrow t1 t2) (x:xs) b b' =
+          do vs' <- helper t2 xs b b'
+             let (Right x') = x
+                 n:[] = countVar [x'] b'
+             return $ (x', n):vs'
 
-        helper (Imply [t1] t2) (x:xs) b =
-          do vs' <- helper t2 xs b
-             return $ x:vs'
+        helper (Imply [t1] t2) (x:xs) b b' =
+          do vs' <- helper t2 xs b b'
+             let (Right x') = x
+                 n:[] = countVar [x'] b'
+             return $ (x', n):vs'
 
-        helper (Imply (t1:ts) t2) (x:xs) b =
-          do vs' <- helper (Imply ts t2) xs b
-             return $ x:vs'
+        helper (Imply (t1:ts) t2) (x:xs) b b' =
+          do vs' <- helper (Imply ts t2) xs b b'
+             let (Right x') = x
+                 n:[] = countVar [x'] b'
+             return $ (x', n):vs'
 
-        helper a [] b = return []
-        helper a _ b = error $ "from helper erasure-letPat"
-
-             
+        helper a [] b b' = return []
+        helper a _ b b' = error $ "from helper erasure-letPat"
 
 
 erasure l@(Case e (B br)) =
   do e' <- erasure e
      brs <- mapM helper br
-     return $ Case e' (B brs)
+     return $ ECase e' (EB brs)
        where helper bd = open bd $ \ p m ->
                case p of
                  PApp kid args ->
                    do funP <- lookupId kid
                       let ty = classifier funP
-                      args' <- helper2 ty args m 
                       m' <- erasure m
-                      return (abst (PApp kid args') m')
+                      args' <- helper2 ty args m m' 
+                      return (abst (EPApp kid args') m')
              -- The only way a data constructor can have a Pi type
              -- is when it is an existential type. 
                       
-             helper2 (Pi bds t) args ann | not (isKind t) =
+             helper2 (Pi bds t) args ann m' | not (isKind t) =
                open bds $ \ ys m ->
                do let (vs, res) = splitAt (length ys) args
-                  vs' <- helper2 m res ann
-                  return $ vs++vs'
-             helper2 (Forall bds t) args ann =
+                      vs1 = map (\ (Right x) -> x) vs
+                      ns = countVar vs1 m'
+                      vs2 = zip vs1 ns
+                  vs' <- helper2 m res ann m'
+                  return $ vs2++vs'
+
+             helper2 (Forall bds t) args ann m' =
                open bds $ \ ys m ->
                let (vs, res) = splitAt (length ys) args
                in do checkExplicit vs ann
-                     helper2 m res ann
+                     helper2 m res ann m'
                   
-             helper2 (Arrow t1 t2) (x:xs) ann =
-               do vs' <- helper2 t2 xs ann
-                  return $ x:vs'
-             helper2 (Imply [t1] t2) (x:xs) ann =
-               do vs' <- helper2 t2 xs ann
-                  return $ x:vs'
+             helper2 (Arrow t1 t2) (x:xs) ann m' =
+               do vs' <- helper2 t2 xs ann m'
+                  let (Right x') = x
+                      n:[] = countVar [x'] m'
+                  return $ (x', n):vs'
+             helper2 (Imply [t1] t2) (x:xs) ann m' =
+               do vs' <- helper2 t2 xs ann m'
+                  let (Right x') = x
+                      n:[] = countVar [x'] m'
+                  return $ (x', n):vs'
 
-             helper2 (Imply (t1:ts) t2) (x:xs) ann =
-               do vs' <- helper2 (Imply ts t2) xs ann
-                  return $ x:vs'
+             helper2 (Imply (t1:ts) t2) (x:xs) ann m' =
+               do vs' <- helper2 (Imply ts t2) xs ann m'
+                  let (Right x') = x
+                      n:[] = countVar [x'] m'
+                  return $ (x', n):vs'
                   
-             helper2 a [] _ = return []
-             helper2 a b _ = error $ "from helper2 flag-erasure-case" ++ (show $ disp a)
+             helper2 a [] _ _ = return []
+             helper2 a b _ _ = error $ "from helper2 flag-erasure-case" ++ (show $ disp a)
 
 erasure a = error $ "from erasure: " ++ (show $ disp a)
 
@@ -260,4 +290,39 @@ checkExplicit (Left a :xs) ann = checkExplicit xs ann
 checkExplicit (Right x :xs) ann =
   do when (isExplicit x ann) $ throwError $ ImplicitCase x ann
      checkExplicit xs ann
+
+countVar :: [Variable] -> EExp -> [Int]
+countVar xs e =
+  map (helper e) xs
+  where helper :: EExp -> Variable -> Int
+        helper (EVar y) x | x == y = 1
+                          | otherwise = 0
+        helper (EConst _) x = 0
+        helper (EBase _) x = 0
+        helper (ELBase _) x = 0
+        helper EUnBox x = 0
+        helper ERevert x = 0
+        helper ERunCirc x = 0
+        helper EBox x = 0
+        helper EExBox x = 0
+        helper EStar x = 0
+        helper EUnit x = 0
+        helper (EApp t1 t2) x = helper t1 x + helper t2 x
+        helper (EPair t1 t2) x = helper t1 x + helper t2 x
+        helper (ETensor t1 t2) x = helper t1 x + helper t2 x
+        helper (EArrow t1 t2) x = helper t1 x + helper t2 x
+        helper (ELam (Abst _ e)) x = helper e x
+        helper (ELift e) x = helper e x
+        helper (EForce e) x = helper e x
+        helper (ELet e (Abst _ e2)) x =
+          helper e x + helper e2 x
+        helper (ELetPair e (Abst _ e2)) x =
+          helper e x + helper e2 x
+        helper (ELetPat e (Abst _ e2)) x =
+          helper e x + helper e2 x
+        helper (ECase e (EB brs)) x =
+          helper e x + helper2 brs x
+        helper2 :: [Bind EPattern EExp] -> Variable -> Int  
+        helper2 brs x =
+          maximum $ map (\ b -> open b $ \ _ m -> helper m x) brs
 
