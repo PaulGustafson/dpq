@@ -235,10 +235,13 @@ a_small_board_red =
   $ VCons True $ VCons True $ VCons True $ VCons True $ VCons True VNil
 
 
-main = box_checkwin_red (9 @ 7 - 1) 7 refl refl
+main = box_checkwin_red (3 @ 7 - 1) 7 refl refl
+
+-- box_checkwin_red (9 @ 7 - 1) 7 refl refl
+
 
 -- box_checkwin_red (5 @ 7 - 1) 7 refl refl
--- mem 28%, 5m10s. 
+-- mem 28%, 5m. 
 -- box_checkwin_red (9 @ 7 - 1) 9 refl refl
 -- 
 -- test_small_board (False, a_small_board_blue)

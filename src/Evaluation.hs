@@ -207,20 +207,28 @@ lookupLEnv x =
          size = gcSize st
      case Map.lookup x lenv of
        Nothing -> error $ "from lookupLEnv:" ++ show x
-                  -- ++ (show $ disp lenv)
-                  
-       Just (v, n, ref, ps) | toInteger (Map.size lenv) <= size ->
-         do let lenv' = Map.insert x (v, n-1, ref, ps) lenv
-            put st{localEvalEnv = lenv'}
-            return v
-       Just (v, n, ref, ps) | otherwise ->
-         do let lenv' = Map.insert x (v, n-1, ref, ps) lenv
-                lenv'' = garbageCollection lenv'
-                afterGCSize = toInteger (Map.size lenv'')
-                size' = if afterGCSize >= size then afterGCSize+10000
-                        else if size - afterGCSize < 1000 then size+10000 else size
-            put st{localEvalEnv = lenv'', gcSize = size'}
-            return v    
+       Just (v, n, ref, ps) ->
+         if (n-1 <= 0) && ref == 0 then
+           do let lenv' = decrRef ps (Map.delete x lenv)
+              put st{localEvalEnv = lenv'}
+              return v
+         else
+           do let lenv' = Map.insert x (v, n-1, ref, ps) lenv
+              put st{localEvalEnv = lenv'}
+              return v
+
+       -- Just (v, n, ref, ps) | toInteger (Map.size lenv) <= size ->
+       --   do let lenv' = Map.insert x (v, n-1, ref, ps) lenv
+       --      put st{localEvalEnv = lenv'}
+       --      return v
+       -- Just (v, n, ref, ps) | otherwise ->
+       --   do let lenv' = Map.insert x (v, n-1, ref, ps) lenv
+       --          lenv'' = garbageCollection lenv'
+       --          afterGCSize = toInteger (Map.size lenv'')
+       --          size' = if afterGCSize >= size then afterGCSize+10000
+       --                  else if size - afterGCSize < 1000 then size+10000 else size
+       --      put st{localEvalEnv = lenv'', gcSize = size'}
+       --      return v    
 
 addDefinition (x, n) m =
   do st <- get
@@ -256,8 +264,10 @@ evalApp (VForce (VApp VUnBox v)) w =
 
 evalApp (VApp (VApp (VApp VBox q) _) _) v =
   case v of
-    VLift _ m -> evalBox m q
+    VLift _ m -> evalBox (Right m) q
     VApp VUnBox w -> return w
+    m@(VLiftCirc _) -> evalBox (Left m) q
+    a -> error $ "evalApp VBox:" ++ (show $ disp a)
 
 evalApp (VApp (VApp (VApp (VApp VExBox q) _) _) _) v =  
   case v of
@@ -343,11 +353,13 @@ evalApp v w =
                Nothing -> error $! "can't find variable " ++ (show $! disp x)
 
 -- | Evaluate a box term.
-evalBox :: EExp -> Value -> Eval Value               
+evalBox :: Either Value EExp -> Value -> Eval Value               
 evalBox body uv =
   freshLabels (genNames uv) $! \ vs ->
    do st <- get
-      b <- eval body
+      b <- case body of
+                Right body' -> eval body'
+                Left v -> return v
       let uv' = toVal uv vs
           d = Morphism uv' [] uv'
           (res, st') = runState (runExceptT $! evalApp b uv') st{morph = d}
@@ -528,21 +540,7 @@ getAllWires (Morphism ins gs outs) =
           S.fromList (getWires outs) `S.union`
           S.fromList (getWires ctrls)
 
--- | Obtain a submap from a map /m/ with domain /vs/.
-subMap !m !vs =
-  let ns = Map.keys m \\ vs
-  in ns `seq` foldl' (\ m n -> Map.delete n m) m ns
 
-  -- let m' = map (\ k -> case Map.lookup k m of
-  --                        Just v -> (k, v)
-  --                        Nothing -> error $! "from subMap, can't find:" ++ show k
-  --              ) vs
-  --     m'' = Map.fromList m'
-  -- in m''
-
--- deleteMap !m =
---   let ns = Map.keys m
---   in ns `seq` foldl' (\ m n -> Map.delete n m) m ns
 
 garbageCollection lenv =
   let lenv' = Map.foldlWithKey' (\ m k (_, n, ref, ps) -> tryDelete k n ref ps m) lenv lenv
@@ -553,13 +551,15 @@ garbageCollection lenv =
               m'' = decrRef ps m'
           in m''
         tryDelete k n ref ps m | otherwise = m
-        decrRef [] m = m
-        decrRef (v:vs) m =
-          case Map.lookup v m of
-            Nothing -> error "from decrRef"
-            Just (val, n, ref, ps) ->
-              let m' = Map.insert v (val, n, ref-1, ps) m
-              in decrRef vs m'
+
+-- | Decrease the reference count for a list of variables.
+decrRef [] m = m
+decrRef (v:vs) m =
+  case Map.lookup v m of
+    Nothing -> error "from decrRef"
+    Just (val, n, ref, ps) ->
+      let m' = Map.insert v (val, n, ref-1, ps) m
+      in decrRef vs m'
         
                              
           

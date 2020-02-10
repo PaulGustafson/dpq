@@ -404,7 +404,10 @@ typeCheck flag a (Bang ty) =
      if r then
        do checkParamCxt a
           (t, ann) <- typeCheck flag a ty
-          return (Bang t, Lift ann)
+          case erasePos ann of
+            Force ann' -> return (Bang t, ann')
+            _ -> return (Bang t, Lift ann)
+          
        else equality flag a (Bang ty)
 
 
@@ -775,7 +778,7 @@ equality flag tm ty =
           tym1 <- updateWithSubst tym
           ty1 <- updateWithSubst ty'
           -- Here we are assuming there is no types like !!A
-          case (tym1, ty1) of
+          case (erasePos tym1, erasePos ty1) of
             (Bang tym1, Bang ty1) ->
               do (ty1, a2) <- handleEquality tm ann tym1 ty1
                  return (Bang ty1, a2)
