@@ -66,7 +66,13 @@ data EvalState =
   ES { morph :: Morphism, -- ^ The underlying incomplete circuit.
        evalEnv :: Context,  -- ^ The global evaluation context.
        localEvalEnv :: Map Variable (Value, Integer, Integer, [Variable]),
+       -- ^ The heap for evaluation, represented by a map.
+       -- The first 'Integer' represents approximate occurences,
+       -- the second 'Integer' represents its accurate reference count,
+       -- the ['Variable'] is the variables that it refers to.
+       
        gcSize :: Integer
+       -- ^ The size of the heap. Currently it is not used for gc.
      }
 
 -- | Evaluate an expression to
@@ -193,7 +199,6 @@ eval b@(ECase m (EB bd)) =
         reduce id args [] = error "missing branch during eval"
           -- throwError $! MissBranch id b
 
--- eval a@(Pos _ e) = error "position in eval"
 eval a = error $! "from eval: "
          -- ++ (show $! disp a)
 
@@ -208,6 +213,10 @@ lookupLEnv x =
      case Map.lookup x lenv of
        Nothing -> error $ "from lookupLEnv:" ++ show x
        Just (v, n, ref, ps) ->
+         -- A nonstop GC. Compared to stop-the-world-gc,
+         -- The cons is that if the garbage is not access
+         -- anymore, there is no way to collect them. The
+         -- pros is that it runs faster than stop-the-world-gc. 
          if (n-1 <= 0) && ref == 0 then
            do let lenv' = decrRef ps (Map.delete x lenv)
               put st{localEvalEnv = lenv'}
@@ -217,6 +226,7 @@ lookupLEnv x =
               put st{localEvalEnv = lenv'}
               return v
 
+       -- Stop-the-world GC. 
        -- Just (v, n, ref, ps) | toInteger (Map.size lenv) <= size ->
        --   do let lenv' = Map.insert x (v, n-1, ref, ps) lenv
        --      put st{localEvalEnv = lenv'}
@@ -230,6 +240,7 @@ lookupLEnv x =
        --      put st{localEvalEnv = lenv'', gcSize = size'}
        --      return v    
 
+-- | Add a value to the environment.
 addDefinition (x, n) m =
   do st <- get
      let vs = vars m
@@ -238,7 +249,7 @@ addDefinition (x, n) m =
                  else Map.insert x (m, n, 0, vs) (addRef vs lenv) 
      put st{localEvalEnv = lenv'}
 
-
+-- | Add the reference count for given variables.
 addRef [] lenv = lenv
 addRef (v:vs) lenv =
   case Map.lookup v lenv of
@@ -317,8 +328,7 @@ evalApp v w =
         unwindVal a = (a, [])
         -- Handle beta reduction
         handleBody args bd = open bd $! \ vs m ->
-             let --- args = res ++ [w]
-                 lvs = length vs
+             let lvs = length vs
              in
               if lvs > length args
               then return $! VApp v w
@@ -541,7 +551,7 @@ getAllWires (Morphism ins gs outs) =
           S.fromList (getWires ctrls)
 
 
-
+-- Stop-the-world gc. 
 garbageCollection lenv =
   let lenv' = Map.foldlWithKey' (\ m k (_, n, ref, ps) -> tryDelete k n ref ps m) lenv lenv
   in lenv'

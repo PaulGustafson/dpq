@@ -462,7 +462,7 @@ instance Disp Value where
    text "vliftCirc" <+> hsep (map (display flag) vs) <+> text "." <+> braces (display flag env) $$ nest 2 (display flag e)
   display flag (Wired (Abst ls v)) = display flag v
   display flag (VApp v1 v2) = parens $ display flag v1 <+> display flag v2  
-  display flag (VForce v) = text "&" <+> display flag v
+  display flag (VForce v) = text "&" <> display flag v
 
 instance Disp (Map Variable (Value, Integer)) where
    display flag l =
@@ -534,6 +534,9 @@ data Decl = Object Position Id -- ^ Declaration for qubit or bit.
             -- Exp: definition
 
 
+-- | A data structure for the erased expression, all bind variables are annotated
+-- with its approximate occurences. It is 
+-- susceptible for further optimization. 
 
 data EExp =
   EVar Variable
@@ -617,7 +620,7 @@ instance Disp EPattern where
     display flag id <+>
     hsep (map (\ (x, n) -> parens (display False x <> text ":" <> integer n)) vs) 
 
-          
+-- | Get a the set of free variable from a 'EExp'          
 evarsHelper a@(EVar y) = S.insert y S.empty
 evarsHelper (EApp t tm) =
    (evarsHelper t) `S.union` (evarsHelper tm)
@@ -651,8 +654,11 @@ evarsHelper (ECase tm (EB br)) =
                         br
 evarsHelper _ = S.empty
 
+-- | Get the list of free variables in an 'EExp'.  
 evars e = S.toList $ evarsHelper e
 
+-- | Retrieve the variables that a closure refers to. This
+-- must be done efficiently since it is used for evaluation. 
 vars (VLam ws (Abst _ e)) = ws
 vars (VLift ws e) = ws
 vars (VPair e1 e2) = (vars e1) ++ (vars e2)

@@ -1,0 +1,11 @@
+module Test where
+import "lib/Prelude.dpq"
+
+f :: ! (Nat -> (Nat -> Nat) -> Nat)
+f x y = f x (\ z -> y z)
+
+main = f 0 (\ x -> x)
+
+
+-- main = box Unit $ \ u -> map H (initVec 10 False)
+-- main = box Qubit H
