@@ -1,10 +1,25 @@
 module Test where
 import "lib/Prelude.dpq"
 
+-- large space, even for haskell. 
 f :: ! (Nat -> (Nat -> Nat) -> Nat)
 f x y = f x (\ z -> y z)
 
-main = f 0 (\ x -> x)
+-- constant space.
+f1 :: ! (Nat -> (Nat -> Nat) -> Nat)
+f1 x y = f1 x y
+
+-- constant space
+f2 :: ! (Nat -> Nat)
+f2 x = f2 x
+
+k :: ! forall a b -> (Parameter b) => a -> b -> a
+k x y = x
+
+-- constant space diverging. 
+testK = k 1 (f2 0)
+
+-- main = f1 0 (\ x -> x)
 
 
 -- main = box Unit $ \ u -> map H (initVec 10 False)
