@@ -53,7 +53,6 @@ data Exp =
 
   -- Arrows
   | Lam (Bind [Variable] Exp) -- ^ Lambda abstraction for linear arrow type.
-    -- Show a list of free variables.
   | Lam' (Bind [Variable] Exp) -- ^ Parameter lambda abstraction for parameter arrow type.
 
   | Arrow Exp Exp -- ^ Linear arrow type. 
@@ -80,7 +79,8 @@ data Exp =
   | Bang Exp -- ^ Linear exponential type.
   | Force Exp -- ^ Force. 
   | Force' Exp -- ^ Force', the parameter version of Force.
-  | Lift Exp -- ^ Lift.
+  | Lift Exp -- ^ Lift. 
+
     -- Circuit operations  
   | Box -- ^ Circuit boxing. 
   | ExBox -- ^ Existential circuit boxing. 
@@ -177,7 +177,6 @@ instance Disp Exp where
   display flag (Lam' bds) =
     open bds $ \ vs b ->
     fsep [text "\\'" , (hsep $ map (display flag) vs), text "->", nest 2 $ display flag b]
-    
   display flag (LamDict bds) =
     open bds $ \ vs b ->
     fsep [text "\\dict" , (hsep $ map (display flag) vs), text "->", nest 2 $ display flag b]    

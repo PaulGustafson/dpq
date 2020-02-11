@@ -4,12 +4,12 @@ import "lib/Class.dpq"
 import "lib/Theorems.dpq"
 
 
-simple Vec a :: Nat -> Type where
+simple Vec a : Nat -> Type where
   Vec a Z = VNil
   Vec a (S n) = VCons a (Vec a n)
 
 
-instance forall a (n :: Nat) -> (QuantumOp a, Simple a) => QuantumOp (Vec a n) where
+instance forall a (n : Nat) -> (QuantumOp a, Simple a) => QuantumOp (Vec a n) where
   unary g v =
     case v of
       VNil -> VNil
@@ -38,7 +38,7 @@ instance forall a (n :: Nat) -> (QuantumOp a, Simple a) => QuantumOp (Vec a n) w
 
 
 
-instance forall a (n :: Nat) -> (Equal a, Parameter a) => Equal (Vec a n) where
+instance forall a (n : Nat) -> (Equal a, Parameter a) => Equal (Vec a n) where
   (==) l1 l2 =
     case l1 of
       VNil -> case l2 of
@@ -47,23 +47,23 @@ instance forall a (n :: Nat) -> (Equal a, Parameter a) => Equal (Vec a n) where
                       VCons y ys -> x == y && xs == ys
   
 
-append :: ! forall a (n m :: Nat) -> Vec a n -> Vec a m -> Vec a (add n m)
+append : ! forall a (n m : Nat) -> Vec a n -> Vec a m -> Vec a (add n m)
 append l1 l2 = case l1 of
                   VNil -> l2
     	          VCons x xs -> VCons x (append xs l2)
 
--- append' :: ! forall a (m :: Nat) -> (n :: Nat) -> Vec a n -> Vec a m -> Vec a (add n m)
+-- append' : ! forall a (m : Nat) -> (n : Nat) -> Vec a n -> Vec a m -> Vec a (add n m)
 -- append' n l1 l2 = case l1 of
 --                     VNil -> l2
 --     	            VCons x xs ->
 --                       let S n' = n in VCons x (append' n' xs l2)
 
-append' :: ! forall a (m :: Nat) -> (n :: Nat) -> Vec a n -> Vec a m -> Vec a (add n m)
+append' : ! forall a (m : Nat) -> (n : Nat) -> Vec a n -> Vec a m -> Vec a (add n m)
 append' n l1 l2 = case n of
                     Z -> let VNil = l1 in l2
                     S n' -> let VCons x xs = l1 in VCons x (append' n' xs l2)
 
--- append'' :: ! forall a (m :: Nat) -> (n :: Nat) -> Vec a n -> Vec a m -> Vec a (add n m)
+-- append'' : ! forall a (m : Nat) -> (n : Nat) -> Vec a n -> Vec a m -> Vec a (add n m)
 -- append'' n l1 l2 = case l1 of
 --                     VNil -> l2
 --                     VCons x xs ->
@@ -73,10 +73,10 @@ append' n l1 l2 = case n of
 
 infixl 11 ++
 
-(++) :: ! forall a (n m :: Nat) -> Vec a n  -> Vec a m -> Vec a (add n m)
+(++) : ! forall a (n m : Nat) -> Vec a n  -> Vec a m -> Vec a (add n m)
 (++) = append 
 
-reverseh :: ! {a :: Type} -> {n m :: Nat} -> Vec a n -> Vec a m -> Vec a (add n m)
+reverseh : ! {a : Type} -> {n m : Nat} -> Vec a n -> Vec a m -> Vec a (add n m)
 reverseh a n m l1 l2 =
   case n of
     Z -> case l1 of
@@ -91,7 +91,7 @@ reverseh a n m l1 l2 =
   --   S n' -> let VCons q qs = l1
   --           in subst (\ x -> Vec a x) (addS n' m) $ reverseh a n' (S m) qs (VCons q l2)
 
--- reverseh' :: ! (a :: Type) -> (n m :: Nat) -> Vec a n -> Vec a m -> Vec a (add n m)
+-- reverseh' : ! (a : Type) -> (n m : Nat) -> Vec a n -> Vec a m -> Vec a (add n m)
 -- reverseh' a n m l1 l2 =
 --   case l1 of
 --     VNil -> l2
@@ -104,10 +104,10 @@ reverseh a n m l1 l2 =
   --            VCons q qs -> 
   --   	       subst (\ x -> Vec a x) (addS n' m) $ reverseh a n' (S m) qs (VCons q l2)
 
-reverse :: ! {a :: Type} -> {n :: Nat} -> Vec a n -> Vec a n
+reverse : ! {a : Type} -> {n : Nat} -> Vec a n -> Vec a n
 reverse a n l = subst (\ x -> Vec a x) (addZ n) $ reverseh l VNil
 
-zipWith :: ! forall a b c (n :: Nat) -> !(a -> b -> c) ->
+zipWith : ! forall a b c (n : Nat) -> !(a -> b -> c) ->
               Vec a n -> Vec b n -> Vec c n
 zipWith f l1 l2 =
     case l1 of
@@ -116,7 +116,7 @@ zipWith f l1 l2 =
 	  let VCons q2 qs2 = l2 in
 	   VCons (f q1 q2) (zipWith f qs1 qs2)
 
-zip :: ! forall a b (n :: Nat) ->  Vec a n -> Vec b n -> Vec (a * b) n
+zip : ! forall a b (n : Nat) ->  Vec a n -> Vec b n -> Vec (a * b) n
 zip l1 l2 =
   case l1 of
     VNil -> case l2 of
@@ -126,7 +126,7 @@ zip l1 l2 =
 		      let u = (x, y) in
 		      VCons u (zip xs ys)
 
-unzip :: ! forall a b (n :: Nat) -> Vec (a * b) n -> Vec a n * Vec b n
+unzip : ! forall a b (n : Nat) -> Vec (a * b) n -> Vec a n * Vec b n
 unzip l = case l of
              VNil -> (VNil, VNil)
              VCons p qs ->
@@ -134,20 +134,20 @@ unzip l = case l of
 		            (l1, l2) = unzip qs in
 		         (VCons x l1, VCons y l2)
 
-map :: ! forall a b (n :: Nat) -> !(a -> b) -> Vec a n -> Vec b n
+map : ! forall a b (n : Nat) -> !(a -> b) -> Vec a n -> Vec b n
 map f l =
   case l of
     VNil -> VNil
     VCons x xs -> VCons (f x) (map f xs)
 
-length :: ! forall a (n :: Nat) -> Vec a n -> Nat * Vec a n
+length : ! forall a (n : Nat) -> Vec a n -> Nat * Vec a n
 length l = case l of
              VNil -> (Z, VNil)
              VCons x xs -> let (n, xs') = length xs
                            in (S n, VCons x xs')
 
 
-lengthP :: ! forall a (n :: Nat) -> (Parameter a) => Vec a n -> Nat
+lengthP : ! forall a (n : Nat) -> (Parameter a) => Vec a n -> Nat
 lengthP l = case l of
              VNil -> Z
              VCons x xs ->
@@ -155,7 +155,7 @@ lengthP l = case l of
                in S n
 
 -- | need to make the normalizeUnif more clever
-sf_vec_index :: ! (a :: Type) -> (n m :: Nat) -> Vec a (S (add n m)) ->
+sf_vec_index : ! (a : Type) -> (n m : Nat) -> Vec a (S (add n m)) ->
                    Vec a n * a * Vec a m
 sf_vec_index a n m as = 
   case as of
@@ -166,31 +166,31 @@ sf_vec_index a n m as =
          let (before, x, after) = sf_vec_index a n' m (subst (Vec a) (addS1 n' m) t) in
           (VCons h before, x, after)
 
-sf_vec_unindex :: ! (a :: Type) -> (n m :: Nat) ->
+sf_vec_unindex : ! (a : Type) -> (n m : Nat) ->
                   Vec a n -> a -> Vec a m -> Vec a (S (add n m)) 
 sf_vec_unindex a n m before e after =
   subst (\ x -> Vec a x) (addS n m) $ before ++ (VCons e after)
          
 
 -- an existential package for vector
-data VecPac a = VP (n :: Nat) (Vec a n)
+data VecPac a = VP (n : Nat) (Vec a n)
 
-pack :: ! forall a (n :: Nat) -> Vec a n -> VecPac a 
+pack : ! forall a (n : Nat) -> Vec a n -> VecPac a 
 pack l = case l of
              VNil -> VP Z VNil
              VCons x xs -> let VP n xs' = pack xs
                            in VP (S n) (VCons x xs')
 
-chop :: ! forall a (n :: Nat) -> Vec a (S n) -> a * Vec a n
+chop : ! forall a (n : Nat) -> Vec a (S n) -> a * Vec a n
 chop l = let VCons x xs = l in (x, xs)
 
-unPack :: ! forall a -> VecPac a -> (n :: Nat) * Vec a n 
+unPack : ! forall a -> VecPac a -> (n : Nat) * Vec a n 
 unPack l = let VP n v = l in (n, v)
 
-simple VecZipper a :: Nat -> Nat -> Type where
+simple VecZipper a : Nat -> Nat -> Type where
   VecZipper a n m = VZ (Vec a n) a (Vec a m)
 
-instance forall a (n m :: Nat) -> (QuantumOp a, Simple a) => QuantumOp (VecZipper a n m) where
+instance forall a (n m : Nat) -> (QuantumOp a, Simple a) => QuantumOp (VecZipper a n m) where
   unary g v =
     let VZ v1 v2 v3 = v in VZ (unary g v1) (unary g v2) (unary g v3)
   copy l =
@@ -208,14 +208,14 @@ instance forall a (n m :: Nat) -> (QuantumOp a, Simple a) => QuantumOp (VecZippe
         (a3', b3') = cnots a3 b3
      in (VZ a1' a2' a3', VZ b1' b2' b3')
         
-forward :: !forall a (n m :: Nat) -> VecZipper a (S n) m -> VecZipper a n (S m)
+forward : !forall a (n m : Nat) -> VecZipper a (S n) m -> VecZipper a n (S m)
 forward v =
   let VZ l q r = v
       VCons x xs = l
   in VZ xs x (VCons q r)
 
 
-go :: ! (a :: Type) -> (n m :: Nat) -> (k :: Nat) -> VecZipper a (add k n) m
+go : ! (a : Type) -> (n m : Nat) -> (k : Nat) -> VecZipper a (add k n) m
          -> VecZipper a n (add k m)
 go a n m k v =
   case k of
@@ -224,19 +224,19 @@ go a n m k v =
       go a n (S m) k' $ forward v
 
 -- Move focus from left to right k step
-goForward :: ! (a :: Type) -> (n m k :: Nat) -> (Eq Bool (k <= n) True) ->
+goForward : ! (a : Type) -> (n m k : Nat) -> (Eq Bool (k <= n) True) ->
                VecZipper a n m -> VecZipper a (minus n k) (add k m)
 goForward a n m k pf v =
   go a (minus n k) m k $ subst (\ h -> VecZipper a h m) (complement n k pf) v
 
-backward :: !forall a (n m :: Nat) -> VecZipper a n (S m) -> VecZipper a (S n) m
+backward : !forall a (n m : Nat) -> VecZipper a n (S m) -> VecZipper a (S n) m
 backward v = 
   let VZ l q r = v
       VCons x xs = r
   in VZ (VCons q l) x xs
 
 
-back :: ! (a :: Type) -> (n m :: Nat) -> (k :: Nat) -> VecZipper a n (add k m)
+back : ! (a : Type) -> (n m : Nat) -> (k : Nat) -> VecZipper a n (add k m)
          -> VecZipper a (add k n) m
 back a n m k v =
   case k of
@@ -244,27 +244,27 @@ back a n m k v =
     S k' -> subst (\ h -> VecZipper a h m) (addS k' n) $
       back a (S n) m k' $ backward v
 
-goBackward :: ! (a :: Type) -> (n m k :: Nat) -> (Eq Bool (k <= n) True) ->
+goBackward : ! (a : Type) -> (n m k : Nat) -> (Eq Bool (k <= n) True) ->
                VecZipper a (minus n k) (add k m) -> VecZipper a n m
 goBackward a n m k pf v =
    subst (\ h -> VecZipper a h m) (complement' n k pf) $
      back a (minus n k) m k v
 
 -- dual of goBackward, in the sense of indexes
-moveBackward :: ! (a :: Type) -> (n m k :: Nat) -> (Eq Bool (k <= m) True) ->
+moveBackward : ! (a : Type) -> (n m k : Nat) -> (Eq Bool (k <= m) True) ->
                VecZipper a n m -> VecZipper a (add k n) (minus m k)
 moveBackward a n m k pf v =
      back a n (minus m k) k $ subst (\ h -> VecZipper a n h) (complement m k pf) v
 
-moveForward :: ! (a :: Type) -> (n m k :: Nat) -> (Eq Bool (k <= m) True) ->
+moveForward : ! (a : Type) -> (n m k : Nat) -> (Eq Bool (k <= m) True) ->
                  VecZipper a (add k n) (minus m k) -> VecZipper a n m
 moveForward a n m k pf v =
    subst (\ h -> VecZipper a n h) (complement' m k pf) $
      go a n (minus m k) k v
 
 
-depFold :: ! forall b (n :: Nat) -> (p :: Nat -> Type) ->
-             (! forall (n :: Nat) -> b -> p n -> p (S n)) -> p Z -> Vec b n -> p n
+depFold : ! forall b (n : Nat) -> (p : Nat -> Type) ->
+             (! forall (n : Nat) -> b -> p n -> p (S n)) -> p Z -> Vec b n -> p n
 depFold p f a l = 
   case l of
     VNil -> a

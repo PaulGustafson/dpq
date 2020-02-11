@@ -9,7 +9,7 @@ import "test/Combinators.dpq"
 -- are m-qubit registers holding node labels to be diffused-> r is a
 -- control->
 -- 
-timestep :: ! (m :: Nat) ->
+timestep : ! (m : Nat) ->
              Vec Qubit m -> Vec Qubit m -> Qubit -> Vec Qubit m * Vec Qubit m * Qubit
 timestep m a b r =
   let state = with_ancilla False (\ h ->
@@ -34,7 +34,7 @@ timestep m a b r =
 -- quantum register a->
 --
 
-data Oracle (m :: Nat) = O Nat -- n
+data Oracle (m : Nat) = O Nat -- n
                            Nat -- k
                            (Vec Bool m)
                            (!(Nat -> Vec Qubit m -> Vec Qubit m -> Qubit ->
@@ -42,7 +42,7 @@ data Oracle (m :: Nat) = O Nat -- n
 
 
 
-qrwbwt :: ! (Nat -> (m :: Nat) -> Oracle m -> Vec Qubit m)
+qrwbwt : ! (Nat -> (m : Nat) -> Oracle m -> Vec Qubit m)
 qrwbwt s m oracle =
       let O n k entrance oraclefun = oracle
           a = qinit_register entrance
@@ -87,7 +87,7 @@ qrwbwt s m oracle =
 -- and 'even' if 'a' is a root node->
 --
 
-parseNodeRoot :: !  (l n :: Nat) -> Vec Qubit (S (add n l)) ->
+parseNodeRoot : !  (l n : Nat) -> Vec Qubit (S (add n l)) ->
                     Qubit -> Qubit ->  Vec Qubit (S (add n l)) * Qubit * Qubit
 parseNodeRoot l n a root even = 
   let (a, re) = with_list_range Qubit l (S Z) n a (\ a ->
@@ -106,7 +106,7 @@ parseNodeRoot l n a root even =
 -- node 'a' occurs at an even height in the tree->
 --
 
-parseNodeEven :: ! (l :: Nat) -> (n :: Nat) -> Vec Qubit (S (add n l)) -> Qubit ->
+parseNodeEven : ! (l : Nat) -> (n : Nat) -> Vec Qubit (S (add n l)) -> Qubit ->
                     Vec Qubit (S (add n l)) * Qubit
 parseNodeEven l n as even = 
   let as = number_elements as
@@ -150,7 +150,7 @@ parseNodeEven l n as even =
 -- > qterm false ismatch;
 --
 
-testIsParentHelper :: ! (Bool * Bool -> Qubit -> Qubit -> Qubit -> Qubit ->
+testIsParentHelper : ! (Bool * Bool -> Qubit -> Qubit -> Qubit -> Qubit ->
                           Quad Qubit Qubit Qubit Qubit)
 testIsParentHelper color isparent ismatch even a0 =
   let (u, v) = color in
@@ -168,7 +168,7 @@ testIsParentHelper color isparent ismatch even a0 =
                                                             isparent even a0
                           in Q ismatch isparent even a0
 
-testIsParent :: ! forall (n :: Nat) -> Vec Qubit (S n) -> Qubit -> Qubit -> Qubit ->
+testIsParent : ! forall (n : Nat) -> Vec Qubit (S n) -> Qubit -> Qubit -> Qubit ->
                  Bool * Bool -> Nat -> Bool ->
                  Qubit ->  Five (Vec Qubit (S n)) Qubit Qubit Qubit Qubit
 testIsParent a root even isparent color n really ismatch =
@@ -187,7 +187,7 @@ testIsParent a root even isparent color n really ismatch =
 -- "left" or "right" child-> Here, 'color' is a boolean register of
 -- length 2, representing a color-> This function is self-inverse->
 --
-testIsChild :: ! (Qubit -> Qubit -> Qubit -> Bool * Bool -> Nat -> Qubit * Qubit * Qubit)
+testIsChild : ! (Qubit -> Qubit -> Qubit -> Bool * Bool -> Nat -> Qubit * Qubit * Qubit)
 testIsChild even ischild direction color n =
  let (a, b) = color 
      (ischild, even) = CNotGate (not b) ischild even
@@ -203,7 +203,7 @@ testIsChild even ischild direction color n =
 -- 'a'-> This is self-inverse->
 
 -- there are some type conversions when using a and b due to dependent types 
-setParent :: ! (n l :: Nat) -> Vec Qubit (S (S (add n l))) -> 
+setParent : ! (n l : Nat) -> Vec Qubit (S (S (add n l))) -> 
                 Vec Qubit (S (S (add n l))) -> Qubit -> 
                 Triple (Vec Qubit (S (S (add n l)))) (Vec Qubit (S (S (add n l)))) Qubit
 setParent n l a b isparent = 
@@ -232,7 +232,7 @@ setParent n l a b isparent =
 -- quantum registers of length at least n+2, and 'g' is a boolean
 -- register of length n->
 
-doWeld0 :: ! (n l :: Nat) ->
+doWeld0 : ! (n l : Nat) ->
               Vec Qubit (S (S (add n l))) ->
               Vec Qubit (S (S (add n l))) -> Qubit ->
 	      Vec Bool n ->
@@ -253,7 +253,7 @@ doWeld0 n l a b weldctrl f =
 -- majority q (a, b, n): negate q iff the majority of a, b, and n is 1->
 -- Here, a and b are qubits, and n is a boolean->
 --
-majority :: ! (Qubit -> Qubit -> Qubit -> Bool -> Triple Qubit Qubit Qubit)
+majority : ! (Qubit -> Qubit -> Qubit -> Bool -> Triple Qubit Qubit Qubit)
 majority q a b n =
   case n of
     True ->
@@ -276,7 +276,7 @@ majority q a b n =
 -- integers are represented in little-headian order, i->e->, the head of
 -- the list holds the least significant bit->
 --
-cAddNum_carry :: ! forall (n :: Nat) ->
+cAddNum_carry : ! forall (n : Nat) ->
                 Qubit -> Vec Qubit n -> Vec Qubit n -> Vec Bool n -> Qubit ->
                 Quad Qubit (Vec Qubit n) (Vec Qubit n) Qubit 
 cAddNum_carry control output input num carry =
@@ -310,7 +310,7 @@ cAddNum_carry control output input num carry =
 -- recursively-> However, we did this in such a way that the resulting
 -- sequence of gates is still the "orthodox" one->
 --
-cAddNumHelper :: ! forall (n :: Nat) -> Vec Qubit n -> Vec Qubit n -> Vec Bool n -> Qubit ->
+cAddNumHelper : ! forall (n : Nat) -> Vec Qubit n -> Vec Qubit n -> Vec Bool n -> Qubit ->
                    Triple Qubit (Vec Qubit n) (Vec Qubit n)
 cAddNumHelper output input num control = 
   case output of
@@ -330,7 +330,7 @@ cAddNumHelper output input num control =
               in T control (VCons o os) (VCons i is)
              
 
-cAddNum :: ! (l m n :: Nat)  -> Qubit -> Vec Qubit (add n l) -> Vec Qubit (add n m) ->
+cAddNum : ! (l m n : Nat)  -> Qubit -> Vec Qubit (add n l) -> Vec Qubit (add n m) ->
 	    Vec Bool n -> 
             Triple Qubit (Vec Qubit (add n l)) (Vec Qubit (add n m))
 cAddNum l m n control output input num =
@@ -350,8 +350,8 @@ cAddNum l m n control output input num =
 -- complement-> The generated sequence of gates is slightly different,
 -- but nevertheless correct->
 -- 
-cSubNum :: ! (l m :: Nat) ->
-	    (n :: Nat) -> Qubit -> Vec Qubit (add n l) -> Vec Qubit (add n m) ->
+cSubNum : ! (l m : Nat) ->
+	    (n : Nat) -> Qubit -> Vec Qubit (add n l) -> Vec Qubit (add n m) ->
 	    Vec Bool n -> 
             Triple Qubit (Vec Qubit (add n l)) (Vec Qubit (add n m))
 
@@ -367,7 +367,7 @@ cSubNum l m n control output input num =
 -- register of length n->
 --
 
-doWeld1 :: ! (n l :: Nat) -> Vec Qubit (S (S (add n l))) ->
+doWeld1 : ! (n l : Nat) -> Vec Qubit (S (S (add n l))) ->
              Vec Qubit (S (S (add n l))) -> Qubit -> Vec Bool n -> 
              Triple (Vec Qubit (S (S (add n l))))
                 (Vec Qubit (S (S (add n l)))) Qubit
@@ -390,7 +390,7 @@ doWeld1 n l a b weldctrl g =
 -- binary tree, i->e->, we follow one of the welding edges->
 --
 
-setWeld :: ! (n l :: Nat) -> Vec Qubit (S (S (add n l))) -> Vec Qubit (S (S (add n l))) ->
+setWeld : ! (n l : Nat) -> Vec Qubit (S (S (add n l))) -> Vec Qubit (S (S (add n l))) ->
              Qubit -> Qubit -> Vec Bool n -> Vec Bool n -> 
            Quad (Vec Qubit (S (S (add n l)))) (Vec Qubit (S (S (add n l)))) Qubit Qubit
 setWeld n l a b childctrl direction f g =
@@ -419,7 +419,7 @@ setWeld n l a b childctrl direction f g =
 -- A special case of 'setChild', where the child is inside the same
 -- binary tree (i->e->, not via the welding)->
 --
-setChildInTree :: ! (n l :: Nat) -> Vec Qubit (S (S (add n l))) -> Vec Qubit (S (S (add n l))) ->
+setChildInTree : ! (n l : Nat) -> Vec Qubit (S (S (add n l))) -> Vec Qubit (S (S (add n l))) ->
                   Qubit -> Qubit -> 
                   Quad (Vec Qubit (S (S (add n l)))) (Vec Qubit (S (S (add n l)))) Qubit Qubit
 setChildInTree n l a b childctrl direction  = 
@@ -448,7 +448,7 @@ setChildInTree n l a b childctrl direction  =
 -- length at least n+2, and 'f' and 'g' are boolean registers of
 -- length n->
 --
-setChild :: ! (n l :: Nat) -> Vec Qubit (S (S (add n l))) -> Vec Qubit (S (S (add n l))) ->
+setChild : ! (n l : Nat) -> Vec Qubit (S (S (add n l))) -> Vec Qubit (S (S (add n l))) ->
              Qubit -> Qubit -> Vec Bool n -> Vec Bool n -> 
               Quad (Vec Qubit (S (S (add n l)))) (Vec Qubit (S (S (add n l)))) Qubit Qubit
 setChild n l a b ischild direction f g =
@@ -476,7 +476,7 @@ setChild n l a b ischild direction f g =
 -- The main oracle function->
 --
 
-oraclefun :: ! (n l :: Nat) -> Vec Bool n -> Vec Bool n ->
+oraclefun : ! (n l : Nat) -> Vec Bool n -> Vec Bool n ->
              Nat -> Vec Qubit (S (S (add n l))) -> Vec Qubit (S (S (add n l))) -> Qubit ->
              Vec Qubit (S (S (add n l))) * Vec Qubit (S (S (add n l))) * Qubit
 oraclefun n l f g c a b r =
@@ -511,7 +511,7 @@ oraclefun n l f g c a b r =
 -- some arbitrary choice of welding vectors f and g->
 --
 
-fun :: ! (Nat -> (n :: Nat) -> Vec Bool n -> Vec Bool n ->
+fun : ! (Nat -> (n : Nat) -> Vec Bool n -> Vec Bool n ->
                  Vec Qubit (S (S n)) ->
                      Vec Qubit (S (S n)) ->
                        Qubit -> Vec Qubit (S (S n)) * Vec Qubit (S (S n)) * Qubit)
@@ -520,7 +520,7 @@ fun x n f g =
                   -> Qubit -> Vec Qubit (S (S x)) * Vec Qubit (S (S x)) * Qubit) (addZ n)
                    (oraclefun n Z f g) x
 
-orthodoxy :: ! (s :: Nat) -> (n :: Nat) -> Vec Bool n -> Vec Bool n -> Vec Qubit (S (S n))
+orthodoxy : ! (s : Nat) -> (n : Nat) -> Vec Bool n -> Vec Bool n -> Vec Qubit (S (S n))
 orthodoxy s n f g =
   let entrance = boolreg_of_int_le (S (S n)) 1
       k = 4
@@ -528,9 +528,9 @@ orthodoxy s n f g =
       oracle = O n k entrance (\ x -> fun x n f g)
   in qrwbwt s v oracle
   -- qrwbwt s n m k entrance fun
--- qrwbwt :: ! (Nat -> (m :: Nat) -> Oracle m -> Vec Qubit m)
+-- qrwbwt : ! (Nat -> (m : Nat) -> Oracle m -> Vec Qubit m)
 
-main :: Circ(Unit, Vec Qubit 6)
+main : Circ(Unit, Vec Qubit 6)
 main = -- box Unit $ \ u -> orthodoxy 1 4 (VCons True $ VCons False $ VCons True $ VCons False VNil) (VCons False $ VCons True $ VCons False $ VCons True VNil)
    let f = VCons True $ VCons False $ VCons True $ VCons False VNil
        g = VCons False $ VCons True $ VCons False $ VCons True VNil

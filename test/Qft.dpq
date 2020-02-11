@@ -2,7 +2,7 @@ module Qft where
 import "lib/Prelude.dpq"
 
 
-rotate :: ! forall (y :: Nat) -> Qubit -> Nat -> Vec Qubit y -> Vec Qubit y * Qubit
+rotate : ! forall (y : Nat) -> Qubit -> Nat -> Vec Qubit y -> Vec Qubit y * Qubit
 rotate q buff qs = 
         case qs of
            VNil -> (VNil, q)
@@ -13,7 +13,7 @@ rotate q buff qs =
                  (q'' , c') = R m q' c
    	     in (VCons q'' r , c')	       	    
 
-qft_aux :: ! forall (n :: Nat) -> Vec Qubit n -> Vec Qubit n
+qft_aux : ! forall (n : Nat) -> Vec Qubit n -> Vec Qubit n
 qft_aux l = case l of
                  VNil -> VNil 
                  VCons q qs ->
@@ -22,18 +22,18 @@ qft_aux l = case l of
 		   VCons (H q') qs''
 
 -- big-headian QFT: the highest-order bit is at the head of the list->
-qft :: !  (n :: Nat) -> Vec Qubit n -> Vec Qubit n
+qft : !  (n : Nat) -> Vec Qubit n -> Vec Qubit n
 qft n l = reverse (qft_aux l)
 
 
--- test1 :: Vec Qubit four
+-- test1 : Vec Qubit four
 -- test1 = qft four (VCons (Init0 ()) (VCons (Init0 ()) (VCons (Init0 ()) (VCons (Init0 ()) VNil))))
 
-qftTwice :: ! (n :: Nat) -> Vec Qubit n -> Vec Qubit n
+qftTwice : ! (n : Nat) -> Vec Qubit n -> Vec Qubit n
 qftTwice n l = qft n (qft n l)
 
 
-qftBox :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n) 
+qftBox : ! (n : Nat) -> Circ(Vec Qubit n, Vec Qubit n) 
 qftBox n = box (Vec Qubit n) (\ x -> qft n x)
 
 qft4 :: Circ(Vec Qubit 4, Vec Qubit 4) 
@@ -44,66 +44,63 @@ qft4 = qftBox 4
 
 -- qftBox_t2 = qftBox (nine + nine)
 
-qftUnbox :: ! (n :: Nat) -> Vec Qubit n -> Vec Qubit n
+qftUnbox : ! (n : Nat) -> Vec Qubit n -> Vec Qubit n
 qftUnbox n = unbox $ qftBox n
 
-qft2Box :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n) 
+qft2Box : ! (n : Nat) -> Circ(Vec Qubit n, Vec Qubit n) 
 qft2Box n = box (Vec Qubit n) $ \ x -> qftUnbox n x
 
 -- qft2Box_t1 = qft2Box (five + five)
  
 
-
-
-
-
 -- little-headian QFT: the lowest-order bit is at the head of the list->
-qft_little_headian :: ! (n :: Nat) -> Vec Qubit n -> Vec Qubit n
+qft_little_headian : ! (n : Nat) -> Vec Qubit n -> Vec Qubit n
 qft_little_headian n l = reverse (qft_aux l)
 
 
-qft_little_headian_Box :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n)
+qft_little_headian_Box : ! (n : Nat) -> Circ(Vec Qubit n, Vec Qubit n)
 qft_little_headian_Box n = box (Vec Qubit n) $ \ x -> qft_little_headian n x
 
 -- qft_little_headian_Box_t1 = qft_little_headian_Box seven
 
-qft_little_headian_rev :: ! (n :: Nat) -> Vec Qubit n -> Vec Qubit n
+qft_little_headian_rev : ! (n : Nat) -> Vec Qubit n -> Vec Qubit n
 qft_little_headian_rev n =
   unbox $ revert $ qft_little_headian_Box n
   -- (box Vec Qubit n : qft_little_headian n)
 
-qft_little_headian_rev_B :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n)
+qft_little_headian_rev_B : ! (n : Nat) -> Circ(Vec Qubit n, Vec Qubit n)
 qft_little_headian_rev_B n = revert $ qft_little_headian_Box n
 
 -- qft_little_headian_rev_B_t1 = qft_little_headian_rev_B eight
 
 -- $ box Vec Qubit n :  qft_little_headian n
 
--- qft_little_headian_rev :: ! (n :: Nat) -> Vec Qubit n -> Vec Qubit n
+-- qft_little_headian_rev : ! (n : Nat) -> Vec Qubit n -> Vec Qubit n
 -- qft_little_headian_rev n = unbox qft_little_headian_rev_B n
 
--- q2 :: Qubit
+-- q2 : Qubit
 -- q2 = Init0
 
--- f :: ! (Bool -> Bool)
+-- f : ! (Bool -> Bool)
 -- f x = let a = Term0 q2 in x
 
 
 
-qft4_little :: Circ(Vec Qubit 4, Vec Qubit 4) 
+qft4_little : Circ(Vec Qubit 4, Vec Qubit 4) 
 qft4_little = qft_little_headian_Box 4
 
-qft4_little_rev :: Circ(Vec Qubit 4, Vec Qubit 4)
+qft4_little_rev : Circ(Vec Qubit 4, Vec Qubit 4)
 qft4_little_rev = revert qft4_little
 
-qft_both :: ! (n :: Nat) -> Vec Qubit n -> Vec Qubit n
+qft_both : ! (n : Nat) -> Vec Qubit n -> Vec Qubit n
 qft_both n l = qft_little_headian_rev n $ qft_little_headian n l
 
-qft_both_Box :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n)
+qft_both_Box : ! (n : Nat) -> Circ(Vec Qubit n, Vec Qubit n)
 qft_both_Box n = boxCirc $ \ x -> qft_both n x
 
--- main :: Circ(Vec Qubit 9, Vec Qubit 9)
--- main = qft_both_Box 500
+-- main : Circ(Vec Qubit 9, Vec Qubit 9)
+-- main = qft_both_Box 9
+
 
 
 

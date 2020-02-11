@@ -19,7 +19,7 @@ data Timestep = TIMESTEP
 -- are m-qubit registers holding node labels to be diffused-> r is a
 -- control->
 -- 
-timestep :: ! (List Qubit -> List Qubit -> Qubit -> Nat -> List Qubit * List Qubit * Qubit)
+timestep : ! (List Qubit -> List Qubit -> Qubit -> Nat -> List Qubit * List Qubit * Qubit)
 timestep a b r m =
   let state = with_ancilla False (\ h ->
        let (a,b) = map2 WGate a b 
@@ -42,7 +42,7 @@ timestep a b r m =
 -- include classical bits or measurements, we return the unmeasured
 -- quantum register a->
 --
-qrwbwt :: ! (Oracle -> Nat -> List Qubit)
+qrwbwt : ! (Oracle -> Nat -> List Qubit)
 qrwbwt oracle s =
   case oracle of
     ORACLE n m k entrance oraclefun ->
@@ -88,7 +88,7 @@ qrwbwt oracle s =
 -- and 'even' if 'a' is a root node->
 --
 
-parseNodeRoot :: ! (List Qubit -> Qubit -> Qubit -> Nat -> List Qubit * Qubit * Qubit)
+parseNodeRoot : ! (List Qubit -> Qubit -> Qubit -> Nat -> List Qubit * Qubit * Qubit)
 parseNodeRoot a root even n =
   let (a, re) = with_list_range (S Z) n a (\ a ->
        let (re, a) = with_disjunction a (\ q ->
@@ -105,7 +105,7 @@ parseNodeRoot a root even n =
 -- node 'a' occurs at an even height in the tree->
 --
 
-parseNodeEven :: ! (List Qubit -> Qubit -> Nat -> List Qubit * Qubit)
+parseNodeEven : ! (List Qubit -> Qubit -> Nat -> List Qubit * Qubit)
 parseNodeEven as even n =
   let as = number_elements as
       (as, even) = with_list_range (S Z) n as (\ as ->
@@ -148,7 +148,7 @@ parseNodeEven as even n =
 -- > qterm false ismatch;
 --
 
-testIsParentHelper :: ! (Bool * Bool -> Qubit -> Qubit -> Qubit -> Qubit ->
+testIsParentHelper : ! (Bool * Bool -> Qubit -> Qubit -> Qubit -> Qubit ->
                         Quad Qubit Qubit Qubit Qubit)
 testIsParentHelper color isparent ismatch even a0 =
   let (u, v) = color in
@@ -166,7 +166,7 @@ testIsParentHelper color isparent ismatch even a0 =
                                                             isparent even a0
                           in Q ismatch isparent even a0
 
-testIsParent :: ! (List Qubit -> Qubit -> Qubit -> Qubit -> Bool * Bool -> Nat -> Bool -> Qubit ->  Five (List Qubit) Qubit Qubit Qubit Qubit)
+testIsParent : ! (List Qubit -> Qubit -> Qubit -> Qubit -> Bool * Bool -> Nat -> Bool -> Qubit ->  Five (List Qubit) Qubit Qubit Qubit Qubit)
 testIsParent a root even isparent color n really ismatch =
   let (a0, as) = sf_head a
       T isparent root ismatch = toT $ toffoliGate_if (not really)
@@ -183,7 +183,7 @@ testIsParent a root even isparent color n really ismatch =
 -- "left" or "right" child-> Here, 'color' is a boolean register of
 -- length 2, representing a color-> This function is self-inverse->
 --
-testIsChild :: ! (Qubit -> Qubit -> Qubit -> Bool * Bool -> Nat -> Qubit * Qubit * Qubit)
+testIsChild : ! (Qubit -> Qubit -> Qubit -> Bool * Bool -> Nat -> Qubit * Qubit * Qubit)
 testIsChild even ischild direction color n =
  let (a, b) = color 
      (ischild, even) = CNotGate (not b) ischild even
@@ -198,7 +198,7 @@ testIsChild even ischild direction color n =
 -- 'isparent' is set, set 'b' to the node label of the parent of
 -- 'a'-> This is self-inverse->
 --
-setParent :: ! (List Qubit -> List Qubit -> Qubit -> Nat -> Triple (List Qubit) (List Qubit) Qubit)
+setParent : ! (List Qubit -> List Qubit -> Qubit -> Nat -> Triple (List Qubit) (List Qubit) Qubit)
 setParent a b isparent n =
   let (a, bis) = with_list_range (S Z) n a (\ as ->
        let (b, asis) = with_list_range Z (n - (S Z)) b (\ bs ->
@@ -225,7 +225,7 @@ setParent a b isparent n =
 -- quantum registers of length at least n+2, and 'g' is a boolean
 -- register of length n->
 --
-doWeld0 :: ! (List Qubit -> List Qubit -> Qubit -> List Bool -> Nat ->
+doWeld0 : ! (List Qubit -> List Qubit -> Qubit -> List Bool -> Nat ->
       Triple (List Qubit) (List Qubit) Qubit)
 doWeld0 a b weldctrl f n =
   let T abefore as aafter = toT $ sf_list_range Z (n - 1) a
@@ -243,7 +243,7 @@ doWeld0 a b weldctrl f n =
 -- majority q (a, b, n): negate q iff the majority of a, b, and n is 1->
 -- Here, a and b are qubits, and n is a boolean->
 --
-majority :: ! (Qubit -> Qubit -> Qubit -> Bool -> Triple Qubit Qubit Qubit)
+majority : ! (Qubit -> Qubit -> Qubit -> Bool -> Triple Qubit Qubit Qubit)
 majority q a b n =
   case n of
     True ->
@@ -266,7 +266,7 @@ majority q a b n =
 -- integers are represented in little-headian order, i->e->, the head of
 -- the list holds the least significant bit->
 --
-cAddNum_carry :: ! (Qubit -> List Qubit -> List Qubit -> List Bool -> Qubit ->
+cAddNum_carry : ! (Qubit -> List Qubit -> List Qubit -> List Bool -> Qubit ->
     Quad Qubit (List Qubit) (List Qubit) Qubit)
 cAddNum_carry control output input num carry =
   case output of
@@ -299,7 +299,7 @@ cAddNum_carry control output input num carry =
 -- recursively-> However, we did this in such a way that the resulting
 -- sequence of gates is still the "orthodox" 1->
 --
-cAddNumHelper :: ! (List Qubit -> List Qubit -> List Bool -> Qubit ->
+cAddNumHelper : ! (List Qubit -> List Qubit -> List Bool -> Qubit ->
                    Triple Qubit (List Qubit) (List Qubit))
 cAddNumHelper output input num control = 
   case output of
@@ -319,7 +319,7 @@ cAddNumHelper output input num control =
               in T control (Cons o os) (Cons i is)
              
 
-cAddNum :: ! (Qubit -> List Qubit -> List Qubit -> List Bool -> Nat ->
+cAddNum : ! (Qubit -> List Qubit -> List Qubit -> List Bool -> Nat ->
             Triple Qubit (List Qubit) (List Qubit))
 cAddNum control output input num n =
   let (output, orest) = list_split n output
@@ -338,7 +338,7 @@ cAddNum control output input num n =
 -- complement-> The generated sequence of gates is slightly different,
 -- but nevertheless correct->
 -- 
-cSubNum :: ! (Qubit -> List Qubit -> List Qubit -> List Bool -> Nat ->
+cSubNum : ! (Qubit -> List Qubit -> List Qubit -> List Bool -> Nat ->
               Triple Qubit (List Qubit) (List Qubit))
 cSubNum control output input num n =
   let num' = twos_complement num in
@@ -351,7 +351,7 @@ cSubNum control output input num n =
 -- quantum registers of length at least n+2, and 'f' is a boolean
 -- register of length n->
 -- 
-doWeld1 :: ! (List Qubit -> List Qubit -> Qubit -> List Bool -> Nat ->
+doWeld1 : ! (List Qubit -> List Qubit -> Qubit -> List Bool -> Nat ->
              Triple (List Qubit) (List Qubit) Qubit)
 doWeld1 a b weldctrl g n =
   let 
@@ -371,7 +371,7 @@ doWeld1 a b weldctrl g n =
 -- binary tree, i->e->, we follow 1 of the welding edges->
 --
 
-setWeld :: ! (List Qubit -> List Qubit -> Qubit -> Qubit -> List Bool -> List Bool -> Nat ->
+setWeld : ! (List Qubit -> List Qubit -> Qubit -> Qubit -> List Bool -> List Bool -> Nat ->
            Quad (List Qubit) (List Qubit) Qubit Qubit)
 setWeld a b childctrl direction f g n =
   let Q a b childctrl direction = with_ancilla False (\ weldctrl ->
@@ -399,7 +399,7 @@ setWeld a b childctrl direction f g n =
 -- A special case of 'setChild', where the child is inside the same
 -- binary tree (i->e->, not via the welding)->
 --
-setChildInTree :: ! (List Qubit -> List Qubit -> Qubit -> Qubit -> Nat ->
+setChildInTree : ! (List Qubit -> List Qubit -> Qubit -> Qubit -> Nat ->
                   Quad (List Qubit) (List Qubit) Qubit Qubit)
 setChildInTree a b childctrl direction n =
   let T bbefore b0 bafter = sf_list_index Z b
@@ -425,7 +425,7 @@ setChildInTree a b childctrl direction n =
 -- length at least n+2, and 'f' and 'g' are boolean registers of
 -- length n->
 --
-setChild :: ! (List Qubit -> List Qubit -> Qubit -> Qubit -> List Bool -> List Bool -> Nat ->
+setChild : ! (List Qubit -> List Qubit -> Qubit -> Qubit -> List Bool -> List Bool -> Nat ->
               Quad (List Qubit) (List Qubit) Qubit Qubit)
 setChild a b ischild direction f g n =
   let Q a b ischild direction = with_ancilla False (\ childctrl->
@@ -450,7 +450,7 @@ setChild a b ischild direction f g n =
 -- The main oracle function->
 --
 
-oraclefun :: ! (Nat -> List Bool -> List Bool -> Nat -> List Qubit -> List Qubit -> Qubit ->
+oraclefun : ! (Nat -> List Bool -> List Bool -> Nat -> List Qubit -> List Qubit -> Qubit ->
              List Qubit * List Qubit * Qubit)
 oraclefun n f g c a b r =
   let color = getTwo $ boolreg_of_int_le (S 1) c 
@@ -477,7 +477,7 @@ oraclefun n f g c a b r =
 -- The orthodox oracle-> The parameter n is the tree depth->
 --
 
-orthodox_oracle :: ! (Nat -> List Bool -> List Bool -> Oracle)
+orthodox_oracle : ! (Nat -> List Bool -> List Bool -> Oracle)
 orthodox_oracle n f g =
   let m = S (S n) 
       k = 4
@@ -492,10 +492,10 @@ orthodox_oracle n f g =
 -- Display the circuit for tree depth n, repetition count s=1, and
 -- some arbitrary choice of welding vectors f and g->
 --
-comp :: ! (Unit -> List Qubit)
+comp : ! (Unit -> List Qubit)
 comp u = qrwbwt (orthodox_oracle 2 (Cons True $ Cons False Nil) (Cons False $ Cons True Nil)) 1
 
-main'' :: Circ(Unit, Vec Qubit 4)
+main'' : Circ(Unit, Vec Qubit 4)
 main'' =
   box Unit $ \ u ->
    let  -- $ Cons True $ Cons False Nil

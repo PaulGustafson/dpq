@@ -4,7 +4,7 @@ import "lib/Prelude.dpq"
 
 
 -- copy out the n-th qubit from an nonempty vector-> 
-nthQubit :: ! (n m :: Nat) -> Vec Qubit (S (add n m)) -> WithGarbage Qubit
+nthQubit : ! (n m : Nat) -> Vec Qubit (S (add n m)) -> WithGarbage Qubit
 nthQubit n m v =
   let (before, h, after) = sf_vec_index Qubit n m v in
   do dispose before
@@ -12,16 +12,16 @@ nthQubit n m v =
      let (h', hold) = copy h in
       dispose hold >> return h'
 
-nthQubitCirc :: ! (n m :: Nat) ->
-                  (l :: Nat) * Circ(Vec Qubit (S (add n m)), Vec Qubit l * Qubit)
+nthQubitCirc : ! (n m : Nat) ->
+                  (l : Nat) * Circ(Vec Qubit (S (add n m)), Vec Qubit l * Qubit)
 nthQubitCirc n m = box_garbage (Vec Qubit (S (add n m))) Qubit (\ x -> nthQubit n m x)
 --(Vec Qubit (S (add n m))) Qubit (nthQubit n m)
 
-nthQubitCirc_t1 :: (l :: Nat) * Circ(Vec Qubit (S (add 9 9)), Vec Qubit l * Qubit)
+nthQubitCirc_t1 : (l : Nat) * Circ(Vec Qubit (S (add 9 9)), Vec Qubit l * Qubit)
 nthQubitCirc_t1 = nthQubitCirc 9 9
 
 
-update_pos :: ! (pos m :: Nat) -> 
+update_pos : ! (pos m : Nat) -> 
                  Bool -> Vec Qubit (S (add pos m)) ->
 	         WithGarbage (Vec Qubit (S (add pos m)))
 update_pos pos m b v =
@@ -36,21 +36,21 @@ update_pos pos m b v =
       dispose h
       return r
 
-boxUpdate :: ! (pos m :: Nat) -> Bool ->
-                 (n :: Nat) *
+boxUpdate : ! (pos m : Nat) -> Bool ->
+                 (n : Nat) *
                   Circ(Vec Qubit (S (add pos m)),
                         Vec Qubit n * Vec  Qubit (S (add pos m)))
 boxUpdate pos m b =
   box_garbage (Vec Qubit (S (add pos m))) (Vec Qubit (S (add pos m))) $
     \ x -> update_pos pos m b x
 
-boxUpdate_t1 :: (n :: Nat) *
+boxUpdate_t1 : (n : Nat) *
                   Circ(Vec Qubit (S (add 9 9)),
                         Vec Qubit n * Vec  Qubit (S (add 9 9)))
 boxUpdate_t1 = boxUpdate 9 9 True
 
 
-testpos :: ! (pos m xy_max :: Nat) ->
+testpos : ! (pos m xy_max : Nat) ->
                         Vec Qubit (S (add pos m)) ->
                         Vec Qubit (S (add pos m)) ->
                         Vec Qubit (S (add pos m)) ->
@@ -70,8 +70,8 @@ testpos pos m xy_max maskmap bitmap newmap =
     False ->
       dispose bitmap >> dispose maskmap >> return newmap
 
-box_testpos :: ! (pos m xy_max :: Nat) ->
-                  (n :: Nat) *
+box_testpos : ! (pos m xy_max : Nat) ->
+                  (n : Nat) *
                    Circ(Vec  Qubit  (S  (add  pos m)) *
                      Vec  Qubit  (S  (add pos m)) * Vec  Qubit (S  (add  pos m)),
                        Vec Qubit n * Vec Qubit (S ((add pos m))))
@@ -81,7 +81,7 @@ box_testpos pos m xy_max  =
      (Vec Qubit (S (add pos m))) 
          $ uncurry $ uncurry (\ x -> testpos pos m xy_max x)
 
-box_testpos_t1 :: (n :: Nat) *
+box_testpos_t1 : (n : Nat) *
                    Circ(Vec  Qubit (S (add 9 8)) *
                      Vec  Qubit  (S (add 9 8)) * Vec  Qubit (S  (add 9 8)),
                        Vec Qubit n * Vec Qubit (S ((add 9 8))))

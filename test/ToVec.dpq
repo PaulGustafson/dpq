@@ -5,36 +5,36 @@ import "lib/Prelude.dpq"
 
 -- data Nat = Z | S Nat
 
--- simple Vec a :: Nat -> Type where
+-- simple Vec a : Nat -> Type where
 --   Vec a Z = VNil
 --   Vec a (S n) = VCons a (Vec a n)
 
 -- data List a = Nil | Cons a (List a)
 
 
--- simple Vec' a :: List Unit -> Type where
+-- simple Vec' a : List Unit -> Type where
 --    Vec' a Nil = VNil'
 --    Vec' a (Cons x xs) = VCons' a (Vec' a xs)
     
 
 
--- h1 :: Vec' Nat (Cons () (Cons () Nil))
+-- h1 : Vec' Nat (Cons () (Cons () Nil))
 -- h1 = VCons' Z (VCons' Z VNil')
 -- -- -- h1 x --
 
--- toNat :: ! (List Unit -> Nat)
+-- toNat : ! (List Unit -> Nat)
 -- toNat x = case x of
 --             Nil -> Z
 --             Cons y qs -> S (toNat qs)
 
-g' :: ! (x :: List Qubit) -> Vec Qubit (toNat x)
+g' : ! (x : List Qubit) -> Vec Qubit (toNat x)
 g' x = case x of
          Nil -> VNil
          Cons y zs -> VCons y (g' zs)
 
 main  = box Unit $ \ y -> [Init0 ()]
 
-f :: !(Unit -> Vec Qubit (toNat (Cons (Init0 ()) Nil)))
+f : !(Unit -> Vec Qubit (toNat (Cons (Init0 ()) Nil)))
 f y = g' (Cons (Init0()) Nil)
 
 main'  = box Unit f -- (\ y -> g' (Cons (Init0()) Nil))
@@ -49,7 +49,7 @@ main'  = box Unit f -- (\ y -> g' (Cons (Init0()) Nil))
 --   Vec' Qubit (Nil @ Qubit)
 -- but it has type:
 --   Vec' a (Nil Unit)
--- g :: ! (x :: List Qubit) -> Vec' Qubit x
+-- g : ! (x : List Qubit) -> Vec' Qubit x
 -- g x = 
 --   case x of
 --     Nil -> VNil'
@@ -57,11 +57,11 @@ main'  = box Unit f -- (\ y -> g' (Cons (Init0()) Nil))
     -- goal: Vec' Q (Cons Unit y ys)
                     -- have Vec' a (Cons Unit x ys)
 {-
-g' :: ! (x :: List Qubit) -> Vec Qubit (toNat x)
+g' : ! (x : List Qubit) -> Vec Qubit (toNat x)
 g' x = case x of
          Nil -> VNil
          Cons y zs -> VCons y (g' zs)
 
-h2 :: Vec Nat (toNat (Cons () (Cons () Nil)))
+h2 : Vec Nat (toNat (Cons () (Cons () Nil)))
 h2 = [1, 2]
 -}

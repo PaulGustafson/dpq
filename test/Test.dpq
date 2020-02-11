@@ -2,18 +2,19 @@ module Test where
 import "lib/Prelude.dpq"
 
 -- large space, even for haskell. 
-f :: ! (Nat -> (Nat -> Nat) -> Nat)
+
+f : ! (Nat -> (Nat -> Nat) -> Nat)
 f x y = f x (\ z -> y z)
 
 -- constant space.
-f1 :: ! (Nat -> (Nat -> Nat) -> Nat)
+f1 : ! (Nat -> (Nat -> Nat) -> Nat)
 f1 x y = f1 x y
 
 -- constant space
-f2 :: ! (Nat -> Nat)
+f2 : ! (Nat -> Nat)
 f2 x = f2 x
 
-k :: ! forall a b -> (Parameter b) => a -> b -> a
+k : ! forall a b -> (Parameter b) => a -> b -> a
 k x y = x
 
 -- constant space diverging. 

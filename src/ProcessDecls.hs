@@ -374,7 +374,6 @@ process (SimpData pos d n k0 eqs) =
      elaborateInstance pos instParam insTy' []
      elaborateInstance pos instPS insTy'' []
      tfunc <- makeTypeFun n k2 (zip constructors (zip inds tys))
-     tfunc' <- erasure tfunc
      let tp = Info {classifier = erasePos k,
                    identification = DataType (SemiSimple indx) constructors
                                     (Just tfunc')

@@ -129,14 +129,14 @@ erasure a@(LamDict (Abst xs m)) =
 
 erasure (WithType ann t) = erasure ann
 
-erasure a@(LamDep (Abst ys m)) =
+erasure (LamDep (Abst ys m)) =
   do m' <- erasure m
      let ns = countVar ys m'
          xs' = zip ys ns
          ws = evars m' \\ ys
      return $ ELam ws (abst xs' m') 
 
-erasure a@(LamDepTy (Abst ys m)) =
+erasure (LamDepTy (Abst ys m)) =
   do m' <- erasure m
      let ns = countVar ys m'
          xs' = zip ys ns
@@ -144,7 +144,7 @@ erasure a@(LamDepTy (Abst ys m)) =
      return $ ELam ws (abst xs' m') 
 
 
-erasure a@(LamDep' (Abst ys m)) =
+erasure (LamDep' (Abst ys m)) =
   do m' <- erasure m
      let ns = countVar ys m'
          xs' = zip ys ns

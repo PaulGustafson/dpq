@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE BangPatterns #-}
+
 -- | This module implements a closure-based call-by-value evaluation.
 -- It still has memory problem when generating super-large circuits.
 
@@ -124,6 +125,7 @@ eval (ETensor e1 e2) =
   do e1' <- eval e1
      e2' <- eval e2
      return $ VTensor e1' e2'
+
 
 eval a@(ELam ws body) = return (VLam ws body)
      
