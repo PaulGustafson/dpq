@@ -4,42 +4,42 @@ import "lib/Vec.dpq"
 
 data List a = Nil | Cons a (List a)
 
--- appendL :: ! forall a  -> List a  -> List a -> List a
-appendL a . (l1 l2 :: List a) =
+-- appendL : ! forall a  -> List a  -> List a -> List a
+appendL a . (l1 l2 : List a) =
               case l1 of
                   Nil -> l2
     	          Cons x xs -> Cons x (appendL xs l2)
 
--- mapL :: ! forall a b -> !(a -> b) -> List a -> List b
-mapL a b . (f :: !(a -> b)) (l :: List a) =
+-- mapL : ! forall a b -> !(a -> b) -> List a -> List b
+mapL a b . (f : !(a -> b)) (l : List a) =
   case l of
     Nil -> Nil
     Cons x xs -> Cons (f x) (mapL f xs)
 
 -- An isomorphism 
--- toNat :: ! (List Unit -> Nat)
-toNat (x :: List Unit) = case x of
+-- toNat : ! (List Unit -> Nat)
+toNat (x : List Unit) = case x of
                           Nil -> Z
                           Cons y qs -> S (toNat qs)
 
-vecToList :: ! forall a (n :: Nat) -> Vec a n -> List a
+vecToList : ! forall a (n : Nat) -> Vec a n -> List a
 vecToList v =
    case v of
      VNil -> Nil
      VCons x xs -> Cons x (vecToList xs)
      
-listToVec :: ! (x :: List Qubit) -> Vec Qubit (toNat x)
+listToVec : ! (x : List Qubit) -> Vec Qubit (toNat x)
 listToVec x = case x of
                 Nil -> VNil
                 Cons y zs -> VCons y (listToVec zs)
 
 -- listToVec does no appear to be that useful after all because the conversion is
 -- not really free->
--- testCirc :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n)
+-- testCirc : ! (n : Nat) -> Circ(Vec Qubit n, Vec Qubit n)
 -- testCirc n = box (Vec Qubit n) $ \ x -> listToVec (mapL id (vecToList x))
 
 
-unsafe_to_vec :: ! forall a -> (n :: Nat) -> List a -> Vec a n 
+unsafe_to_vec : ! forall a -> (n : Nat) -> List a -> Vec a n 
 unsafe_to_vec n l =
   case n of
     Z ->
@@ -48,7 +48,7 @@ unsafe_to_vec n l =
     S n' -> case l of
              Cons x xs -> VCons x (unsafe_to_vec n' xs)
 
-lengthL :: ! forall a  -> List a  -> List a * Nat
+lengthL : ! forall a  -> List a  -> List a * Nat
 lengthL l = case l of
               Nil -> (Nil, Z)
 	      Cons x xs ->
@@ -56,7 +56,7 @@ lengthL l = case l of
 		(Cons x xs', S n)
 
 
-lengthL' c . (l :: List c) =
+lengthL' c . (l : List c) =
        let r = case l of
                 Nil -> (Nil, Z) 
 	        Cons x xs -> 

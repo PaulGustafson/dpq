@@ -8,38 +8,38 @@ data Nat = Z | S Nat
 
 data Maybe a = Nothing | Just a
 
-iterN :: ! forall a -> Nat -> !(a -> a) -> a -> a
+iterN : ! forall a -> Nat -> !(a -> a) -> a -> a
 iterN n f b = case n of
                   Z -> b
   		  S n' -> f (iterN n' f b)
 
 
-add :: !(Nat -> Nat -> Nat)
+add : !(Nat -> Nat -> Nat)
 add n m = 
   case n of
     Z -> m
     S n' -> S (add n' m) 
 
-minus :: !(Nat -> Nat -> Nat)
+minus : !(Nat -> Nat -> Nat)
 minus n m = case n of
               Z -> Z
 	      S n' -> case m of
 	               Z -> n
 	               S m' -> minus n' m'
 
-mul :: ! (Nat -> Nat -> Nat)
+mul : ! (Nat -> Nat -> Nat)
 mul n m = iterN n (\ x -> add m x) 0
 
-pred :: ! (Nat -> Nat)
+pred : ! (Nat -> Nat)
 pred n = case n of
             Z -> Z
             S m -> m
             
-exponential :: ! (Nat -> Nat -> Nat)
+exponential : ! (Nat -> Nat -> Nat)
 exponential e n = iterN n (\ x -> mul e x) 1
 
 
-less :: ! (Nat -> Nat -> Bool)
+less : ! (Nat -> Nat -> Bool)
 less n m = case n of
              Z -> case m of
                    Z -> False
@@ -48,39 +48,39 @@ less n m = case n of
                       Z -> False
                       S m' -> less n' m'
 
-divMod :: !(Nat -> Nat -> Nat * Nat)
+divMod : !(Nat -> Nat -> Nat * Nat)
 divMod x y = 
      if less x y then (0, x)
        else let u = minus x y
                 (q, r) = divMod u y
             in (S q, r)
 
-div :: !(Nat -> Nat -> Nat)
+div : !(Nat -> Nat -> Nat)
 div x y = fst $ divMod x y
 
-mod :: ! (Nat -> Nat -> Nat)
+mod : ! (Nat -> Nat -> Nat)
 mod x y = let (_, r) = divMod x y in r
 
-log2helper :: ! (Nat -> Nat -> Nat)
+log2helper : ! (Nat -> Nat -> Nat)
 log2helper n m =
   if not $ less (exponential 2 m) n then
    m else log2helper n (S m)
 
-log2 :: ! (Nat -> Nat)
+log2 : ! (Nat -> Nat)
 log2 n = log2helper n Z
 
-isOdd :: ! (Nat -> Bool)
+isOdd : ! (Nat -> Bool)
 isOdd n = let (_, rem) = divMod n 2
           in case rem of
                 Z -> False
                 S _ -> True
 
-isEven :: ! (Nat -> Bool)
+isEven : ! (Nat -> Bool)
 isEven n = not (isOdd n)
 
 
 
-eitherOr :: ! forall a -> (x :: Bool) -> !(Eq Bool x True -> a) -> !(Eq Bool x False -> a) -> a
+eitherOr : ! forall a -> (x : Bool) -> !(Eq Bool x True -> a) -> !(Eq Bool x False -> a) -> a
 eitherOr x f1 f2 =
   case x of
     True -> f1 refl 

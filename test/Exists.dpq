@@ -1,18 +1,18 @@
 module Exists where
 import "lib/Prelude.dpq"
 
-test :: ! forall a -> (n :: Nat) * Vec a n
+test : ! forall a -> (n : Nat) * Vec a n
 test = (Z,  VNil)
 
 
-toExist :: ! (a :: Type) -> List a -> (n :: Nat) * Vec a n
+toExist : ! (a : Type) -> List a -> (n : Nat) * Vec a n
 toExist a l = case l of
                 Nil -> (Z , VNil)
 	        Cons x xs ->
 	          let (n, vs) = toExist a xs in
 		   (S n, VCons x vs)
 
--- toExist' :: ! (a :: Type) -> List a -> exists n :: Nat -> Vec a n
+-- toExist' : ! (a : Type) -> List a -> exists n : Nat -> Vec a n
 -- toExist' a l = case l of
 --                 Nil -> {Z , VNil}
 -- 	        Cons x xs ->
@@ -23,14 +23,14 @@ toExist a l = case l of
 	            -- S n' -> {S n, vs}
 
 
-mapHadarmad :: ! (Unit -> (n :: Nat) * Vec Qubit n)
+mapHadarmad : ! (Unit -> (n : Nat) * Vec Qubit n)
 mapHadarmad x = toExist Qubit $ Cons (initQubit True) (Cons (initQubit False) Nil)
 
-test5 :: (n :: Nat) * Circ(Unit, Vec Qubit n)
+test5 : (n : Nat) * Circ(Unit, Vec Qubit n)
 test5 = let (n, circ) = existsBox Unit (\ x -> Vec Qubit x) mapHadarmad
         in (n, circ)
 
 -- should fail here because existential hiding->
--- show5 :: Circ(Unit, Vec Qubit 2)
+-- show5 : Circ(Unit, Vec Qubit 2)
 -- show5 = let {h, circ} = test5 in circ
 

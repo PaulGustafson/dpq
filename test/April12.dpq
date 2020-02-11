@@ -1,41 +1,41 @@
 module Apil12 where
 import "lib/Prelude.dpq"
 
-controlled ZGate :: Qubit -> Qubit
+controlled ZGate : Qubit -> Qubit
 
-controlled SGate :: Qubit -> Qubit
+controlled SGate : Qubit -> Qubit
 
 
-cZ :: ! (Qubit -> Qubit -> Qubit * Qubit)
+cZ : ! (Qubit -> Qubit -> Qubit * Qubit)
 cZ x y = ZGate x y
 
--- f :: !(Qubit -> Qubit * Qubit)
+-- f : !(Qubit -> Qubit * Qubit)
 -- f q = cZ q q 
 
-cS :: ! (Qubit -> Qubit -> Qubit * Qubit)
+cS : ! (Qubit -> Qubit -> Qubit * Qubit)
 cS x y = SGate x y
 
-box_cZ :: Circ(Qubit * Qubit, Qubit * Qubit)
+box_cZ : Circ(Qubit * Qubit, Qubit * Qubit)
 box_cZ = box (Qubit * Qubit) $ uncurry cZ
 
-box_cS :: Circ(Qubit * Qubit, Qubit * Qubit)
+box_cS : Circ(Qubit * Qubit, Qubit * Qubit)
 box_cS = box (Qubit * Qubit) $ uncurry cS
 
-mapH :: ! forall (n :: Nat) -> Vec Qubit n -> Vec Qubit n
+mapH : ! forall (n : Nat) -> Vec Qubit n -> Vec Qubit n
 mapH l = map H l
 
-box_mapH :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n)
+box_mapH : ! (n : Nat) -> Circ(Vec Qubit n, Vec Qubit n)
 box_mapH n = box (Vec Qubit n) mapH
 
--- sum (n :: Nat) =
+-- sum (n : Nat) =
 --   case n of
 --     Z -> 0
 --     S n' -> add n (sum n')
 
--- g :: ! forall (n :: Nat) ->  Vec Qubit n -> Vec Qubit n -> Vec Qubit n * Vec Qubit n
+-- g : ! forall (n : Nat) ->  Vec Qubit n -> Vec Qubit n -> Vec Qubit n * Vec Qubit n
 -- g v1 v2 = g v1 v2
 
--- f :: !  (n :: Nat) -> Vec Qubit n -> Vec Qubit (sum n) -> Vec Qubit n * Vec Qubit (sum n)
+-- f : !  (n : Nat) -> Vec Qubit n -> Vec Qubit (sum n) -> Vec Qubit n * Vec Qubit (sum n)
 -- f n v ctrls =
 --   case n of
 --     Z -> (v, ctrls)
@@ -43,14 +43,14 @@ box_mapH n = box (Vec Qubit n) mapH
 --        let T l q r = sf_vec_index n' (sum n') ctrls
 --        in l
 
-simple DVec a :: Nat -> Type where
+simple DVec a : Nat -> Type where
   DVec a Z = DNil 
   DVec a (S n) = DCons (Vec a n) (DVec a n)
 
-test2 :: DVec Nat 3
+test2 : DVec Nat 3
 test2 = DCons [1,2] $ DCons [1] $ DCons [] DNil
 
-controls :: ! forall (n :: Nat) -> Vec Qubit n -> Vec Qubit n -> Qubit ->
+controls : ! forall (n : Nat) -> Vec Qubit n -> Vec Qubit n -> Qubit ->
                 Qubit * Vec Qubit n * Vec Qubit n
 controls v2 v1 q =
   case v1 of
@@ -62,10 +62,10 @@ controls v2 v1 q =
       in (q, VCons y ys, VCons x xs)
 
 
-box_ctr :: !(n :: Nat) -> Circ(Vec Qubit n * Vec Qubit n * Qubit, Qubit * Vec Qubit n * Vec Qubit n)
+box_ctr : !(n : Nat) -> Circ(Vec Qubit n * Vec Qubit n * Qubit, Qubit * Vec Qubit n * Vec Qubit n)
 box_ctr n = box (Vec Qubit n * Vec Qubit n * Qubit) $ uncurry $ uncurry controls
 
-additiveCtrl :: ! forall (n :: Nat) -> Vec Qubit n -> DVec Qubit n -> DVec Qubit n * Vec Qubit n
+additiveCtrl : ! forall (n : Nat) -> Vec Qubit n -> DVec Qubit n -> DVec Qubit n * Vec Qubit n
 additiveCtrl v dv =
   case v of
     VNil -> (dv, VNil)
@@ -75,14 +75,14 @@ additiveCtrl v dv =
           (dv'', xs') = additiveCtrl xs dv' 
       in (DCons v dv'', VCons x xs')
 
-cool :: !(n :: Nat) -> Circ(Vec Qubit n * DVec Qubit n, DVec Qubit n * Vec Qubit n)
+cool : !(n : Nat) -> Circ(Vec Qubit n * DVec Qubit n, DVec Qubit n * Vec Qubit n)
 cool n = box (Vec Qubit n * DVec Qubit n) $ uncurry additiveCtrl
 
 
-f :: ! forall a -> List a -> List a
+f : ! forall a -> List a -> List a
 f x = f x
 
-idVec :: ! forall a -> (n :: Nat) -> Vec a n -> Vec a n
+idVec : ! forall a -> (n : Nat) -> Vec a n -> Vec a n
 idVec n v = let l = vecToList v
                 (l, m) = lengthL $ f l
             in unsafe_to_vec n l

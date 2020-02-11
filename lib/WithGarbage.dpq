@@ -5,7 +5,7 @@ import "lib/Vec.dpq"
 import "lib/Gates.dpq"
 
   
-data WithGarbage a = WG (( n :: Nat) * Vec Qubit n) a
+data WithGarbage a = WG (( n : Nat) * Vec Qubit n) a
 
 instance Monad WithGarbage where
   return x = WG (Z, VNil) x
@@ -15,11 +15,11 @@ instance Monad WithGarbage where
                   (m, g') = mg'
                in WG (add n m, append g g') r'
 
-dispose_qubit :: !(Qubit -> WithGarbage Unit)
+dispose_qubit : !(Qubit -> WithGarbage Unit)
 dispose_qubit q = WG (S Z, VCons q VNil) ()
 
 class Disposable a where
-  dispose :: a -> WithGarbage Unit
+  dispose : a -> WithGarbage Unit
 
 instance Disposable Qubit where
   dispose = dispose_qubit 
@@ -29,18 +29,18 @@ instance forall a b -> (Disposable a, Disposable b) => Disposable (a * b) where
   dispose x =
     let (x, y) = x in dispose x >> dispose y
 
-instance forall a (n :: Nat) -> (Disposable a) => Disposable (Vec a n) where
+instance forall a (n : Nat) -> (Disposable a) => Disposable (Vec a n) where
   dispose v = case v of
                 VNil -> return ()
                 VCons x xs -> dispose x >> dispose xs
 
 
 class BooleanLogic a where
-  band :: a -> a -> WithGarbage a
-  bor ::  a -> a -> WithGarbage a
-  bxor :: a -> a -> WithGarbage a
-  bnot :: a -> WithGarbage a
-  bif :: Qubit -> a -> a -> WithGarbage a
+  band : a -> a -> WithGarbage a
+  bor :  a -> a -> WithGarbage a
+  bxor : a -> a -> WithGarbage a
+  bnot : a -> WithGarbage a
+  bif : Qubit -> a -> a -> WithGarbage a
 
 instance BooleanLogic Qubit where
   -- generate 2 garbage
@@ -113,7 +113,7 @@ instance forall a b -> (BooleanLogic a, BooleanLogic b) => BooleanLogic (a * b) 
           rs2 <- bif r2 b2 c2
           return (rs1, rs2)
 
-instance forall a (n :: Nat) -> (BooleanLogic a) => BooleanLogic (Vec a n) where
+instance forall a (n : Nat) -> (BooleanLogic a) => BooleanLogic (Vec a n) where
   band x y =
     case x of
       VNil -> return y
@@ -164,7 +164,7 @@ instance forall a (n :: Nat) -> (BooleanLogic a) => BooleanLogic (Vec a n) where
                rs <- bif r2 xs ys
                return $ VCons r rs
 
-instance forall a (n m :: Nat) -> (BooleanLogic a) => BooleanLogic (VecZipper a n m) where
+instance forall a (n m : Nat) -> (BooleanLogic a) => BooleanLogic (VecZipper a n m) where
   band x y =
    do let VZ x1 x2 x3 = x
           VZ y1 y2 y3 = y
@@ -208,21 +208,21 @@ instance forall a (n m :: Nat) -> (BooleanLogic a) => BooleanLogic (VecZipper a 
           return $ VZ rs1 rs2 rs3
   
 
-runGarbage :: ! forall a -> WithGarbage a -> (n :: Nat) * (Vec Qubit n) * a
+runGarbage : ! forall a -> WithGarbage a -> (n : Nat) * (Vec Qubit n) * a
 runGarbage comp = let WG x a = comp in let (n, v) = x in (n, (v, a))
 
-box_garbage :: ! (a b :: Type) -> (Simple a , Simple b) =>
-               !(a -> WithGarbage b) ->  (n :: Nat) * Circ(a, Vec Qubit n * b)
+box_garbage : ! (a b : Type) -> (Simple a , Simple b) =>
+               !(a -> WithGarbage b) ->  (n : Nat) * Circ(a, Vec Qubit n * b)
 box_garbage a b f =
   let (n, circ) = existsBox a (\n -> Vec Qubit n * b) (\x -> runGarbage (f x))
   in (n, circ)
 
-boxGarbage :: ! {a b :: Type} -> (Simple a , Simple b) =>
-               !(a -> WithGarbage b) -> (n :: Nat) * Circ(a, Vec Qubit n * b)
+boxGarbage : ! {a b : Type} -> (Simple a , Simple b) =>
+               !(a -> WithGarbage b) -> (n : Nat) * Circ(a, Vec Qubit n * b)
 boxGarbage a b f = box_garbage a b f
 
-with_computed :: ! forall c ->  (a b :: Type) -> (Simple a, Simple b) =>
-                       !(a -> (n :: Nat) * Vec Qubit n * b) ->
+with_computed : ! forall c ->  (a b : Type) -> (Simple a, Simple b) =>
+                       !(a -> (n : Nat) * Vec Qubit n * b) ->
                        (b -> c * b) -> (a -> c * a)
 with_computed a b ex g = \ input ->
   let (_, h_circ) = existsBox a (\ x -> Vec Qubit x * b) ex
@@ -234,17 +234,17 @@ with_computed a b ex g = \ input ->
   in (c, res)
 
 
-without_garbage :: ! forall c -> (a b :: Type) -> (Simple a , Simple b) =>
+without_garbage : ! forall c -> (a b : Type) -> (Simple a , Simple b) =>
                !(a -> WithGarbage b) -> (b -> c * b) -> (a -> c * a)
 without_garbage a b f g =
    with_computed a b (\ x -> runGarbage (f x)) g    
 
-withoutGarbage :: ! forall c -> {a b :: Type} -> (Simple a , Simple b) =>
+withoutGarbage : ! forall c -> {a b : Type} -> (Simple a , Simple b) =>
                !(a -> WithGarbage b) -> (b -> c * b) -> (a -> c * a)
 withoutGarbage a b f g = without_garbage a b f g
 
-with_computed2 :: ! forall c d ->  (a b :: Type) -> (Simple a, Simple b) =>
-                       !(a ->  (n :: Nat) * Vec Qubit n * b) ->
+with_computed2 : ! forall c d ->  (a b : Type) -> (Simple a, Simple b) =>
+                       !(a ->  (n : Nat) * Vec Qubit n * b) ->
                        (b * d -> b * c) -> (a * d -> a * c)
 with_computed2 x y ex g = \ input ->
   let (_, h_circ) = existsBox x (\ z -> Vec Qubit z * y) ex
@@ -256,7 +256,7 @@ with_computed2 x y ex g = \ input ->
       res = h'_rev (v, r')
   in (res, d')
 
-without_garbage2 :: ! forall c d -> (a b :: Type) -> (Simple a , Simple b) =>
+without_garbage2 : ! forall c d -> (a b : Type) -> (Simple a , Simple b) =>
                !(a -> WithGarbage b) -> (b * d -> b * c) -> (a * d -> a * c)
 without_garbage2 a b f g y =
   with_computed2 a b (\ x -> runGarbage (f x)) g y   

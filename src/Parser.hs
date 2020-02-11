@@ -50,9 +50,9 @@ initialParserState = ParserState{
 -- | Initial operator table. The precedence is in descending order
 -- (See <https://hackage.haskell.org/package/parsec-3.1.14.0/docs/Text-Parsec-Expr.html Text.Parsec.Expr> for
 -- further information). Currently, we have the following build-in operators:
--- ! (precedence 5), * (precedence 7), -> (precedence 10), :: (precedence 16).
+-- ! (precedence 5), * (precedence 7), -> (precedence 10), : (precedence 16).
 initialOpTable :: [[Operator String ParserState (IndentT Identity) Exp]]
-initialOpTable = [[], [], [], [], [], [unaryOp "!" Bang], [], [binOp AssocLeft "*" Tensor] , [], [], [binOp AssocRight "->" Arrow], [], [], [], [], [], [binOp AssocLeft "::" WithAnn]]
+initialOpTable = [[], [], [], [], [], [unaryOp "!" Bang], [], [binOp AssocLeft "*" Tensor] , [], [], [binOp AssocRight "->" Arrow], [], [], [], [], [], [binOp AssocLeft ":" WithAnn]]
   where binOp assoc op f = Infix (reservedOp op >> return f) assoc
         unaryOp op f = Prefix (reservedOp op >> return f) 
 
@@ -244,7 +244,7 @@ classDecl =
        where method =
                do pos <- getPosition
                   n <- parens operator <|> var
-                  reservedOp "::"
+                  reservedOp ":"
                   t <- typeExp
                   return (P pos, n, t)
 
@@ -282,7 +282,7 @@ gateDecl =
      p <- getPosition
      g <- const
      args <- many (const >>= \ a -> return $ Pos (P p) (Base a))
-     reservedOp "::"
+     reservedOp ":"
      ty <- typeExp
      return $ GateDecl (P p) g args ty
 
@@ -293,7 +293,7 @@ controlDecl =
      p <- getPosition
      g <- const
      args <- many (const >>= \ a -> return $ Pos (P p) (Base a))
-     reservedOp "::"
+     reservedOp ":"
      ty <- typeExp
      return $ ControlDecl (P p) g args ty
 
@@ -332,7 +332,7 @@ simpleDecl =
      p <- getPosition
      head <- const
      vs <- many var
-     reservedOp "::"
+     reservedOp ":"
      kd <- kindExp
      reserved "where"
      constrs <- block (br head)
@@ -356,7 +356,7 @@ funDecl :: Parser Decl
 funDecl =
   do (f, ty) <- try $ do{ 
        f <- parens operator <|> var;
-       reservedOp "::";
+       reservedOp ":";
        ty <- typeExp;
        return (f, ty);
        }
@@ -427,7 +427,6 @@ atomExp = wrapPos (
        <|> nat
        <|> vector
        <|> implicitType
-       <|> withAnn
        <|> piType
        <|> impType
        <|> existsType
@@ -438,15 +437,6 @@ atomExp = wrapPos (
 -- but they must be properly indented. 
 manyLines :: Parser ([a] -> b) -> Parser a -> Parser b
 manyLines h p = withPos $ h <*/> p
-
--- | Parse an @withType@ expression.
-withAnn :: Parser Exp
-withAnn =
-  do reserved "withType"
-     ty <- typeExp
-     reservedOp ":"
-     t <- term
-     return $ WithAnn t ty
 
 -- | An expression parser for pattern application. 
 patApp :: Parser Exp
@@ -466,7 +456,7 @@ singleExp = wrapPos (try varExp <|> try constExp <|> parens term <?> "single exp
 ann :: Parser ([String], Exp)
 ann = parens $ 
       do xs <- many1 var
-         reservedOp "::"
+         reservedOp ":"
          ty <- typeExp 
          return (xs, ty)    
 
@@ -521,7 +511,7 @@ piType :: Parser Exp
 piType =
   do (vs, ty) <- try $ followedBy (parens $
                                     do vs <- many1 var
-                                       reservedOp "::"
+                                       reservedOp ":"
                                        ty <- typeExp
                                        return (vs, ty))
                            (reservedOp "->") 
@@ -533,7 +523,7 @@ implicitType :: Parser Exp
 implicitType =
   do (vs, ty) <- try $ followedBy (braces $
                                     do vs <- many1 var
-                                       reservedOp "::"
+                                       reservedOp ":"
                                        ty <- typeExp
                                        return (vs, ty))
                            (reservedOp "->") 
@@ -545,7 +535,7 @@ existsType :: Parser Exp
 existsType =
 -- do -- reserved "exists"
   do (v, ty) <- try $ parens $ do {v <- var;
-                                   reservedOp "::";
+                                   reservedOp ":";
                                    ty <- typeExp;
                                    return (v, ty)}
      reservedOp "*"
@@ -612,7 +602,7 @@ unitTy = reserved "Unit" >> return Unit
 lamAnn :: Parser Exp
 lamAnn = do
   (v, ty) <-  try $
-              do reservedOp "\\"
+              do reservedOp "\\" <|> reservedOp "λ"
                  ann
   reservedOp "->"
   t <- term
@@ -621,7 +611,7 @@ lamAnn = do
 -- | Parse a lambda abstraction.
 lam :: Parser Exp
 lam =
- do reservedOp "\\"
+ do reservedOp "\\" <|> reservedOp "λ"
     vs <- many1 var
     reservedOp "->"
     t <- term
@@ -698,7 +688,7 @@ handleLet b =
   where bind = letPattern <|> pair <|> letAnn <|> single
         letAnn = do
           f <- try $ do {f <- var;
-                         reservedOp "::";
+                         reservedOp ":";
                          return f}
           ty <- typeExp
           f' <- var
@@ -891,7 +881,7 @@ dpqStyle = Token.LanguageDef
                     "gate", "in", "let", "controlled",
                     "case", "of", "exists", "implicitly",
                     "data", "import", "class", "instance",
-                    "simple", "withType", "revert", "box", "unbox", "existsBox",
+                    "simple", "revert", "box", "unbox", "existsBox",
                     "runCirc",
                     "object", "Circ", "Unit", "do",
                     "where", "module", "infix","infixr", "infixl",
@@ -901,7 +891,7 @@ dpqStyle = Token.LanguageDef
                     "round"
                   ]
                , Token.reservedOpNames =
-                    [ ".", "\\", "<-", "->", "::",  "*", "()", "!", "_", ":", "=", "=>", "[|", "|]"]
+                    ["λ", ".", "\\", "<-", "->", "*", "()", "!", "_", ":", "=", "=>", "[|", "|]"]
                 }
 
 -- | Parse a Proto-Quipper-D token.

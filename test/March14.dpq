@@ -2,7 +2,7 @@ module March14 where
 import "lib/Prelude.dpq"
 
 
-ntimes :: ! (a :: Type) -> (Simple a) => Nat -> Circ(a, a) -> Circ(a, a)
+ntimes : ! (a : Type) -> (Simple a) => Nat -> Circ(a, a) -> Circ(a, a)
 ntimes a n circ =
   case n of
     Z -> box a id
@@ -11,25 +11,25 @@ ntimes a n circ =
              in box a $ \ x -> circ' (c x)
 
 
-compose :: !  forall b c -> (a :: Type) -> (Simple a, Simple b, Simple c) =>
+compose : !  forall b c -> (a : Type) -> (Simple a, Simple b, Simple c) =>
                Circ(a, b) -> Circ(b, c) -> Circ(a, c)
 compose a circ1 circ2 =
     let f1 = unbox circ1
         f2 = unbox circ2
      in box a $ \ x -> f2 (f1 x)
 
-testH :: Circ(Qubit, Qubit)
+testH : Circ(Qubit, Qubit)
 testH = ntimes Qubit 3 (box Qubit H)
 
 -- single qubit rotate
-gate Rotate Nat :: Qubit -> Qubit
+gate Rotate Nat : Qubit -> Qubit
 
-firstLayer :: ! forall (n :: Nat) -> Vec Nat n -> Vec Qubit n -> Vec Qubit n
+firstLayer : ! forall (n : Nat) -> Vec Nat n -> Vec Qubit n -> Vec Qubit n
 firstLayer params regs =
    zipWith (\ p r -> Rotate p r) params regs
 
 
-secondLayer :: ! forall (n :: Nat) -> Nat -> Vec Qubit n -> Vec Qubit n
+secondLayer : ! forall (n : Nat) -> Nat -> Vec Qubit n -> Vec Qubit n
 secondLayer n v =
   case v of
     VNil -> VNil
@@ -43,7 +43,7 @@ secondLayer n v =
 
 -- The following program should not pass the type checker-> Implicit arguments
 -- in case pattern is used explicitly-> 
--- rounding :: !  (n :: Nat) -> Nat -> Vec Qubit n -> Vec Qubit n
+-- rounding : !  (n : Nat) -> Nat -> Vec Qubit n -> Vec Qubit n
 -- rounding n p v =
 --   case n of
 --     Z -> v
@@ -56,19 +56,19 @@ secondLayer n v =
 --               z = (reverse Qubit n' (VCons h hs))
 --           in
 --            VCons x z
--- boxSecond :: ! (y :: Nat) -> Nat -> Circ(Vec Qubit y, Vec Qubit y)
+-- boxSecond : ! (y : Nat) -> Nat -> Circ(Vec Qubit y, Vec Qubit y)
 -- boxSecond y m = box (Vec Qubit y) $ \ x -> rounding y m $ secondLayer m x
 
 
 
-round1 :: ! (n :: Nat) -> Nat -> Vec Qubit (S (S n)) -> Vec Qubit (S (S n))
+round1 : ! (n : Nat) -> Nat -> Vec Qubit (S (S n)) -> Vec Qubit (S (S n))
 round1 n p v =
   let VCons x xs = v
       VCons y ys = reverse xs
       (y, x) = R p y x
   in VCons x (reverse $ VCons y ys)
 
-round2 :: ! (n :: Nat) -> Nat -> Vec Qubit (S (S n)) -> Vec Qubit (S (S n))
+round2 : ! (n : Nat) -> Nat -> Vec Qubit (S (S n)) -> Vec Qubit (S (S n))
 round2 n p v =
   case v of
     VCons x xs ->
@@ -77,7 +77,7 @@ round2 n p v =
       in VCons x (reverse $ VCons y ys)
 
 
-round' :: ! (n :: Nat) -> Nat -> Vec Qubit (S (S n)) -> Vec Qubit (S (S n))
+round' : ! (n : Nat) -> Nat -> Vec Qubit (S (S n)) -> Vec Qubit (S (S n))
 round' n p v =
   case v of
     VCons x xs ->
@@ -86,11 +86,11 @@ round' n p v =
          let (y, x) = R p y x
          in VCons x (reverse $ VCons y ys)
 
-boxSecond :: ! (y :: Nat) -> Nat -> Circ(Vec Qubit (S (S y)), Vec Qubit (S (S y)))
+boxSecond : ! (y : Nat) -> Nat -> Circ(Vec Qubit (S (S y)), Vec Qubit (S (S y)))
 boxSecond y m = box (Vec Qubit (S (S y))) $ \ x -> round1 y m $ secondLayer m x
 
 
-secondLayer' :: ! forall (n :: Nat) -> (m :: Nat) -> Nat ->
+secondLayer' : ! forall (n : Nat) -> (m : Nat) -> Nat ->
                          VecZipper Qubit n m -> VecZipper Qubit m n
 secondLayer' m n v =
   let VZ l q r = v
@@ -104,23 +104,23 @@ secondLayer' m n v =
          let (q, a) = R n q a
        	 in forward $ secondLayer' (S m) n (VZ as a (VCons q r))
 
-modN :: ! forall (n :: Nat) -> Nat -> Vec Qubit (S n) -> Vec Qubit (S n)
+modN : ! forall (n : Nat) -> Nat -> Vec Qubit (S n) -> Vec Qubit (S n)
 modN p v =
   let VCons x xs = v
       VZ vn x xs = secondLayer' Z p (VZ xs x VNil)
       VNil = vn
   in VCons x xs
 
-boxSecond' :: ! (n :: Nat) -> Nat -> Circ(Vec Qubit (S n), Vec Qubit (S n))
+boxSecond' : ! (n : Nat) -> Nat -> Circ(Vec Qubit (S n), Vec Qubit (S n))
 boxSecond' n p = box (Vec Qubit (S n)) $ \ x -> modN p x
 
-test1 :: Circ(Vec Qubit 5, Vec Qubit 5)
+test1 : Circ(Vec Qubit 5, Vec Qubit 5)
 test1 = boxSecond' 4 6
 
-boxSecond'' :: ! (n m :: Nat) -> Nat -> Circ(VecZipper Qubit n m, VecZipper Qubit m n)
+boxSecond'' : ! (n m : Nat) -> Nat -> Circ(VecZipper Qubit n m, VecZipper Qubit m n)
 boxSecond'' n m p = box (VecZipper Qubit n m) $ \ x -> secondLayer' m p x
 
-test2 :: Circ(VecZipper  Qubit  (S  (S  (S  Z)))  Z,
+test2 : Circ(VecZipper  Qubit  (S  (S  (S  Z)))  Z,
                 VecZipper Qubit  Z  (S  (S  (S  Z))))
 test2 = boxSecond'' 3 0 6
 

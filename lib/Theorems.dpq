@@ -4,54 +4,54 @@ import "lib/Class.dpq"
 
 -- Some equalities about nat, for manual equality conversion->
 
-addS1 :: ! (n m :: Nat) -> Eq Nat (add (S n) m) (S (add n m))
+addS1 : ! (n m : Nat) -> Eq Nat (add (S n) m) (S (add n m))
 addS1 n m = refl
 
-addS :: ! (n m :: Nat) -> Eq Nat (add n (S m)) (S (add n m))
+addS : ! (n m : Nat) -> Eq Nat (add n (S m)) (S (add n m))
 addS n m = 
            case n of
              Z -> refl 
              S n' -> cong S (addS n' m)
 
 
-addS' :: ! (n m :: Nat) -> Eq Nat (S (add n m)) (add n (S m))
+addS' : ! (n m : Nat) -> Eq Nat (S (add n m)) (add n (S m))
 addS' n m =  sym (add n (S m)) (addS n m)
 
-addSS :: ! (n m :: Nat) -> Eq Nat (add n (S (S m))) (add (S (S n)) m) 
+addSS : ! (n m : Nat) -> Eq Nat (add n (S (S m))) (add (S (S n)) m) 
 addSS n m = let p1 = addS n (S m)
                 p2 = cong S (addS n m)
             in trans p1 p2
 
-addSS' :: ! (n m :: Nat) -> Eq Nat (add (S (S n)) m) (add n (S (S m)))
+addSS' : ! (n m : Nat) -> Eq Nat (add (S (S n)) m) (add n (S (S m)))
 addSS' n m = sym (add n (S (S m))) (addSS n m)
 
 
-addOne :: ! (n :: Nat) -> Eq Nat (S n) (add n (S Z))
+addOne : ! (n : Nat) -> Eq Nat (S n) (add n (S Z))
 addOne n = case n of
               Z -> refl
               S n' -> cong S (addOne n')
 
-addZ :: ! (n :: Nat) -> Eq Nat (add n Z) n
+addZ : ! (n : Nat) -> Eq Nat (add n Z) n
 addZ n = case n of
            Z -> refl
            S n' -> cong S (addZ n')
 
-addZ' :: ! (n :: Nat) -> Eq Nat n (add n Z)
+addZ' : ! (n : Nat) -> Eq Nat n (add n Z)
 addZ' n = sym (add n Z) (addZ n)
 
-symAdd :: ! (n m :: Nat) -> Eq Nat (add n m) (add m n)
+symAdd : ! (n m : Nat) -> Eq Nat (add n m) (add m n)
 symAdd n m =
   case n of
     Z -> sym (add m Z) (addZ m)
     S n' -> trans (cong S (symAdd n' m)) (addS' m n')
 
 
-minusZ :: ! (n :: Nat) -> Eq Nat n (minus n Z)
+minusZ : ! (n : Nat) -> Eq Nat n (minus n Z)
 minusZ n = case n of
              Z -> refl
 	     S n' -> refl
 
-boolBot :: ! (n m :: Nat) -> Eq Bool False True -> Eq Nat n m
+boolBot : ! (n m : Nat) -> Eq Bool False True -> Eq Nat n m
 boolBot n m pf =
   let E pf = pf in 
     E (\ p hy -> pf (\ b -> 
@@ -59,7 +59,7 @@ boolBot n m pf =
            False -> p n
            True -> p m ) hy)
 
-complement :: ! (m l :: Nat) -> Eq Bool (l <= m) True -> Eq Nat m (add l (minus m l))
+complement : ! (m l : Nat) -> Eq Bool (l <= m) True -> Eq Nat m (add l (minus m l))
 complement m l pf = 
   case l of
     Z -> minusZ m
@@ -69,5 +69,5 @@ complement m l pf =
                 let res = complement m' l' pf in
                  cong S res
 
-complement' :: ! (m l :: Nat) -> Eq Bool (l <= m) True -> Eq Nat (add l (minus m l)) m
+complement' : ! (m l : Nat) -> Eq Bool (l <= m) True -> Eq Nat (add l (minus m l)) m
 complement' m l pf = sym m (complement m l pf)

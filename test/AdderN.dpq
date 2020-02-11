@@ -2,7 +2,7 @@ module AdderN where
 import "lib/Prelude.dpq"
 
 
-adder' :: ! (Qubit -> Qubit -> Qubit -> WithGarbage (Qubit * Qubit))
+adder' : ! (Qubit -> Qubit -> Qubit -> WithGarbage (Qubit * Qubit))
 adder' a b carry_in =
      let (a1, a2, a3) = copyT a
          (b1, b2, b3) = copyT b
@@ -11,7 +11,7 @@ adder' a b carry_in =
            carry_out <- [|bor [|bor (band a2 b2) (band a3 carry_in2)|] (band b3 carry_in3)|]
            return (s, carry_out)
 
-adder'' :: ! (Qubit -> Qubit -> Qubit -> WithGarbage (Qubit * Qubit))
+adder'' : ! (Qubit -> Qubit -> Qubit -> WithGarbage (Qubit * Qubit))
 adder'' a b carry_in = do
      let (a1, a2, a3) = copyT a
          (b1, b2, b3) = copyT b
@@ -20,7 +20,7 @@ adder'' a b carry_in = do
      carry_out <- [|bor [|bor (band a2 b2) (band a3 carry_in2)|] (band b3 carry_in3)|]
      return (s, carry_out)
 
-adder :: ! (Qubit -> Qubit -> Qubit -> WithGarbage (Qubit * Qubit))
+adder : ! (Qubit -> Qubit -> Qubit -> WithGarbage (Qubit * Qubit))
 adder a b carry_in =
      let (a1, a2, a3) = copyT a
          (b1, b2, b3) = copyT b
@@ -35,7 +35,7 @@ adder a b carry_in =
            return (s, carry_out)
 
 
-nAdder :: ! (n :: Nat) -> Qubit -> Vec Qubit n -> Vec Qubit n ->
+nAdder : ! (n : Nat) -> Qubit -> Vec Qubit n -> Vec Qubit n ->
                WithGarbage (Vec Qubit n * Qubit)
 nAdder n carry_in as bs =
   case n of
@@ -51,7 +51,7 @@ nAdder n carry_in as bs =
   	   return (VCons s res, carry_out')
 
 
-nAdderRev :: ! (n :: Nat) -> Circ(Qubit * Vec Qubit n * Vec Qubit n,
+nAdderRev : ! (n : Nat) -> Circ(Qubit * Vec Qubit n * Vec Qubit n,
                                    Vec Qubit n * Qubit *
 				     (Qubit * Vec Qubit n * Vec Qubit n))
 
@@ -62,25 +62,25 @@ nAdderRev n = box (Qubit * Vec Qubit n * Vec Qubit n) $ \ x ->
             copy 
   in c x
 
--- nAdderRev :: ! (n :: Nat) -> Circ(Qubit * Vec Qubit n * Vec Qubit n,
+-- nAdderRev : ! (n : Nat) -> Circ(Qubit * Vec Qubit n * Vec Qubit n,
 --                                    Vec Qubit n * Qubit *
 -- 				     (Qubit * Vec Qubit n * Vec Qubit n))
 
-nAdderRev' (n :: Nat) = boxCirc $ \ x ->
+nAdderRev' (n : Nat) = boxCirc $ \ x ->
   let c = withoutGarbage
             (\ x -> let (carry_in, a, b) = x in nAdder n carry_in a b) 
             copy 
   in c x
 
 
--- nAdderRev_test1 :: Circ(Qubit * Vec Qubit 4 * Vec Qubit 4,
+-- nAdderRev_test1 : Circ(Qubit * Vec Qubit 4 * Vec Qubit 4,
 --                                    -- Vec Qubit 4 * Qubit *
 -- 				   --   (Qubit * Vec Qubit 4 * Vec Qubit 4))
 nAdderRev_test1 = nAdderRev 4
 main = nAdderRev_test1
 -- nAdderRev_test2 = nAdderRev nine
 
-adding ::  Bool * Vec Bool 4 * Vec Bool 4
+adding :  Bool * Vec Bool 4 * Vec Bool 4
 adding = (False, [True, False, False, True], [True, True, False, True])
 
 -- (VCons True $ VCons False $ VCons True $ VCons False VNil)
@@ -89,10 +89,10 @@ adding = (False, [True, False, False, True], [True, True, False, True])
 -- Due to the set up of runCirc, the call of runCirc always need annotation->
 -- Moreover, we don't want to turn type class into
 -- full blown prolog-> 
-testAdd :: Vec Bool 4 * Bool * (Bool * Vec Bool 4 * Vec Bool 4)
+testAdd : Vec Bool 4 * Bool * (Bool * Vec Bool 4 * Vec Bool 4)
 testAdd = runCirc nAdderRev_test1 adding
 
-binaryToNat :: ! forall (n :: Nat) -> Vec Bool n -> Nat
+binaryToNat : ! forall (n : Nat) -> Vec Bool n -> Nat
 binaryToNat v =
   case v of
     VNil -> Z
@@ -101,54 +101,54 @@ binaryToNat v =
         True -> S (mul 2 (binaryToNat xs))
 	False -> mul 2 (binaryToNat xs)
 
-idCirc :: ! (n :: Nat) -> Circ(Vec Qubit n, Vec Qubit n)
+idCirc : ! (n : Nat) -> Circ(Vec Qubit n, Vec Qubit n)
 idCirc n = box (Vec Qubit n) $ \ x -> x
 
 
 
-res :: Vec Bool 4
+res : Vec Bool 4
 res = fst $ fst testAdd
 
 -- (binaryToNat res)
 
 -- use the adder's result to construct circuits
---  :: Circ(Vec Qubit 4, Vec Qubit 4)
+--  : Circ(Vec Qubit 4, Vec Qubit 4)
 resCirc = idCirc (binaryToNat res)
 
--- res2 :: Bool
+-- res2 : Bool
 -- res2 = runCirc (box Qubit QNot) True
 
--- res3 :: Vec Bool one
+-- res3 : Vec Bool one
 -- res3 = runCirc (idCirc one) [True]
 
--- res4 :: Bool
+-- res4 : Bool
 -- res4 = case res3 of
 --             VCons x _ -> x
 
--- data Prop (x :: Bool) = Pr
--- data Prop1 (x :: Circ(Vec Qubit one, Vec Qubit one)) = Pr1 
--- data Prop2 (x :: Vec Bool one) = Pr2
+-- data Prop (x : Bool) = Pr
+-- data Prop1 (x : Circ(Vec Qubit one, Vec Qubit one)) = Pr1 
+-- data Prop2 (x : Vec Bool one) = Pr2
 
 
--- tes :: ! forall a -> !(a -> a)
+-- tes : ! forall a -> !(a -> a)
 -- tes x = x
 
--- t :: Prop res2
+-- t : Prop res2
 -- t = Pr 
 
--- idCirc1 :: Circ(Vec Qubit 1, Vec Qubit 1)
+-- idCirc1 : Circ(Vec Qubit 1, Vec Qubit 1)
 -- idCirc1 = box (Vec Qubit 1) (\ x -> x)
 
--- t' :: Prop1 idCirc1
+-- t' : Prop1 idCirc1
 -- t' = Pr1
 
--- res5 :: Vec Bool 1
+-- res5 : Vec Bool 1
 -- res5 = runCirc idCirc1 [False]
 
--- t2 :: Prop2 res5
+-- t2 : Prop2 res5
 -- t2 = Pr2
 
 -- resCirc' =
---   let testAdd :: Vec Bool 4 * Bool * Triple Bool (Vec Bool 4) (Vec Bool 4)
+--   let testAdd : Vec Bool 4 * Bool * Triple Bool (Vec Bool 4) (Vec Bool 4)
 --       testAdd = runCirc nAdderRev_test1 adding
 --       circ = idCirc (binaryToNat res)
