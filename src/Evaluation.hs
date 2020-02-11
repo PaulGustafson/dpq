@@ -5,9 +5,10 @@
 -- | This module implements a closure-based call-by-value evaluation.
 -- It still has memory problem when generating super-large circuits.
 
-module Evaluation (evaluation, evaluate, renameTemp, size, toVal, getAllWires) where
+module Evaluation where
+  -- (evaluation, evaluate, renameTemp, size, toVal, getAllWires) where
 
-import Syntax
+import Syntax hiding (Circ)
 import Erasure
 import SyntacticOperations
 import Utils
@@ -17,10 +18,9 @@ import TCMonad
 import TypeError
 
 
-import Control.Monad.State.Strict
 import Control.Monad.Identity
 import Control.Monad.Except
-
+import qualified Control.Monad.State as St
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import Data.Set (Set)
@@ -34,17 +34,20 @@ import Debug.Trace
 -- * The evaluation functions for TCMonad.
 
 -- | Evaluate an expression with an underlying circuit, return value and the updated circuit.
+
 evaluate :: Morphism -> EExp -> TCMonad (Value, Morphism)
 evaluate circ e =
   do st <- get
      let gl = globalCxt $ lcontext st
-         (r, s) = runState (runExceptT $ eval e)
-                  ES{morph = circ, evalEnv = gl, localEvalEnv = Map.empty, gcSize = 10000}
+         (s, gs,r) = runCircState ES{evalEnv = gl, localEvalEnv = Map.empty, gcSize = 10000}
+                      (runExceptT $ eval e)
+                  
      case r of
        Left e -> throwError $ EvalErr e
        Right r -> return (r, morph s)
 
 -- | Evaluate a parameter term and return a value. 
+
 evaluation :: EExp -> TCMonad Value
 evaluation e =
   do st <- get
@@ -59,12 +62,61 @@ evaluation e =
 -- * The Eval monad and eval function.
 
 -- | The evaluation monad.
-type Eval a = ExceptT EvalError (State EvalState) a
+type Eval a = ExceptT EvalError CircState a
+
+
+runCircState :: EvalState -> CircState a -> (EvalState, [Gate], a)
+runCircState s circState =
+  let CS f = circState
+      Circ gs (s', r) = f s
+  in (s', gs, r)
+  
+-- | A wrapper of evaluation state on top of circ monad.
+data CircState a = CS (EvalState -> Circ (EvalState, a))
+
+-- | The lazy circ monad. 
+data Circ a = Circ [Gate] a
+
+instance Monad Circ where
+   return x = Circ [] x
+   m >>= f =
+     let Circ gs r = m
+         Circ gs' r' = f r
+     in Circ (gs++gs') r'
+
+instance Applicative Circ
+instance Functor Circ
+instance Applicative CircState
+instance Functor CircState
+
+instance Monad CircState where
+  return x = CS (\ y -> return (y, x))
+  f >>= g =
+    CS $ \ s ->
+           let CS f' = f
+               Circ gs (s', r) = f' s
+               CS g' = g r
+               Circ gs' (s'', r') = g' s'
+           in Circ (gs++gs') (s'', r')
+    
+get :: Eval EvalState
+get = lift $ CS $ \ s -> return (s, s)
+
+put :: EvalState -> Eval ()
+put s' = lift $ CS $ \ s -> return (s', ())
+
+
+addGates :: [Gate] -> Eval ()
+addGates gs = lift (CS $ \ s -> Circ gs (s, ()))
+
+
+
+
 
 -- | Evaluator state, it contains an underlying circuit and
 -- a global context. 
 data EvalState =
-  ES { morph :: Morphism, -- ^ The underlying incomplete circuit.
+  ES { 
        evalEnv :: Context,  -- ^ The global evaluation context.
        localEvalEnv :: Map Variable (Value, Integer, Integer, [Variable]),
        -- ^ The heap for evaluation, represented by a map.
@@ -75,6 +127,7 @@ data EvalState =
        gcSize :: Integer
        -- ^ The size of the heap. Currently it is not used for gc.
      }
+
 
 -- | Evaluate an expression to
 -- a value in the value domain. The eval function also takes an environment
@@ -374,12 +427,11 @@ evalBox body uv =
                 Left v -> return v
       let uv' = toVal uv vs
           d = Morphism uv' [] uv'
-          (res, st') = runState (runExceptT $! evalApp b uv') st{morph = d}
+          (st', gs , res) = runCircState st (runExceptT $! evalApp b uv') 
       case res of
         Left e -> throwError e
         Right res' -> 
-          let Morphism ins gs _ = morph st'
-              newMorph = Morphism ins (reverse gs) res'
+          let newMorph = Morphism uv' gs res'
               wires = getAllWires newMorph
               morph' = Wired $! abst wires (VCircuit newMorph)
           in return morph'
@@ -397,12 +449,11 @@ evalExbox body uv =
       b <- eval body
       let uv' = toVal uv vs
           d = Morphism uv' [] uv'
-          (res, st') = runState (runExceptT $! evalApp b uv') st{morph = d}
+          (st', gs, res) = runCircState st (runExceptT $! evalApp b uv') 
       case res of
         Left e -> throwError e
         Right (VPair n res') -> 
-          let Morphism ins gs _ = morph st'
-              newMorph = Morphism ins (reverse gs) res'
+          let newMorph = Morphism uv' gs res'
               wires = getAllWires newMorph
               morph' = Wired $! abst wires (VCircuit newMorph)
           in return (VPair n morph')        
@@ -415,15 +466,20 @@ evalExbox body uv =
 -- have to reverse the list of gates as part of the post-processing. 
 appendMorph :: Binding -> Morphism -> Eval Value
 appendMorph binding f@(Morphism fins fs fouts) =
-  do st <- get
-     let circ = morph st
-         (Morphism fins' fs' fouts') = rename f binding
-     case circ of
-       Morphism ins gs outs ->
-         let
-           newCirc = Morphism ins (reverse fs'++gs) fouts' in
-         do put st{morph = newCirc }
-            return fouts'
+  do let (Morphism fins' fs' fouts') = rename f binding
+     addGates fs'
+     return fouts'
+     
+-- appendMorph binding f@(Morphism fins fs fouts) =
+--   do st <- get
+--      let circ = morph st
+--          (Morphism fins' fs' fouts') = rename f binding
+--      case circ of
+--        Morphism ins gs outs ->
+--          let
+--            newCirc = Morphism ins (reverse fs'++gs) fouts' in
+--          do put st{morph = newCirc }
+--             return fouts'
 
 
 -- | A binding is a map of labels. 
@@ -467,9 +523,8 @@ renameGs gs m = map helper gs
           Gate id params (renameTemp ins m) (renameTemp outs m) (renameTemp ctrls m)
 
    
--- | Reverse a list of gate in theory, in reality it only
--- changes the name of a gate to its adjoint, the gates are
--- already stored in reverse order due to the way we implement 'appendMorph'.
+-- | Reverse a list of gates. 
+-- It changes the name of a gate to its adjoint.
 revGates :: [Gate] -> [Gate]
 revGates xs = revGatesh xs [] 
   where revGatesh [] gs = gs
@@ -507,15 +562,15 @@ genNames uv =
 
 -- | Rename uv using fresh labels draw from vs
 toVal :: Value -> [Label] -> Value
-toVal uv vs = evalState (templateToVal uv) vs
+toVal uv vs = St.evalState (templateToVal uv) vs
 
 -- | Obtain a fresh template inhabitant of a simple type, with wirenames
 -- draw from the state. The input is a simple data type
-templateToVal :: Value -> State [Label] Value
+templateToVal :: Value -> St.State [Label] Value
 templateToVal (VLBase _) =
-  do x <- get
+  do x <- St.get
      let (v:vs) = x
-     put vs
+     St.put vs
      return (VLabel v)
 templateToVal a@(VConst _) = return a
 templateToVal a@(VUnit) = return VStar
@@ -575,3 +630,4 @@ decrRef (v:vs) m =
         
                              
           
+

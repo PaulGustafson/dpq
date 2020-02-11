@@ -3,12 +3,12 @@ module Hex3 where
 import "lib/Prelude.dpq"
 
 
--- update_focus generates garbage size 1
--- type ZipperMaps : Nat -> Nat -> Type where
---   ZipperMaps n m = VecZipper Qubit n m * VecZipper Qubit n m * VecZipper Qubit n m
+
+
 simple ZipperMaps a : Nat -> Nat -> Type where
   ZipperMaps a n m = ZM (VecZipper a n m) (VecZipper a n m) (VecZipper a n m)
-  
+
+-- update_focus generates garbage size 1  
 update_focus (n m : Nat) (b : Bool) (input : VecZipper Qubit n m) =
   do let VZ l q r = input
          q' = initQubit b 
@@ -113,20 +113,14 @@ while_for n m x_max pf  =
             ZM maskmap bitmap newmap <- wg
             return (ZM (forward maskmap) (forward bitmap) (forward newmap))
 
--- FIXME, when inlining the argument 'st' as an lambda expression,
--- it raises a bug->
+
 box_while_for_h (n m x_max : Nat) (pf : Eq Bool (x_max > Z) True)
   (st : ZipperMaps Qubit n m) =
    snd $ runState (return st) $ while_for n m x_max pf
 
 box_while_for (n m x_max : Nat) (pf : Eq Bool (x_max > Z) True) =
-   boxGarbage -- ((Vec Qubit n * Qubit * Vec Qubit m) *
-              --   (Vec Qubit n * Qubit * Vec Qubit m) *
-	      --     (Vec Qubit n * Qubit * Vec Qubit m))
-	      --    ((Vec Qubit n * Qubit * Vec Qubit m) *
-              --      (Vec Qubit n * Qubit * Vec Qubit m) *
-              --      (Vec Qubit n * Qubit * Vec Qubit m)) 
-		   $ \ x ->  box_while_for_h n m x_max pf x
+   boxGarbage $ \ x ->  box_while_for_h n m x_max pf x
+		   
 
 
 simple TripleVec a : (n : Nat) -> Type where
@@ -170,10 +164,8 @@ flood_fill (m : Nat) (x_max : Nat) (pf : Eq Bool (x_max > Z) True)
 
 
 box_flood_fill (m x_max : Nat) (pf : Eq Bool (x_max > Z) True) =
-  boxGarbage
-  -- ((Vec Qubit (S m)) * (Vec Qubit (S m)))
-  --             (TripleVec (S m))
-              $ uncurry (\ x -> flood_fill m x_max pf x)
+  boxGarbage $ uncurry (\ x -> flood_fill m x_max pf x)
+              
 		   
 
 checkwin_red' : ! (n : Nat) -> (Vec Qubit n) -> WithGarbage Qubit
@@ -236,7 +228,7 @@ a_small_board_red =
   $ VCons True $ VCons True $ VCons True $ VCons True $ VCons True VNil
 
 
-main = box_checkwin_red (3 @ 7 - 1) 7 refl refl
+main = box_checkwin_red (5 @ 7 - 1) 7 refl refl
 
 -- box_checkwin_red (9 @ 7 - 1) 7 refl refl
 

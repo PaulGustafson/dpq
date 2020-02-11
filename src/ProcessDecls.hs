@@ -22,7 +22,7 @@ import Utils
 import TypeError
 import Typechecking
 import Proofchecking
-import Evaluation hiding (genNames)
+import Evaluation hiding (genNames, get, put)
 import Erasure
 import Substitution
 import TypeClass
