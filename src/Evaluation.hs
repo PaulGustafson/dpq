@@ -37,24 +37,24 @@ import Debug.Trace
 
 evaluate :: Morphism -> EExp -> TCMonad (Value, Morphism)
 evaluate circ e =
-  do st <- get
+  do st <- St.get
      let gl = globalCxt $ lcontext st
-         (s, gs,r) = runCircState ES{evalEnv = gl, localEvalEnv = Map.empty, gcSize = 10000}
+         Morphism input gs' _ = circ
+         (s, gs,r) = runCircState ES{output = VStar, evalEnv = gl, localEvalEnv = Map.empty, gcSize = 10000}
                       (runExceptT $ eval e)
                   
      case r of
        Left e -> throwError $ EvalErr e
-       Right r -> return (r, morph s)
+       Right r -> return (r, Morphism input (gs' ++ gs) (output s))
 
 -- | Evaluate a parameter term and return a value. 
 
 evaluation :: EExp -> TCMonad Value
 evaluation e =
-  do st <- get
+  do st <- St.get
      let gl = globalCxt $ lcontext st
-         (r, _) = runState (runExceptT $ eval e)
-                  ES{morph = Morphism VStar [] VStar, evalEnv = gl, localEvalEnv = Map.empty,
-                     gcSize = 10000}
+         (_, _, r) = runCircState ES{output = VStar, evalEnv = gl, localEvalEnv = Map.empty,
+                                     gcSize = 10000} (runExceptT $ eval e)
      case r of
        Left e -> throwError $ EvalErr e
        Right r -> return r
@@ -116,7 +116,7 @@ addGates gs = lift (CS $ \ s -> Circ gs (s, ()))
 -- | Evaluator state, it contains an underlying circuit and
 -- a global context. 
 data EvalState =
-  ES { 
+  ES { output :: Value,
        evalEnv :: Context,  -- ^ The global evaluation context.
        localEvalEnv :: Map Variable (Value, Integer, Integer, [Variable]),
        -- ^ The heap for evaluation, represented by a map.
@@ -468,6 +468,8 @@ appendMorph :: Binding -> Morphism -> Eval Value
 appendMorph binding f@(Morphism fins fs fouts) =
   do let (Morphism fins' fs' fouts') = rename f binding
      addGates fs'
+     st <- get
+     put st{output = fouts'}
      return fouts'
      
 -- appendMorph binding f@(Morphism fins fs fouts) =
