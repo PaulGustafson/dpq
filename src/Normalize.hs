@@ -253,7 +253,7 @@ normalize a@(Var x) =
        Nothing -> return a
        Just lti ->
          case varIdentification lti of
-           TypeVar _ -> return a
+           TypeVar _ _ -> return a
            TermVar _ Nothing -> return a
            TermVar _ (Just d) -> normalize d
 
@@ -265,7 +265,7 @@ normalize a@(EigenVar x) =
        Nothing -> return a
        Just lti ->
          case varIdentification lti of
-           TypeVar _ -> return a
+           TypeVar _ _ -> return a
            TermVar _ Nothing -> return a
            TermVar _ (Just d) -> normalize d
   
