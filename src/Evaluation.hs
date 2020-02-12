@@ -40,9 +40,8 @@ evaluate circ e =
   do st <- St.get
      let gl = globalCxt $ lcontext st
          Morphism input gs' _ = circ
-         (s, gs,r) = runCircState ES{output = VStar, evalEnv = gl, localEvalEnv = Map.empty, gcSize = 10000}
-                      (runExceptT $ eval e)
-                  
+         (s, gs,r) = runCircState (runExceptT $ eval e)
+                     ES{output = VStar, evalEnv = gl, localEvalEnv = Map.empty, gcSize = 10000}
      case r of
        Left e -> throwError $ EvalErr e
        Right r -> return (r, Morphism input (gs' ++ gs) (output s))
@@ -53,8 +52,9 @@ evaluation :: EExp -> TCMonad Value
 evaluation e =
   do st <- St.get
      let gl = globalCxt $ lcontext st
-         (_, _, r) = runCircState ES{output = VStar, evalEnv = gl, localEvalEnv = Map.empty,
-                                     gcSize = 10000} (runExceptT $ eval e)
+         (_, _, r) = runCircState (runExceptT $ eval e)
+                     ES{output = VStar, evalEnv = gl, localEvalEnv = Map.empty,
+                        gcSize = 10000} 
      case r of
        Left e -> throwError $ EvalErr e
        Right r -> return r
@@ -65,49 +65,35 @@ evaluation e =
 type Eval a = ExceptT EvalError CircState a
 
 
-runCircState :: EvalState -> CircState a -> (EvalState, [Gate], a)
-runCircState s circState =
-  let CS f = circState
-      Circ gs (s', r) = f s
-  in (s', gs, r)
+runCircState :: CircState a -> EvalState -> (EvalState, [Gate], a)
+runCircState = getSt
   
 -- | A wrapper of evaluation state on top of circ monad.
-data CircState a = CS (EvalState -> Circ (EvalState, a))
+newtype CircState a = CS {getSt :: EvalState -> (EvalState, [Gate], a)}
 
--- | The lazy circ monad. 
-data Circ a = Circ [Gate] a
-
-instance Monad Circ where
-   return x = Circ [] x
-   m >>= f =
-     let Circ gs r = m
-         Circ gs' r' = f r
-     in Circ (gs++gs') r'
-
-instance Applicative Circ
-instance Functor Circ
+-- instance Applicative Circ
+-- instance Functor Circ
 instance Applicative CircState
 instance Functor CircState
 
 instance Monad CircState where
-  return x = CS (\ y -> return (y, x))
-  f >>= g =
-    CS $ \ s ->
-           let CS f' = f
-               Circ gs (s', r) = f' s
-               CS g' = g r
-               Circ gs' (s'', r') = g' s'
-           in Circ (gs++gs') (s'', r')
+  return x = CS (\ y -> (y, [], x))
+  f >>= g = CS h
+    where
+      h s0 = 
+        let (s1, gs, a) = getSt f s0
+            (s2, gs', r) = getSt (g a) s1
+        in (s2, gs++gs', r)
     
 get :: Eval EvalState
-get = lift $ CS $ \ s -> return (s, s)
+get = lift $ CS $ \ s -> (s, [], s)
 
 put :: EvalState -> Eval ()
-put s' = lift $ CS $ \ s -> return (s', ())
+put s' = lift $ CS $ \ s -> (s', [], ())
 
 
 addGates :: [Gate] -> Eval ()
-addGates gs = lift (CS $ \ s -> Circ gs (s, ()))
+addGates gs = lift (CS $ \ s -> (s, gs, ()))
 
 
 
@@ -193,18 +179,18 @@ eval ERunCirc = return VRunCirc
 eval (EApp m n) =
   do v <- eval m
      w <- eval n
-     v `seq` w `seq` evalApp v w
+     evalApp v w
 
 eval (EPair m n) = 
   do v <- eval m
      w <- eval n
-     v `seq` w `seq` return (VPair v w)
+     return (VPair v w)
 
 eval (ELet m bd) =
   do m' <- eval m
-     open bd $! \ x n ->
+     open bd $ \ x n ->
        do addDefinition x m'
-          m' `seq` eval n
+          eval n
 
 
 eval (ELetPair m (Abst xs n)) =
@@ -215,15 +201,15 @@ eval (ELetPair m (Abst xs n)) =
          mapM_ (\ (x, y) -> addDefinition x y)
                         (zip xs vs)
          eval n
-       Nothing -> throwError $! TupleMismatch (map fst xs) m'
+       Nothing -> throwError $ TupleMismatch (map fst xs) m'
 
 
 eval (ELetPat m bd) =
   do m' <- eval m
      case vflatten m' of
-       Nothing -> error ("from LetPat" ++ (show $! disp m'))
+       Nothing -> error ("from LetPat" ++ (show $ disp m'))
        Just (Left id, args) ->
-         open bd $! \ p m ->
+         open bd $ \ p m ->
          case p of
            EPApp kid vs
              | kid == id ->
@@ -232,16 +218,16 @@ eval (ELetPat m bd) =
                   mapM_ (\ (x, v) -> addDefinition x v) subs
                   eval m
            p -> error "pattern mismatch, from eval ELetPat" 
-             -- throwError $! PatternMismatch p m'
+             -- throwError $ PatternMismatch p m'
 
 eval b@(ECase m (EB bd)) =
   do m' <- eval m
      case vflatten m' of
-       Nothing -> error ("from eval (Case):") -- ++ (show $! disp b))
+       Nothing -> error ("from eval (Case):") -- ++ (show $ disp b))
        Just (Left id, args) ->
          reduce id args bd
   where reduce id args (bd:bds) =
-          open bd $! \ p m ->
+          open bd $ \ p m ->
           case p of
              EPApp kid vs
                | kid == id -> 
@@ -252,10 +238,10 @@ eval b@(ECase m (EB bd)) =
                   eval m
                | otherwise -> reduce id args bds
         reduce id args [] = error "missing branch during eval"
-          -- throwError $! MissBranch id b
+          -- throwError $ MissBranch id b
 
-eval a = error $! "from eval: "
-         -- ++ (show $! disp a)
+eval a = error $ "from eval: "
+         -- ++ (show $ disp a)
 
 -- * Helper functions for eval.
 
@@ -316,17 +302,17 @@ addRef (v:vs) lenv =
 -- | A helper function for evaluating various of applications.
 evalApp :: Value -> Value -> Eval Value
 
-evalApp VUnBox v | Wired _ <- v = return $! VApp VUnBox v
+evalApp VUnBox v | Wired _ <- v = return $ VApp VUnBox v
 evalApp VUnBox v | otherwise = return VUnBox
 evalApp (VForce (VApp VUnBox v)) w =
   case v of
     Wired bd ->
-      open bd $! \ wires m ->
+      open bd $ \ wires m ->
       case m of
         f@(VCircuit (Morphism ins gs outs)) ->
           let binding = makeBinding ins w 
           in appendMorph binding (Morphism ins gs outs)
-    a -> error $! "evalApp(Unbox ..) " ++ (show $! disp a)
+    a -> error $ "evalApp(Unbox ..) " ++ (show $ disp a)
 
 evalApp (VApp (VApp (VApp VBox q) _) _) v =
   case v of
@@ -342,16 +328,16 @@ evalApp (VApp (VApp (VApp (VApp VExBox q) _) _) _) v =
 
 evalApp (VApp (VApp (VApp VRunCirc  _) _) (Wired (Abst _ (VCircuit m)))) input =
   case runCircuit m input of
-    Left e -> throwError $! SimulationErr e
+    Left e -> throwError $ SimulationErr e
     Right r -> return r
 
 
 evalApp (VApp (VApp VRevert _) _) m' =
   case m' of
     Wired bd ->
-      open bd $! \ ws (VCircuit (Morphism ins gs outs)) ->
+      open bd $ \ ws (VCircuit (Morphism ins gs outs)) ->
       let gs' = revGates gs in
-        return $! Wired (abst ws (VCircuit $! Morphism outs gs' ins))
+        return $ Wired (abst ws (VCircuit $ Morphism outs gs' ins))
 
 evalApp a@(Wired _) w = return a
 
@@ -363,7 +349,7 @@ evalApp v w =
         do let args = res ++ [w]
                lvs = length vs
            if lvs > (length args) then
-             return $! VApp v w
+             return $ VApp v w
              else do let ns = countVar vs e
                          sub = filter (\ (_ , (v, n)) -> n /= 0) $ zip vs (zip args ns)
                          sub' = zip vs args
@@ -373,27 +359,27 @@ evalApp v w =
                      e' <- eval e
                      case e' of
                        VLam _ bd -> handleBody ws bd
-                       _ -> return $! foldl VApp e' ws
+                       _ -> return $ foldl VApp e' ws
         
-    _ -> return $! VApp v w
+    _ -> return $ VApp v w
           
   where unwindVal (VApp t1 t2) =
           let (h, args) = unwindVal t1
           in (h, args++[t2])
         unwindVal a = (a, [])
         -- Handle beta reduction
-        handleBody args bd = open bd $! \ vs m ->
+        handleBody args bd = open bd $ \ vs m ->
              let lvs = length vs
              in
               if lvs > length args
-              then return $! VApp v w
+              then return $ VApp v w
               else do let sub = zip vs args
                           ws = drop lvs args
                       mapM_ (\ (x,v) -> addDefinition x v) sub
                       if null ws then eval m
                         else 
                         do m' <- eval m
-                           m' `seq` ws `seq` return $! foldl' VApp m' ws
+                           return $ foldl' VApp m' ws
         -- Perform substitution on the variables in a circuit.
         updateCirc :: [(Variable, Value)] -> LEnv -> [(Variable, (Value, Integer))]
         updateCirc sub lenv =
@@ -415,25 +401,25 @@ evalApp v w =
              let res = helper xs lc in
              case lookup x lc of
                Just v -> v:res
-               Nothing -> error $! "can't find variable " ++ (show $! disp x)
+               Nothing -> error $ "can't find variable " ++ (show $ disp x)
 
 -- | Evaluate a box term.
 evalBox :: Either Value EExp -> Value -> Eval Value               
 evalBox body uv =
-  freshLabels (genNames uv) $! \ vs ->
+  freshLabels (genNames uv) $ \ vs ->
    do st <- get
       b <- case body of
                 Right body' -> eval body'
                 Left v -> return v
       let uv' = toVal uv vs
           d = Morphism uv' [] uv'
-          (st', gs , res) = runCircState st (runExceptT $! evalApp b uv') 
+          (st', gs , res) = runCircState (runExceptT $ evalApp b uv') st
       case res of
         Left e -> throwError e
         Right res' -> 
           let newMorph = Morphism uv' gs res'
               wires = getAllWires newMorph
-              morph' = Wired $! abst wires (VCircuit newMorph)
+              morph' = Wired $ abst wires (VCircuit newMorph)
           in return morph'
 
 -- | Evaluate an existsBox term. Note that
@@ -444,20 +430,20 @@ evalBox body uv =
 -- So we define 'evalExbox' and 'evalBox' separately to enforce the assumptions.
 evalExbox :: EExp -> Value -> Eval Value        
 evalExbox body uv =
-  freshLabels (genNames uv) $! \ vs ->
+  freshLabels (genNames uv) $ \ vs ->
    do st <- get
       b <- eval body
       let uv' = toVal uv vs
           d = Morphism uv' [] uv'
-          (st', gs, res) = runCircState st (runExceptT $! evalApp b uv') 
+          (st', gs, res) = runCircState (runExceptT $ evalApp b uv') st
       case res of
         Left e -> throwError e
         Right (VPair n res') -> 
           let newMorph = Morphism uv' gs res'
               wires = getAllWires newMorph
-              morph' = Wired $! abst wires (VCircuit newMorph)
+              morph' = Wired $ abst wires (VCircuit newMorph)
           in return (VPair n morph')        
-        Right a -> error $! "from eval_exBox\n" ++ (show $! disp a)
+        Right a -> error $ "from eval_exBox\n" ++ (show $ disp a)
 
 
 
@@ -494,8 +480,8 @@ makeBinding w v =
       vs = getWires v
   in if length ws /= length vs
      then 
-       error ("binding mismatch!\n" ++ (show $! disp w) ++
-               "\n" ++ (show $! disp v))
+       error ("binding mismatch\n" ++ (show $ disp w) ++
+               "\n" ++ (show $ disp v))
        else Map.fromList (zip ws vs)
 
 -- | Rename the labels of a morphism according to a binding.
@@ -551,7 +537,7 @@ invertName id | getName id == "ToffoliGate_01" =  Id "ToffoliGate_01"
 invertName id | getName id == "ToffoliGate" =  Id "ToffoliGate"
 invertName id | getName id == "Mea" = error "cannot invert Mea gate"
 invertName id | getName id == "Discard" = error "cannot invert Discard gate"
-invertName id =  Id $! getName id ++ "*"
+invertName id =  Id $ getName id ++ "*"
 
 
 -- | Generate a list of wirenames from a simple data type.
@@ -579,12 +565,12 @@ templateToVal a@(VUnit) = return VStar
 templateToVal (VApp e1 e2) =
   do e1' <- templateToVal e1
      e2' <- templateToVal e2
-     return $! VApp e1' e2'
+     return $ VApp e1' e2'
 
 templateToVal (VTensor e1 e2) =
   do e1' <- templateToVal e1
      e2' <- templateToVal e2
-     return $! VPair e1' e2'
+     return $ VPair e1' e2'
 
 templateToVal a = error "applying templateToVal function to an ill-formed template"
 
@@ -595,14 +581,14 @@ size (VConst _) = 0
 size VUnit = 0
 size (VApp e1 e2) = size e1 + size e2
 size (VTensor e1 e2) = size e1 + size e2
-size a = error $! "applying size function to an ill-formed template:" ++ (show $! disp a)     
+size a = error $ "applying size function to an ill-formed template:" ++ (show $ disp a)     
 
 -- | Obtain all the labels from the circuit.
 getAllWires :: Morphism -> [Label]
 getAllWires (Morphism ins gs outs) =
-  let inWires = S.fromList $! getWires ins
-      outWires = S.fromList $! getWires outs
-      gsWires = S.unions $! map getGateWires gs
+  let inWires = S.fromList $ getWires ins
+      outWires = S.fromList $ getWires outs
+      gsWires = S.unions $ map getGateWires gs
   in S.toList (inWires `S.union` outWires `S.union` gsWires)
   where getGateWires (Gate _ _ ins outs ctrls) =
           S.fromList (getWires ins) `S.union`
