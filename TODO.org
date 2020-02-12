@@ -4,11 +4,18 @@
 
 ** DONE Unifying the existential pair and tensor pair.
 
-** TODO Implement a lazy circuit generation.
+** DONE Implement a lazy circuit generation.
+   This is implemented in the lazy-circuits branch. 
+   Base on the testing results, it run much slower than the
+   closure3 branch. I think this is pretty much useless because
+   we are really implementing a cbv language.
 
-** TODO Change the syntax to forall (x :: T) -> T and \ x -> t. 
+** DONE Change the syntax to forall (x :: T) -> T and \ x -> t. 
 
-** TODO Handle the evaluation memory usage.
+** DONE Handle the evaluation memory usage.
+   This is implemented in the closure3 branch. It cannot run 
+   supper large circuit, i.e., > 1,000,000 gates. But I implemented
+   a simple reference count GC, so naive looping will not leak memory.
 
 ** TODO Implement Agda style '?'. 
 
