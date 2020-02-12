@@ -356,10 +356,13 @@ data Value =
   | VUnit -- ^ Runtime unit type for generating unit value.
   | VLBase Id -- ^ Runtime simple types.
   | VBase Id -- ^ Runtime non-simple type. 
-  | VLam [Variable] (Bind [(Variable, Integer)] EExp) -- ^ Lambda forms a closure. 
+  | VLam [Variable] (Bind [(Variable, Integer)] EExp)
+    -- ^ Lambda forms a closure. ['Variable']
+    -- is the list of variables that is refered by this closure.
   | VPair Value Value -- ^ Pair of values.
   | VStar -- ^ Unit value. 
-  | VLift [Variable] EExp -- ^ Lift forms a closure.
+  | VLift [Variable] EExp -- ^ Lift forms a closure. ['Variable']
+    -- is the list of variables that is refered by this closure.
   | VLiftCirc (Bind [Variable] (Bind LEnv EExp))
     -- ^ Circuit binding, [Variable] is like a lambda that handles parameter arguments
     -- and the control argument, LEnv binds a variable to a circuit.
@@ -531,8 +534,7 @@ data Decl = Object Position Id -- ^ Declaration for qubit or bit.
 
 
 -- | A data structure for the erased expression, all bind variables are annotated
--- with its approximate occurences. It is 
--- susceptible for further optimization. 
+-- with its approximate occurences. 'ELift' and 'ELam' maintain a list of free variables.
 
 data EExp =
   EVar Variable

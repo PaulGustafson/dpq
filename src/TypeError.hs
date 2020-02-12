@@ -69,13 +69,14 @@ data TypeError = Unhandle Exp
                deriving Show
 
 -- | A data type for evaluation errors.
-data EvalError = MissBranch Id Exp
+data EvalError = MissBranch Id EExp
                | UndefinedId Id 
                | PatternMismatch Pattern Value
                | TupleMismatch [Variable] Value
                | ErrWrapper TypeError
                | SimulationErr SimulateError
                deriving Show                 
+
 instance Disp EvalError where
   display flag (MissBranch id e) =
     text "missing branch for:" <+> display flag id $$
@@ -248,7 +249,8 @@ instance Disp TypeError where
     text "Normalization error:" $$ 
     text "missing a branch for" $$ 
     nest 2 (display flag t) $$ 
-    text "when evaluating" $$ nest 2 (display flag a)
+    text "when normalizing" $$ nest 2 (display flag a)
+
 
   display flag (Vacuous p vs ty m) =
     display flag p <+> text "the following variables are vacuously quantified:" $$

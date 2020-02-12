@@ -298,7 +298,7 @@ checkExplicit (Right x :xs) ann =
 
 -- | Count the number of occurences for a list of variables. It is only
 -- an over approximation, as there is no way to predict the real uses due to
--- closure with recursion and case branching. 
+-- the way closure intract with recursion and case branching. 
 countVar :: [Variable] -> EExp -> [Integer]
 countVar xs e =
   map (helper e) xs

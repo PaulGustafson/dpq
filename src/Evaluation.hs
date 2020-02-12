@@ -68,7 +68,7 @@ data EvalState =
        evalEnv :: Context,  -- ^ The global evaluation context.
        localEvalEnv :: Map Variable (Value, Integer, Integer, [Variable]),
        -- ^ The heap for evaluation, represented by a map.
-       -- The first 'Integer' represents approximate occurences,
+       -- The first 'Integer' represents the approximate number of occurences,
        -- the second 'Integer' represents its accurate reference count,
        -- the ['Variable'] is the variables that it refers to.
        
@@ -179,12 +179,11 @@ eval (ELetPat m bd) =
                   mapM_ (\ (x, v) -> addDefinition x v) subs
                   eval m
            p -> error "pattern mismatch, from eval ELetPat" 
-             -- throwError $! PatternMismatch p m'
 
 eval b@(ECase m (EB bd)) =
   do m' <- eval m
      case vflatten m' of
-       Nothing -> error ("from eval (Case):") -- ++ (show $! disp b))
+       Nothing -> error ("from eval (Case):")
        Just (Left id, args) ->
          reduce id args bd
   where reduce id args (bd:bds) =
@@ -198,16 +197,21 @@ eval b@(ECase m (EB bd)) =
                   mapM_ (\ (x, v) -> addDefinition x v) subs
                   eval m
                | otherwise -> reduce id args bds
-        reduce id args [] = error "missing branch during eval"
-          -- throwError $! MissBranch id b
+        reduce id args [] = 
+          throwError $! MissBranch id b
 
-eval a = error $! "from eval: "
-         -- ++ (show $! disp a)
+eval a = error $! "from eval: " ++ (show $! disp a)
+
 
 -- * Helper functions for eval.
 
 -- | Look up a value from the local environment.
-
+-- It also implements a nonstop GC. Compared to stop-the-world-gc,
+-- The CONS is that if the garbage is not access
+-- anymore, there is no way to collect them. The
+-- PROS is that it runs faster than stop-the-world-gc and it does not
+-- stop anything. 
+lookupLEnv :: Variable -> Eval Value
 lookupLEnv x =
   do st <- get
      let lenv = localEvalEnv st
@@ -215,10 +219,6 @@ lookupLEnv x =
      case Map.lookup x lenv of
        Nothing -> error $ "from lookupLEnv:" ++ show x
        Just (v, n, ref, ps) ->
-         -- A nonstop GC. Compared to stop-the-world-gc,
-         -- The cons is that if the garbage is not access
-         -- anymore, there is no way to collect them. The
-         -- pros is that it runs faster than stop-the-world-gc. 
          if (n-1 <= 0) && ref == 0 then
            do let lenv' = decrRef ps (Map.delete x lenv)
               put st{localEvalEnv = lenv'}
@@ -227,20 +227,6 @@ lookupLEnv x =
            do let lenv' = Map.insert x (v, n-1, ref, ps) lenv
               put st{localEvalEnv = lenv'}
               return v
-
-       -- Stop-the-world GC. 
-       -- Just (v, n, ref, ps) | toInteger (Map.size lenv) <= size ->
-       --   do let lenv' = Map.insert x (v, n-1, ref, ps) lenv
-       --      put st{localEvalEnv = lenv'}
-       --      return v
-       -- Just (v, n, ref, ps) | otherwise ->
-       --   do let lenv' = Map.insert x (v, n-1, ref, ps) lenv
-       --          lenv'' = garbageCollection lenv'
-       --          afterGCSize = toInteger (Map.size lenv'')
-       --          size' = if afterGCSize >= size then afterGCSize+10000
-       --                  else if size - afterGCSize < 1000 then size+10000 else size
-       --      put st{localEvalEnv = lenv'', gcSize = size'}
-       --      return v    
 
 -- | Add a value to the environment.
 addDefinition (x, n) m =
@@ -251,7 +237,9 @@ addDefinition (x, n) m =
                  else Map.insert x (m, n, 0, vs) (addRef vs lenv) 
      put st{localEvalEnv = lenv'}
 
--- | Add the reference count for given variables.
+-- | Increase the reference count for given variables.
+addRef :: [Variable] -> Map Variable (Value, Integer, Integer, [Variable]) ->
+           Map Variable (Value, Integer, Integer, [Variable])               
 addRef [] lenv = lenv
 addRef (v:vs) lenv =
   case Map.lookup v lenv of
@@ -553,18 +541,9 @@ getAllWires (Morphism ins gs outs) =
           S.fromList (getWires ctrls)
 
 
--- Stop-the-world gc. 
-garbageCollection lenv =
-  let lenv' = Map.foldlWithKey' (\ m k (_, n, ref, ps) -> tryDelete k n ref ps m) lenv lenv
-  in lenv'
-  where
-        tryDelete k n ref ps m | n <= 0 && ref <= 0 =
-          let m' = Map.delete k m
-              m'' = decrRef ps m'
-          in m''
-        tryDelete k n ref ps m | otherwise = m
-
 -- | Decrease the reference count for a list of variables.
+decrRef :: [Variable] -> Map Variable (Value, Integer, Integer, [Variable]) ->
+           Map Variable (Value, Integer, Integer, [Variable])          
 decrRef [] m = m
 decrRef (v:vs) m =
   case Map.lookup v m of
