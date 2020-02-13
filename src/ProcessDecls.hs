@@ -243,8 +243,14 @@ process (Object pos id) =
          sp = Base (Id "SimpParam")
          instId = Id $ "instAt"++ hashPos pos ++ "Simple"
          instPS = Id $ "instAt"++ hashPos pos ++ "SimpParam"
-     elaborateInstance pos instId (App s (LBase id)) []
-     elaborateInstance pos instPS (App (App sp (LBase id)) (Base (Id "Bool"))) []
+     elaborateInstance pos instId (App s (LBase id)) [] `catchError`
+       \ e -> throwError $ addErrPos pos e
+     elaborateInstance pos instPS (App (App sp (LBase id)) (Base (Id "Bool"))) [] `catchError`
+       \ e -> case e of
+                NoDef t | getName t == "Bool" ->
+                          throwError $ ErrPos pos SimpParamErr
+                _ -> throwError $ addErrPos pos e
+               
 
 
 process (GateDecl pos id params t) =

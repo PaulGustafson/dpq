@@ -454,11 +454,14 @@ instance Disp Value where
   display flag (VRunCirc) = text "runCirc"
   display flag (VCircuit m) = display flag m
   display flag (VLam ws (Abst vs e)) = 
-    sep [brackets (sep $ map (display flag) ws), text "\\", hsep (map (\ (x, y) -> display flag x <> text ":" <> integer y) vs) , text ".", nest 2 (display flag e)]
-  display flag (VLift ws e) = -- text "lift"
+    sep [text "\\vlam" <+> brackets (sep $ map (display flag) ws),
+         hsep (map (\ (x, y) -> parens (display flag x <> text ":" <> integer y)) vs)
+         <+> text "->", nest 2 (display flag e)]
+  display flag (VLift ws e) = 
    text "vlift" <+> (brackets $ sep (map (display flag) ws)) <+> display flag e
-  display flag (VLiftCirc (Abst vs (Abst env e))) = -- text "vliftCirc"
-   text "vliftCirc" <+> hsep (map (display flag) vs) <+> text "." <+> braces (display flag env) $$ nest 2 (display flag e)
+  display flag (VLiftCirc (Abst vs (Abst env e))) = 
+   text "vliftCirc" <+> hsep (map (display flag) vs) <+> text "->"
+   <+> braces (display flag env) $$ nest 2 (display flag e)
   display flag (Wired (Abst ls v)) = display flag v
   display flag (VApp v1 v2) = parens $ display flag v1 <+> display flag v2  
   display flag (VForce v) = text "&" <> display flag v
@@ -585,12 +588,13 @@ instance Disp EExp where
   display flag (ERevert) = text "revert"
   display flag (ERunCirc) = text "runCirc"
   display flag (ELam ws (Abst vs e)) = 
-    sep [brackets (sep $ map (display flag) ws), text "\\elam", hsep (map (\ (x, y) -> display False x <> text ":" <> integer y) vs) , text ".", nest 2 (display flag e)]
+    sep [text "\\elam" <+> brackets (sep $ map (display flag) ws),
+         hsep (map (\ (x, y) -> parens (display False x <> text ":" <> integer y)) vs) <+>text "->", nest 2 (display flag e)]
   display flag (ELift ws e) = 
    text "elift" <+> (brackets $ sep (map (display flag) ws)) <+> display flag e
 
   display flag (EApp v1 v2) = parens $ display flag v1 <+> display flag v2  
-  display flag (EForce v) = text "&" <+> display flag v
+  display flag (EForce v) = text "&" <> display flag v
   display flag (ECase e (EB brs)) =
     text "case" <+> display flag e <+> text "of" $$
     nest 2 (vcat $ map helper brs)
