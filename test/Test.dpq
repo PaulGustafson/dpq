@@ -18,10 +18,14 @@ k : ! forall a b -> (Parameter b) => a -> b -> a
 k x y = x
 
 -- constant space diverging. 
-testK = k 1 (f2 0)
+-- testK = k 1 (f2 0)
 
 -- main = f1 0 (\ x -> x)
 
 
 -- main = box Unit $ \ u -> map H (initVec 10 False)
 -- main = box Qubit H
+
+fancyType : ! (s : Type) -> (Simple s) => (p : Unit -> Type) ->
+              !((x : s) -> (Simple (p x)) => p x) -> Unit
+fancyType s p f = ()              

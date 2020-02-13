@@ -75,9 +75,10 @@ data VarInfo =
 data VarIdentification = TermVar ZipCount (Maybe Exp)
                          -- ^ Term variable, its count and its definition if it is defined
                          -- by let expression. 
-                       | TypeVar Bool
-                         -- ^ Type variable. The boolean indicates
+                       | TypeVar Bool Bool
+                         -- ^ Type variable. The first 'Bool' indicates
                          -- whether a type variable is a parameter variable.
+                         -- The second 'Bool' indicates if it is a simple type variable.
 
 
 -- | Convert a global context to a local one. 
@@ -208,7 +209,7 @@ isParam (Var x) =
         Nothing -> return False
         Just lti ->
           case varIdentification lti of
-            TypeVar b -> return b
+            TypeVar b _ -> return b
             _ -> return False
 
 isParam (EigenVar x) =
@@ -219,7 +220,7 @@ isParam (EigenVar x) =
         Nothing -> error "from isParam EigenVar"
         Just lti ->
           case varIdentification lti of
-            TypeVar b -> return b
+            TypeVar b _ -> return b
             _ -> return False
 
 isParam (Base id) =
@@ -348,7 +349,7 @@ updateCount x =
        Nothing -> error "from updateCount."
        Just lpkg ->
          case varIdentification lpkg of
-           TypeVar b -> return ()
+           TypeVar b _ -> return ()
            TermVar c d ->
              do let lty' = Map.insert x (lpkg{varIdentification = TermVar (incr c) d}) lty
                     gamma' = gamma {localCxt = lty'}
@@ -363,8 +364,31 @@ shape a@(LBase x) | otherwise = return a
 shape Star = return Star
 shape a@(Base _) = return a
 shape a@(Const _) = return a
-shape a@(Var _) = return a
-shape a@(EigenVar _) = return a
+shape a@(Var x) =
+  do ts <- get
+     let gamma = lcontext ts
+         lty = localCxt gamma
+     case Map.lookup x lty of
+       Nothing -> return a
+       Just lpkg ->
+         case varIdentification lpkg of
+           TermVar _ _ -> return a
+           TypeVar _ s | s -> return Unit
+                       | otherwise -> return a
+
+       
+shape a@(EigenVar x) =
+  do ts <- get
+     let gamma = lcontext ts
+         lty = localCxt gamma
+     case Map.lookup x lty of
+       Nothing -> return a
+       Just lpkg ->
+         case varIdentification lpkg of
+           TermVar _ _ -> return a
+           TypeVar _ s | s -> return Unit
+                       | otherwise -> return a
+  
 shape a@(GoalVar _) = return a
 shape a@(Bang _) = return a
 shape a@(Lift _) = return a
@@ -532,7 +556,8 @@ addVar x t =
   do ts <- get
      let b = isKind t
          env = lcontext ts
-         pkg = if b then VarInfo t (TypeVar False) else VarInfo t (TermVar initCount Nothing) 
+         pkg = if b then VarInfo t (TypeVar False False)
+               else VarInfo t (TermVar initCount Nothing) 
          gamma' =  Map.insert x pkg (localCxt env)
          env' = env{localCxt = gamma'}
      put ts{lcontext = env'}
@@ -599,8 +624,35 @@ updateParamInfo (p:ps) =
                  case varIdentification lpkg of
                    TermVar c _ ->
                      error "from updateParam, unexpected term variable when updating param info."
-                   TypeVar _ ->
-                     do let lti' = Map.insert x (lpkg{varIdentification = TypeVar True}) lty
+                   TypeVar _ s ->
+                     do let lti' = Map.insert x (lpkg{varIdentification = TypeVar True s}) lty
+                            gamma' = gamma {localCxt = lti'}
+                        put ts{lcontext = gamma'}
+
+-- | Update simple info if a type variable has a 'Simple' assumption
+updateSimpleInfo :: [Exp] -> TCMonad ()
+updateSimpleInfo [] = return ()
+updateSimpleInfo (p:ps) =
+  case flatten p of
+    Just (Right i, [arg]) | getName i == "Simple"  ->
+      case erasePos arg of
+        Var x -> updateSimple x >> updateSimpleInfo ps
+        EigenVar x -> updateSimple x >> updateSimpleInfo ps
+        _ -> updateSimpleInfo ps
+    _ -> updateSimpleInfo ps
+  where updateSimple :: Variable -> TCMonad ()
+        updateSimple x = 
+          do ts <- get
+             let gamma = lcontext ts
+                 lty = localCxt gamma
+             case Map.lookup x lty of
+               Nothing -> error "from updateSimple."
+               Just lpkg ->
+                 case varIdentification lpkg of
+                   TermVar c _ ->
+                     error "from updateSimple, unexpected term variable when updating simple info."
+                   TypeVar p _ ->
+                     do let lti' = Map.insert x (lpkg{varIdentification = TypeVar p True}) lty
                             gamma' = gamma {localCxt = lti'}
                         put ts{lcontext = gamma'}
 
@@ -726,7 +778,7 @@ checkParamCxt t =
                Just lpkg ->
                  do let t'= varClassifier lpkg
                     case varIdentification lpkg of
-                      TypeVar _ -> return ()
+                      TypeVar _ _ -> return ()
                       TermVar c _ ->
                         do tt <- updateWithSubst t'
                            p <- isParam tt
@@ -790,7 +842,7 @@ updateCountWith update =
   where
         helper lpkg =
           case varIdentification lpkg of
-            TypeVar _ -> lpkg
+            TypeVar _ _ -> lpkg
             TermVar n d ->
               let n' = update n 
               in lpkg{varIdentification = TermVar n' d}

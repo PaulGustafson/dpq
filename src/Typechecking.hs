@@ -237,6 +237,7 @@ typeCheck True (Imply tys ty2) Set =
      let tys1 = map snd res
      mapM checkClass tys1
      updateParamInfo tys1
+     updateSimpleInfo tys1
      (_, ty2') <- typeCheck True ty2 Set
      return (Set, Imply tys1 ty2')
 
@@ -388,6 +389,7 @@ typeCheck flag a (Imply bds ty) =
      ns <- newNames ns1
      -- Note that we update the parameter variable information here.
      updateParamInfo bds
+     updateSimpleInfo bds
      freshNames ns $ \ ns ->
        do bds' <- mapM normalize bds
           let instEnv = zip ns bds'

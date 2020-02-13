@@ -59,6 +59,7 @@ data TypeError = Unhandle Exp
                | TyAmbiguous (Maybe Id) Exp               
                | BangErr Exp Exp
                | PfErrWrapper Exp TypeError Exp
+               | SimpParamErr 
                -- ^ A wrapper for proof checking error.
                | TensorExpErr Exp Exp
                | NotUnit
@@ -121,7 +122,7 @@ instance Disp TypeError where
   display flag (Unhandle t) =
     text "there is no type inference rule to infer a type for the expresson:" $$
     nest 2 (display flag t) 
---    text "suggestion: add a type annotation"
+
 
   display flag (NoDef t) =
     text "no definition for the identifier:" $$ nest 2 (display flag t)
@@ -376,6 +377,9 @@ instance Disp TypeError where
     text "is expected to have a bang type, but it has type:" $$
     nest 2 (display flag b)
 
+  display flag (SimpParamErr) =
+    text "data type Bool is required to be defined before defining an object."
+    
   display flag (TensorExpErr a t) =
     text "the term:" <+> display flag a $$
     text "has a tensor type, but it is expected to have type:" $$

@@ -516,6 +516,15 @@ main'' =
 --        vs = listToVec (qrwbwt (orthodox_oracle n f g) s)
 --    in vs
 
+
+-- main : Circ(Unit,
+--          Vec Qubit
+--           (toNat
+--              (qrwbwt
+--                 (orthodox_oracle 2
+--                    (Cons True (Cons False Nil))
+--                     (Cons False (Cons True Nil)))
+--                        1)))
 main =
   box Unit (
     \ u -> listToVec (qrwbwt
