@@ -390,12 +390,12 @@ instance Disp TypeError where
 
 
   display flag (ImplicitCase x ann) =
-    text "the irrelavent pattern variable:" <+> dispRaw x $$   
+    text "the irrelevant pattern variable:" <+> dispRaw x $$   
     text "is used explicitly in the annotated program:" $$
     nest 2 (dispRaw ann)
 
   display flag (ImplicitVarErr x a) =
-    text "the irrelavent variable: "
+    text "the irrelevant variable: "
     <+> display flag x $$
     text "is used explicitly in the annotated program:" $$
     nest 2 (display flag a)
