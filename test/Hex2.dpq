@@ -277,7 +277,7 @@ checkwin_red (m x_max : Nat) (pf1 : Eq Bool (x_max > Z) True)
       VNil = vnb
       blue = VCons y ys 
   (bits, new, mask) <- flood_fill m x_max pf1 blue red
-  let VCons b bs = reverse bits
+  let VCons b bs = reverse_vec bits
       VZ bl bit br = moveBackward Qubit Z m x_max pf2 (VZ VNil b bs)
   dispose new
   dispose mask

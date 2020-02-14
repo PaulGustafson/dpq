@@ -9,12 +9,12 @@ toffoli x y z = ToffoliGate True True x y z
 
 controlled CZ : Qubit -> Qubit
 
--- There are some reshuffling using reverse to make the order match up with
+-- There are some reshuffling using reverse_vec to make the order match up with
 -- Mermin's book-> But the core part is the mapM->
 cascade : ! (n : Nat) -> Vec Qubit n -> Qubit -> Vec Qubit n ->
                 Vec Qubit n * Vec Qubit n * Qubit
 cascade n a c b =
-  let a1 = reverse a
+  let a1 = reverse_vec a
       r = zip a1 b 
       (r1, c') = runState c $ 
         mapM (\ x -> let (a, b) = x in

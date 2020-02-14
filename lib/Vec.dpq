@@ -104,8 +104,8 @@ reverseh a n m l1 l2 =
   --            VCons q qs -> 
   --   	       subst (\ x -> Vec a x) (addS n' m) $ reverseh a n' (S m) qs (VCons q l2)
 
-reverse : ! {a : Type} -> {n : Nat} -> Vec a n -> Vec a n
-reverse a n l = subst (\ x -> Vec a x) (addZ n) $ reverseh l VNil
+reverse_vec : ! {a : Type} -> {n : Nat} -> Vec a n -> Vec a n
+reverse_vec a n l = subst (\ x -> Vec a x) (addZ n) $ reverseh l VNil
 
 zipWith : ! forall a b c (n : Nat) -> !(a -> b -> c) ->
               Vec a n -> Vec b n -> Vec c n
