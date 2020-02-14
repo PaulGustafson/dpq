@@ -26,7 +26,7 @@ E.g. add `export DPQ=<path-to-dpq-directory>` to your `.bashrc` file.
    you computer. Add `<path-to-dpqi>, <path-to-dpq>` to your `PATH` variable. 
 
 
-4. Optional: if you are an emacs user, you may want to add the following to your `.emacs` file
+4. Optional: if you are an Emacs user, you may want to add the following to your `.emacs` file
 
    ```
    (load "<path>/dpq-mode.el")
@@ -57,7 +57,7 @@ see the `lib/` and `test/` directory for syntax and examples.
 
 FAQ
 =========
-1. Why `export DPQ="~/dpq"` does not work?
+1. Why does `export DPQ="~/dpq"` not work?
 
    The '\~' symbol in double quotes will not get expanded, so if the dpq installation
    directory is under you home directory, you may want to use `export DPQ=~/dpq` instead.
@@ -71,7 +71,7 @@ FAQ
    On the other hand, `import "/home/username/lib/Prelude.dpq"` will import the file at
    `/home/username/lib/Prelude.dpq`.
 
-3. Why `C-c C-l` does not work for my emacs?
+3. Why does `C-c C-l` not work for my Emacs?
 
-   One possible reason is that you forget to restart emacs if you just modified your
-   `.emacs` file, or restart the terminal if you just modified your `.bashrc` file. 
+   One possible reason is that you forgot to restart Emacs if you just modified your
+   `.emacs` file, or to restart the terminal if you just modified your `.bashrc` file. 
