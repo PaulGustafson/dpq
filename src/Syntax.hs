@@ -442,6 +442,8 @@ instance Disp Value where
   display flag (VVar l) = text $ show l
   display flag (VLBase id) = display flag id
   display flag (VBase id) = display flag id
+  display flag (VConst id) | getName id == "Z" = text "0"
+  display flag (VConst id) | getName id == "VNil" = text "[]"
   display flag (VConst id) = display flag id
   display flag (VTensor x y) = display flag x <+> text "*" <+> display flag y
   display flag (VPair x y) = parens $ display flag x <+> text "," <+> display flag y
