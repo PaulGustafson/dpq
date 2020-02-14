@@ -36,7 +36,7 @@ data Exp =
   | Box -- ^ Circuit boxing: @box@.
   | ExBox -- ^ Existential circuit boxing: @existsBox@.
   | UnBox -- ^ Circuit unbox: @unbox@.
-  | Revert -- ^ Circuit revertion: @revert@.
+  | Revert -- ^ Circuit reversal: @revert@.
   | RunCirc -- ^ Run classical circuit: @runCirc@.
   | Case Exp Branches -- ^ Case expression.
   | Wild -- ^ Wildcard. 
@@ -67,7 +67,7 @@ data Decl = GateDecl Position String [Exp] Exp
           | Object Position String
             -- ^  Object declaration for simple types such as @Qubit@ or @Bit@.
           | Def Position String Exp [String] Exp
-            -- ^ Funtion definition, 'Exp' is the type expression,
+            -- ^ Function definition, 'Exp' is the type expression,
             -- ['String'] is a list of arguments, 'Exp' is the definition.
           | Defn Position String [Either Exp ([String], Exp)]
             [Either Exp ([String], Exp)] Exp

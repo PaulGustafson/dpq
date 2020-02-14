@@ -90,10 +90,10 @@ vacuousForall a = Nothing
 
 -- | Flags for getting various of variables.
 data VarSwitch = GetGoal -- ^ Get goal variables only.
-  | OnlyEigen  -- ^ Obtain only eigen variables from an expression.
-  | AllowEigen  -- ^ Free variables in clude eigen variables
-  | NoEigen -- ^ Free variables does not clude eigen variables
-  | NoImply -- ^ Does not include the variables that occurs in the type class constraints. 
+  | OnlyEigen  -- ^ Obtain only eigenvariables from an expression.
+  | AllowEigen  -- ^ Free variables include eigenvariables
+  | NoEigen -- ^ Free variables do not include eigenvariables
+  | NoImply -- ^ Does not include the variables that occur in the type class constraints. 
 
 -- | Get a set of variables from an expression according to the flag.
 getVars :: VarSwitch -> Exp -> S.Set Variable
@@ -311,9 +311,9 @@ removePrefixes flag (Pos _ a) = removePrefixes flag a
 removePrefixes flag a = ([], a)
 
 -- | Flatten an applicative expression. It can
--- be applied to both type and term expression. It return 'Nothing' if the input is not
+-- be applied to both type and term expressions. It returns 'Nothing' if the input is not
 -- in applicative form. 'Left' indicates the identifier is a term constructor, 'Right' 
--- indicates the identifier is a type construtor.
+-- indicates the identifier is a type constructor.
 -- It also returns a list of arguments.
 
 flatten :: Exp -> Maybe (Either Id Id, [Exp])

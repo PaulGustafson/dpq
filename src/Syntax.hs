@@ -537,7 +537,7 @@ data Decl = Object Position Id -- ^ Declaration for qubit or bit.
 
 
 -- | A data structure for the erased expression, all bind variables are annotated
--- with its approximate occurences. 'ELift' and 'ELam' maintain a list of free variables.
+-- with its approximate occurrences. 'ELift' and 'ELam' maintain a list of free variables.
 
 data EExp =
   EVar Variable

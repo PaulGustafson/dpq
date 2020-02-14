@@ -68,7 +68,7 @@ data EvalState =
        evalEnv :: Context,  -- ^ The global evaluation context.
        localEvalEnv :: Map Variable (Value, Integer, Integer, [Variable]),
        -- ^ The heap for evaluation, represented by a map.
-       -- The first 'Integer' represents the approximate number of occurences,
+       -- The first 'Integer' represents the approximate number of occurrences,
        -- the second 'Integer' represents its accurate reference count,
        -- the ['Variable'] is the variables that it refers to.
        
@@ -493,12 +493,12 @@ genNames uv =
       names = take n ls
   in names
 
--- | Rename uv using fresh labels draw from vs
+-- | Rename /uv/ using fresh labels draw from /vs/.
 toVal :: Value -> [Label] -> Value
 toVal uv vs = evalState (templateToVal uv) vs
 
 -- | Obtain a fresh template inhabitant of a simple type, with wirenames
--- draw from the state. The input is a simple data type
+-- drawn from the state. The input is a simple data type.
 templateToVal :: Value -> State [Label] Value
 templateToVal (VLBase _) =
   do x <- get

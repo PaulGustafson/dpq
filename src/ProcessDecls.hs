@@ -407,7 +407,7 @@ checkOverlap h =
 
 
 -- | Construct an instance function. The argument /f'/ is 
--- the name of the instance fuction and /ty/ is its the type, the
+-- the name of the instance function and /ty/ is its type. The
 -- arguments /mths/ are the method definitions.
 elaborateInstance :: Position -> Id -> Exp -> [(Position, Id, Exp)] -> TCMonad ()
 elaborateInstance pos f' ty mths =

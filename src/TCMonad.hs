@@ -105,7 +105,7 @@ makeInstanceCxt gl =
   IC {localInstance = [], globalInstance = gl, goalInstance = []}
 
 
--- | The type checking monad tranformer. 
+-- | The type checking monad transformer. 
 newtype TCMonadT m a = TC{runTC :: ExceptT TypeError (StateT TypeState m) a}
   deriving (Functor, Monad, Applicative, MonadError TypeError, MonadState TypeState)
 
@@ -118,9 +118,9 @@ data TypeState = TS {
                      subst :: Subst, -- ^ Substitution generated during the type checking.
                      clock :: Int, -- ^ A counter.  
                      instanceContext :: InstanceContext, -- ^ A local instance context.
-                     checkForallBound :: Bool, -- ^ Whether or not to check Forall variable
-                                              -- is well-quantified. It is uncheck when the
-                                              -- type is intended to be used as instance type
+                     checkForallBound :: Bool, -- ^ Whether or not to check if a Forall variable
+                                              -- is well-quantified. It is unchecked when the
+                                              -- type is intended to be used as an instance type.
                      infer :: Bool -- ^ If it is in infer mode.
                     }
 
@@ -156,7 +156,7 @@ getInfer :: TCMonad Bool
 getInfer =
   get >>= \ x -> return $ infer x
 
--- | Lookup an indentifier for information.
+-- | Look up an identifier for information.
 lookupId :: Id -> TCMonad Info
 lookupId x =
   do ts <- get
@@ -165,7 +165,7 @@ lookupId x =
        Nothing -> throwError (NoDef x)
        Just tup -> return tup
 
--- | Lookup a variable from the typing context. Note that type variable does not have count.
+-- | Look up a variable from the typing context. Note that type variable does not have count.
 lookupVar :: Variable -> TCMonad (Exp, Maybe ZipCount)
 lookupVar x =
   do ts <- get
@@ -675,7 +675,7 @@ removeLocalInst x =
          env' = env{localInstance = gamma'}
      put ts{instanceContext = env'}
 
--- | Generate a list of names that is freshed relatively to the
+-- | Generate a list of names that is fresh relatively to the
 -- clock value.
 newNames :: [String] -> TCMonad [String]
 newNames ns =
@@ -745,7 +745,7 @@ checkApp a =
                    fromEither (Right x) = x
     _ -> return False
 
--- | Check if the expression is a basic value (i.e., things that can be displayed in an interpretor), note that function and circuit is not a basic value.
+-- | Check if the expression is a basic value (i.e., things that can be displayed in an interpreter), note that function and circuit is not a basic value.
 isBasicValue :: Value -> TCMonad Bool
 isBasicValue (VConst k) =
   do pac <- lookupId k

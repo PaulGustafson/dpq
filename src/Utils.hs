@@ -54,7 +54,7 @@ type Label = AtomOfKind L
 instance Disp (AtomOfKind L) where
   display _ t = text (show t)
 
--- | A non-unicode pattern definition for openning a binder.  
+-- | A non-Unicode pattern definition for opening a binder.  
 pattern Abst :: (Bindable a, Nominal t) => a -> t -> Bind a t
 pattern Abst x t <- ((\ b -> open b (\ x b' -> (x, b'))) -> (x, t))
 
@@ -93,7 +93,7 @@ instance Disp Id where
 
 -- | Position information for error reporting. Build-in positions are
 -- generated from the build-in type classes. 
-data Position = P SourcePos | DummyPos | BuildIn Int
+data Position = P SourcePos | DummyPos | BuiltIn Int
   deriving (Show, Eq, NominalShow, NominalSupport, Generic, Nominal)
 
 instance Nominal SourcePos where
@@ -111,12 +111,12 @@ instance NominalShow SourcePos where
 hashPos :: Position -> String
 hashPos (P p) = (takeBaseName (sourceName p)) ++ (show $ sourceLine p)
 hashPos (DummyPos) = "dummyPos"
-hashPos (BuildIn i) = "builtIn"++ show i
+hashPos (BuiltIn i) = "builtIn"++ show i
 
 instance Disp Position where
   display b (P p) = display b p
   display _ (DummyPos) = text ""
-  display _ (BuildIn i) = text $ "BUILDIN#"++show i
+  display _ (BuiltIn i) = text $ "BUILTIN#"++show i
 
 class Disp a where
   display :: Bool -> a -> Doc

@@ -73,7 +73,7 @@ newtype Top a = T {runT :: ExceptT Error (StateT TopState IO) a }
               deriving (Monad, Applicative, Functor,
                         MonadState TopState, MonadError Error, MonadIO)
 
--- | A 'TopState' contains an interpretor state and a file name. 
+-- | A 'TopState' contains an interpreter state and a file name. 
 data TopState = TopState {
   interpreterstate :: InterpreterState,
   filename :: Maybe String
@@ -94,7 +94,7 @@ runTop p body =
        Left e -> error ("from runTop: " ++ (show $ disp e)) 
 
 
--- | Interpretor's state.
+-- | Interpreter's state.
 data InterpreterState = InterpreterState {
   scope :: Scope,   -- ^ Scope information.
   context :: Context,  -- ^ Typing context.
@@ -129,7 +129,7 @@ getCirc = do
   s <- getInterpreterState
   return (circ s)
 
--- | Get the interpretor state.
+-- | Get the interpreter state.
 getInterpreterState :: Top InterpreterState
 getInterpreterState = do
   s <- get
@@ -196,13 +196,13 @@ getCxt = do
   s <- getInterpreterState
   return (context s)
 
--- | Reset the interpretor state to the empty state. 
+-- | Reset the interpreter state to the empty state. 
 clearInterpreterState :: Top ()
 clearInterpreterState =
   do p <- getPath
      putInterpreterState $ emptyState p
 
--- | The empty interpretor state.
+-- | The empty interpreter state.
 emptyState p = InterpreterState {
   scope = emptyScope,
   context = Map.empty,
@@ -236,7 +236,7 @@ getCounter = do
   return (counter s)
 
 -- | Add a build in identifier according to the third argument.
--- For example, @addBuiltin (BuildIn i) "Simple" A.Base@.
+-- For example, @addBuiltin (BuiltIn i) "Simple" A.Base@.
 addBuiltin :: Position -> String -> (Id -> A.Exp) -> Top Id  
 addBuiltin p x f =
   do scope <- getScope
@@ -306,18 +306,18 @@ putInstCxt cxt = do
   putInterpreterState s'
 
 
--- | Make a buildin class of the form @C x1 ... xn@. The input /d/
+-- | Make a built-in class of the form @C x1 ... xn@. The input /d/
 -- is the class name,  /n/ is the number of arguments for /c/. 
-makeBuildinClass :: Id -> Int -> Top ()
-makeBuildinClass d n | n > 0 =
+makeBuiltinClass :: Id -> Int -> Top ()
+makeBuiltinClass d n | n > 0 =
   do i <- getCounter
-     dict <- addBuiltin (BuildIn (i+1)) (getName d ++"Dict") A.Const
+     dict <- addBuiltin (BuiltIn (i+1)) (getName d ++"Dict") A.Const
      putCounter (i+3)
      let names = map (\ i -> "x"++ show i) $ take n [0 .. ]
          dictType = freshNames names $
                     \ ns -> A.Forall (abst ns $ foldl A.App (A.Base d) (map A.Var ns)) A.Set
          kd = foldr (\ x y -> A.Arrow A.Set y) A.Set names
-     tcTop $ process (A.Class (BuildIn (i+2)) d kd dict dictType [])
+     tcTop $ process (A.Class (BuiltIn (i+2)) d kd dict dictType [])
 
 -- | Lift a parsing result to 'Top' monad.
 parserTop :: Either ParseError a -> Top a

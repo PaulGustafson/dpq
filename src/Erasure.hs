@@ -26,7 +26,7 @@ import Debug.Trace
 
 -- | Erase a fully annotated expression to a lambda expression, for
 -- runtime evaluation. Provide the variable information for variable bindings.
--- The erasrue function also checks if an irrelevant variable
+-- The erasure function also checks if an irrelevant variable
 -- is used as an explicit argument. 
 
 erasure :: Exp -> TCMonad EExp
@@ -296,9 +296,9 @@ checkExplicit (Right x :xs) ann =
   do when (isExplicit x ann) $ throwError $ ImplicitCase x ann
      checkExplicit xs ann
 
--- | Count the number of occurences for a list of variables. It is only
--- an over approximation, as there is no way to predict the real uses due to
--- the way closure intract with recursion and case branching. 
+-- | Count the number of occurrences for a list of variables. It is only
+-- an over-approximation, as there is no way to predict the real uses due to
+-- the way closure interacts with recursion and case branching. 
 countVar :: [Variable] -> EExp -> [Integer]
 countVar xs e =
   map (helper e) xs

@@ -1,8 +1,8 @@
 -- | This module implements the top-level read eval print loop.
 -- We use <https://hackage.haskell.org/package/haskeline Haskeline library> for
--- handling command line. The repl calls the 'dispatch' function to handle
--- user input command. We allow multilines input, as programmer can use ";" to indicate newline.
--- The repl can also auto-complete names that are in scope. 
+-- command line handling. The main function calls the 'dispatch' function to handle
+-- user input commands. We allow multiline input, as programmer can use ";" to indicate a newline.
+-- The interface can also auto-complete names that are in scope. 
 
 module ReadEvalPrint where
 
@@ -100,7 +100,7 @@ top_display_error :: Error -> Top ()
 top_display_error e = do
   ioTop $ putStrLn ("error: " ++ show (disp e))
 
--- | Restore the interpretor state when
+-- | Restore the interpreter state when
 -- an error occur.  
 catchTop :: (Error -> Top a) -> Top a -> Top a
 catchTop k x = 

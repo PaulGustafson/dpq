@@ -1,5 +1,5 @@
 {-# LANGUAGE  FlexibleInstances #-}
--- | This module implements the ususal capture-avoding substitution. 
+-- | This module implements the usual capture-avoiding substitution. 
 module Substitution where
 
 import Syntax

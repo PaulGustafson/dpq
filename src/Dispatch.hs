@@ -228,9 +228,9 @@ dispatch (Annotation e) =
 dispatch (Load verbose file) =
   do clearInterpreterState
      i <- getCounter
-     d1 <- addBuiltin (BuildIn i) "Simple" A.Base
-     d2 <- addBuiltin (BuildIn (i+1)) "Parameter" A.Base
-     d3 <- addBuiltin (BuildIn (i+2)) "SimpParam" A.Base
+     d1 <- addBuiltin (BuiltIn i) "Simple" A.Base
+     d2 <- addBuiltin (BuiltIn (i+1)) "Parameter" A.Base
+     d3 <- addBuiltin (BuiltIn (i+2)) "SimpParam" A.Base
      putCounter (i+3)
      initializeSimpleClass d1
      initializeParameterClass d2
@@ -298,65 +298,65 @@ dispatch (Load verbose file) =
 
 -- | Initialize instances of simple class for unit and tensor product.
 initializeSimpleClass d = 
-  do vpairs1 <- makeBuildinClass d 1
+  do vpairs1 <- makeBuiltinClass d 1
      s <- topResolve (C.Base "Simple")
      i <- getCounter
      scope <- getScope
      putCounter (i+2)
-     let inst1 = "instAt" ++ hashPos (BuildIn i) ++ "Simple"
-         inst2 = "instAt" ++ hashPos (BuildIn (i+1)) ++ "Simple"
-     (instSimp, scope') <- scopeTop $ addConst (BuildIn i) inst1 Const scope
-     (instSimp2, scope'') <- scopeTop $ addConst (BuildIn (i+1)) inst2 Const scope'
+     let inst1 = "instAt" ++ hashPos (BuiltIn i) ++ "Simple"
+         inst2 = "instAt" ++ hashPos (BuiltIn (i+1)) ++ "Simple"
+     (instSimp, scope') <- scopeTop $ addConst (BuiltIn i) inst1 Const scope
+     (instSimp2, scope'') <- scopeTop $ addConst (BuiltIn (i+1)) inst2 Const scope'
      putScope scope''
-     vpair <- tcTop $ elaborateInstance (BuildIn i) instSimp (A.App s A.Unit) []
+     vpair <- tcTop $ elaborateInstance (BuiltIn i) instSimp (A.App s A.Unit) []
      let pt = freshNames ["a", "b"] $ \ [a, b] ->
            A.Forall (abst [a, b] $ A.Imply [A.App s (A.Var a), A.App s (A.Var b)]
                      (A.App s $ A.Tensor (A.Var a) (A.Var b))) A.Set
-     tcTop $ elaborateInstance (BuildIn (i+1)) instSimp2 pt []
+     tcTop $ elaborateInstance (BuiltIn (i+1)) instSimp2 pt []
 
 -- | Initialize instances of SimpParam class for unit and tensor product.
 initializeSimpParam d = 
-  do vpairs1 <- makeBuildinClass d 2
+  do vpairs1 <- makeBuiltinClass d 2
      s <- topResolve (C.Base "SimpParam")
      i <- getCounter
      scope <- getScope
      putCounter (i+2)
-     let inst1 = "instAt" ++ hashPos (BuildIn i) ++ "SimpParam"
-         inst2 = "instAt" ++ hashPos (BuildIn (i+1)) ++ "SimpParam"
-     (instSimp, scope') <- scopeTop $ addConst (BuildIn i) inst1 Const scope
-     (instSimp2, scope'') <- scopeTop $ addConst (BuildIn (i+1)) inst2 Const scope'
+     let inst1 = "instAt" ++ hashPos (BuiltIn i) ++ "SimpParam"
+         inst2 = "instAt" ++ hashPos (BuiltIn (i+1)) ++ "SimpParam"
+     (instSimp, scope') <- scopeTop $ addConst (BuiltIn i) inst1 Const scope
+     (instSimp2, scope'') <- scopeTop $ addConst (BuiltIn (i+1)) inst2 Const scope'
      putScope scope''
-     tcTop $ elaborateInstance (BuildIn i) instSimp (A.App (A.App s A.Unit) A.Unit) []
+     tcTop $ elaborateInstance (BuiltIn i) instSimp (A.App (A.App s A.Unit) A.Unit) []
                            
      let pt = freshNames ["a", "b", "c", "d"] $ \ [a, b, c, d] ->
            A.Forall (abst [a, b, c, d] $ A.Imply [A.App (A.App s (A.Var a)) (A.Var c),
                                                   A.App (A.App s (A.Var b)) (A.Var d)]
                      (A.App (A.App s $ A.Tensor (A.Var a) (A.Var b)) (A.Tensor (A.Var c) (A.Var d)))) A.Set
-     tcTop $ elaborateInstance (BuildIn (i+1)) instSimp2 pt []
+     tcTop $ elaborateInstance (BuiltIn (i+1)) instSimp2 pt []
 
 -- | Initialze instances of Parameter class for unit, bang type and tensor product.
 initializeParameterClass d = 
-  do vpairs1 <- makeBuildinClass d 1
+  do vpairs1 <- makeBuiltinClass d 1
      s <- topResolve (C.Base "Parameter")
      i <- getCounter
      putCounter (i+4)
      scope <- getScope
-     let inst1 = "instAt" ++ hashPos (BuildIn i) ++ "Parameter"
-         inst2 = "instAt" ++ hashPos (BuildIn (i+1)) ++ "Parameter"
-         inst3 = "instAt" ++ hashPos (BuildIn (i+2)) ++ "Parameter"
-         inst4 = "instAt" ++ hashPos (BuildIn (i+3)) ++ "Parameter"
-     (instP, scope') <- scopeTop $ addConst (BuildIn i) inst1 Const scope
-     (instP2, scope'') <- scopeTop $ addConst (BuildIn (i+1)) inst2 Const scope'
-     (instP3, scope''') <- scopeTop $ addConst (BuildIn (i+2)) inst3 Const scope''
+     let inst1 = "instAt" ++ hashPos (BuiltIn i) ++ "Parameter"
+         inst2 = "instAt" ++ hashPos (BuiltIn (i+1)) ++ "Parameter"
+         inst3 = "instAt" ++ hashPos (BuiltIn (i+2)) ++ "Parameter"
+         inst4 = "instAt" ++ hashPos (BuiltIn (i+3)) ++ "Parameter"
+     (instP, scope') <- scopeTop $ addConst (BuiltIn i) inst1 Const scope
+     (instP2, scope'') <- scopeTop $ addConst (BuiltIn (i+1)) inst2 Const scope'
+     (instP3, scope''') <- scopeTop $ addConst (BuiltIn (i+2)) inst3 Const scope''
      putScope scope'''
-     tcTop $ elaborateInstance (BuildIn i) instP (A.App s A.Unit) []
+     tcTop $ elaborateInstance (BuiltIn i) instP (A.App s A.Unit) []
      let pt = freshNames ["a", "b"] $ \ [a, b] ->
            A.Forall (abst [a, b] $ A.Imply [A.App s (A.Var a), A.App s (A.Var b)]
                      (A.App s $ A.Tensor (A.Var a) (A.Var b))) A.Set
-     tcTop $ elaborateInstance (BuildIn (i+1)) instP2 pt []
+     tcTop $ elaborateInstance (BuiltIn (i+1)) instP2 pt []
      let pt2 = freshNames ["a"] $ \ [a] ->
            A.Forall (abst [a] (A.App s $ A.Bang (A.Var a))) A.Set
-     tcTop $ elaborateInstance (BuildIn (i+2)) instP3 pt2 []
+     tcTop $ elaborateInstance (BuiltIn (i+2)) instP3 pt2 []
 
 
 -- | @'system_pdf_viewer' zoom pdffile@: Call a system-specific PDF
