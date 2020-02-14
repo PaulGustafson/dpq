@@ -204,7 +204,7 @@ instance Disp Exp where
     open bds $ \ vs b ->
     fsep [text "forall", parens ((hsep $ map (display flag) vs) <+> text ":" <+> display flag t) <+> text "->", nest 5 $ display flag b]
 
-  display flag a@(App t t') = 
+  display flag a@(App t t') =
      fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
 
   display flag a@(AppType t t') =
@@ -463,7 +463,34 @@ instance Disp Value where
    text "vliftCirc" <+> hsep (map (display flag) vs) <+> text "->"
    <+> braces (display flag env) $$ nest 2 (display flag e)
   display flag (Wired (Abst ls v)) = display flag v
-  display flag (VApp v1 v2) = parens $ display flag v1 <+> display flag v2  
+  display flag a@(VApp t t') = 
+    case toNat a of
+      Nothing ->
+        case toVec a of
+          Nothing ->
+            parens $ display flag t <+> display flag t'
+          Just vs -> brackets $ fsep $ punctuate comma $ map (\ x -> display flag x ) vs
+      Just i -> int i
+    where toNat (VApp (VConst id) t') =
+            if getName id == "S" then
+              do n <- toNat t'
+                 return $ 1+n
+              else Nothing
+          toNat (VConst id) = 
+            if getName id == "Z" then
+                 return 0
+            else Nothing
+          toNat _ = Nothing
+          toVec (VConst id) =
+            if getName id == "VNil" then return []
+            else Nothing
+          toVec (VApp (VApp (VConst id) e) res) =
+            if getName id == "VCons" then
+              do vs <- toVec res
+                 return $ e:vs
+            else Nothing
+          toVec _ = Nothing
+
   display flag (VForce v) = text "&" <> display flag v
 
 instance Disp (Map Variable (Value, Integer)) where
@@ -593,7 +620,8 @@ instance Disp EExp where
   display flag (ELift ws e) = 
    text "elift" <+> (brackets $ sep (map (display flag) ws)) <+> display flag e
 
-  display flag (EApp v1 v2) = parens $ display flag v1 <+> display flag v2  
+  display flag (EApp v1 v2) =
+    parens $ display flag v1 <+> display flag v2  
   display flag (EForce v) = text "&" <> display flag v
   display flag (ECase e (EB brs)) =
     text "case" <+> display flag e <+> text "of" $$
