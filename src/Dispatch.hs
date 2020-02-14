@@ -46,7 +46,7 @@ dispatch Help =
                "Commands:\n" ++
                "\n" ++
                "<expr>                  evaluate expression, use ';' to start a newline \n" ++
-               ":l \"filename\"           read a dependentlty typed program from a file\n" ++
+               ":l \"filename\"           read a dependently typed program from a file\n" ++
                ":t <expr>               show the classifier of an expression\n" ++
                ":a <fun-name>           show the annotation of a defined function\n" ++
                ":d <expr>               display a circuit in a previewer\n" ++
@@ -228,9 +228,9 @@ dispatch (Annotation e) =
 dispatch (Load verbose file) =
   do clearInterpreterState
      i <- getCounter
-     d1 <- addBuildin (BuildIn i) "Simple" A.Base
-     d2 <- addBuildin (BuildIn (i+1)) "Parameter" A.Base
-     d3 <- addBuildin (BuildIn (i+2)) "SimpParam" A.Base
+     d1 <- addBuiltin (BuildIn i) "Simple" A.Base
+     d2 <- addBuiltin (BuildIn (i+1)) "Parameter" A.Base
+     d3 <- addBuiltin (BuildIn (i+2)) "SimpParam" A.Base
      putCounter (i+3)
      initializeSimpleClass d1
      initializeParameterClass d2

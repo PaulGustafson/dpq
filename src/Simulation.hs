@@ -89,7 +89,7 @@ instance Disp SimulateError where
 toBool :: Value -> Bool
 toBool (VConst x) | getName x == "True" = True
 toBool (VConst x) | getName x == "False" = False
-toBool _ = error "unknown boolean format, bools should be comming from the Prelude module"  
+toBool _ = error "unknown boolean format, bools should be coming from the Prelude module"  
 
 
 

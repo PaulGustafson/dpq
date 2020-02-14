@@ -38,7 +38,7 @@ main = do
           do top_display_error e
              return ()
         
-         mesg = "please set the enviornment variable DPQ to the DPQ installation directory.\n"
+         mesg = "please set the environment variable DPQ to the DPQ installation directory.\n"
          handlers = [Handler handle1]
          handle1 :: IOException -> IO String
          handle1 = (\ ex  -> do {putStrLn $ mesg ++ show ex; exitWith (ExitFailure 1)})

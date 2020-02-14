@@ -111,7 +111,7 @@ instance NominalShow SourcePos where
 hashPos :: Position -> String
 hashPos (P p) = (takeBaseName (sourceName p)) ++ (show $ sourceLine p)
 hashPos (DummyPos) = "dummyPos"
-hashPos (BuildIn i) = "buildIn"++ show i
+hashPos (BuildIn i) = "builtIn"++ show i
 
 instance Disp Position where
   display b (P p) = display b p

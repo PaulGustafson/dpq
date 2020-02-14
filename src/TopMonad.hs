@@ -181,7 +181,7 @@ topTypeInfer def = tcTop $
      ann'' <- resolveGoals ann' `catchError` \ e -> throwError $ withPosition def e
      return $ (rt', ann'')     
        where elimConstraint e a (A.Imply (b:bds) ty) = 
-                 do ns <- newNames ["#outtergoalinst"]
+                 do ns <- newNames ["#outergoalinst"]
                     freshNames ns $ \ [n] ->
                       do addGoalInst n b e
                          let a' = A.AppDict a (GoalVar n)
@@ -236,12 +236,12 @@ getCounter = do
   return (counter s)
 
 -- | Add a build in identifier according to the third argument.
--- For example, @addBuildin (BuildIn i) "Simple" A.Base@.
-addBuildin :: Position -> String -> (Id -> A.Exp) -> Top Id  
-addBuildin p x f =
+-- For example, @addBuiltin (BuildIn i) "Simple" A.Base@.
+addBuiltin :: Position -> String -> (Id -> A.Exp) -> Top Id  
+addBuiltin p x f =
   do scope <- getScope
      case lookupScope scope x of
-       Just (_, oldp) -> error $ "internal error: from addBuildin"
+       Just (_, oldp) -> error $ "internal error: from addBuiltin"
        Nothing ->
          let 
              id = Id x
@@ -311,7 +311,7 @@ putInstCxt cxt = do
 makeBuildinClass :: Id -> Int -> Top ()
 makeBuildinClass d n | n > 0 =
   do i <- getCounter
-     dict <- addBuildin (BuildIn (i+1)) (getName d ++"Dict") A.Const
+     dict <- addBuiltin (BuildIn (i+1)) (getName d ++"Dict") A.Const
      putCounter (i+3)
      let names = map (\ i -> "x"++ show i) $ take n [0 .. ]
          dictType = freshNames names $

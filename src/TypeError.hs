@@ -120,7 +120,7 @@ instance Disp TypeError where
     display flag e
 
   display flag (Unhandle t) =
-    text "there is no type inference rule to infer a type for the expresson:" $$
+    text "there is no type inference rule to infer a type for the expression:" $$
     nest 2 (display flag t) 
 
 
@@ -408,6 +408,6 @@ instance Disp TypeError where
   display flag (ArityExistsErr at xs) =
     text "unexpected pair pattern for existential type." $$
     text "when checking:" <+> hsep (map (display flag) xs) $$
-    text "againts:" <+> display flag at
+    text "against:" <+> display flag at
     
   display flag a = error $ "from display TypeError:" ++ show a 
