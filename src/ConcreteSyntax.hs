@@ -36,7 +36,7 @@ data Exp =
   | Box -- ^ Circuit boxing: @box@.
   | ExBox -- ^ Existential circuit boxing: @existsBox@.
   | UnBox -- ^ Circuit unbox: @unbox@.
-  | Revert -- ^ Circuit reversal: @revert@.
+  | Reverse -- ^ Circuit reversal: @reverse@.
   | RunCirc -- ^ Run classical circuit: @runCirc@.
   | Case Exp Branches -- ^ Case expression.
   | Wild -- ^ Wildcard. 

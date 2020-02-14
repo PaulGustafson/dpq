@@ -141,7 +141,7 @@ EPattern
 Eq
 eqReal
 erasePos
-ERevert
+EReverse
 ErrDoc
 ErrPos
 ErrWrapper
@@ -531,7 +531,7 @@ vliftCirc
 VLiftCirc
 VNil
 VPair
-VRevert
+VReverse
 VRunCirc
 VStar
 VTensor

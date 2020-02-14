@@ -83,7 +83,7 @@ timestep : ! (Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit)
 timestep a b c = 
   let (a, b, _) = myCtrl a b ()
       (c, ab) = Not_g c (a,b)
-      f = revertSimpleFunction (Qubit * Qubit) $ \ y -> uncurry myCtrl y ()
+      f = reverseSimpleFunction (Qubit * Qubit) $ \ y -> uncurry myCtrl y ()
       (a, b) = f (ab, ())
   in (a, b, c)
 

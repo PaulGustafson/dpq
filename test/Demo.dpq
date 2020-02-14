@@ -13,7 +13,7 @@ import "lib/Prelude.dpq"
 -- g4 = let f = \(a b : Type) -> \(x : a) -> x in (f Nat Nat 5) 
 
 reverseGeneric : ! forall b -> {a : Type} -> (Simple a, Simple b) => !(a -> b) -> !(b -> a)
-reverseGeneric a f = unbox (revert (box a f))
+reverseGeneric a f = unbox (reverse (box a f))
 
 ---- x----------------
 ---- |-----x----------

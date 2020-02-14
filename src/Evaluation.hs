@@ -132,7 +132,7 @@ eval a@(ELam ws body) = return (VLam ws body)
 eval a@(ELift ws body) = return (VLift ws body)
      
 eval EUnBox = return VUnBox
-eval ERevert = return VRevert
+eval EReverse = return VReverse
 eval a@(EBox) = return VBox
 eval a@(EExBox) = return VExBox
 eval ERunCirc = return VRunCirc
@@ -281,7 +281,7 @@ evalApp (VApp (VApp (VApp VRunCirc  _) _) (Wired (Abst _ (VCircuit m)))) input =
     Right r -> return r
 
 
-evalApp (VApp (VApp VRevert _) _) m' =
+evalApp (VApp (VApp VReverse _) _) m' =
   case m' of
     Wired bd ->
       open bd $! \ ws (VCircuit (Morphism ins gs outs)) ->

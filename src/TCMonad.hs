@@ -511,7 +511,7 @@ shape (LamDict (Abst x t)) =
 
 shape Box = return Box
 shape UnBox = return UnBox
-shape Revert = return Revert
+shape Reverse = return Reverse
 
 shape (Case tm (B br)) =
   do tm' <- shape tm

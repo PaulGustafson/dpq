@@ -228,7 +228,7 @@ with_computed a b ex g = \ input ->
   let (_, h_circ) = existsBox a (\ x -> Vec Qubit x * b) ex
       h' = unbox h_circ
       (v, r) = h' input
-      h'_rev = unbox (revert h_circ)
+      h'_rev = unbox (reverse h_circ)
       (c, r') = g r
       res = h'_rev (v, r')
   in (c, res)
@@ -251,7 +251,7 @@ with_computed2 x y ex g = \ input ->
       h' = unbox h_circ
       (a, d) = input
       (v, r) = h' a
-      h'_rev = unbox (revert h_circ)
+      h'_rev = unbox (reverse h_circ)
       (r', d') = g (r, d)
       res = h'_rev (v, r')
   in (res, d')

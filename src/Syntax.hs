@@ -86,7 +86,7 @@ data Exp =
   | ExBox -- ^ Existential circuit boxing. 
   | UnBox -- ^ Circuit unboxing.
   | RunCirc -- ^ Run classical circuits.
-  | Revert  -- ^ Obtain the adjoint of a circuit.
+  | Reverse  -- ^ Obtain the adjoint of a circuit.
   | Circ Exp Exp -- ^ The circuit type. 
     
     -- constants  
@@ -284,7 +284,7 @@ instance Disp Exp where
   display flag (Box) = text "box"
   display flag (ExBox) = text "existsBox"
   display flag (UnBox) = text "unbox" 
-  display flag (Revert) = text "revert"
+  display flag (Reverse) = text "reverse"
   display flag (RunCirc) = text "runCirc"
   display flag (Let m bd) =
     open bd $ \ x b ->
@@ -321,7 +321,7 @@ instance Disp Exp where
   precedence (Star) = 12
   precedence (Box) = 12
   precedence (UnBox) = 12
-  precedence (Revert) = 12
+  precedence (Reverse) = 12
   precedence (RunCirc) = 12
   precedence (ExBox) = 12
   precedence (Set) = 12
@@ -375,7 +375,7 @@ data Value =
   | VBox -- ^ Value version of 'Box'.
   | VExBox -- ^ Value version of 'ExBox'.
   | VUnBox -- ^ Value version of 'UnBox'.
-  | VRevert -- ^ Value version of 'Revert'.
+  | VReverse -- ^ Value version of 'Reverse'.
   | VRunCirc -- ^ Value version of 'RunCirc'.
   deriving (Show, NominalShow, NominalSupport, Generic)
 
@@ -432,7 +432,7 @@ instance Nominal Value where
   pi • VCircuit m = VCircuit (pi • m)
   pi • VBox = VBox
   pi • VExBox = VExBox
-  pi • VRevert = VRevert
+  pi • VReverse = VReverse
   pi • VRunCirc = VRunCirc 
   pi • VUnBox = VUnBox
 
@@ -450,7 +450,7 @@ instance Disp Value where
   display flag (VBox) = text "box"
   display flag (VExBox) = text "existsBox"
   display flag (VUnBox) = text "unbox"
-  display flag (VRevert) = text "revert"
+  display flag (VReverse) = text "reverse"
   display flag (VRunCirc) = text "runCirc"
   display flag (VCircuit m) = display flag m
   display flag (VLam ws (Abst vs e)) = 
@@ -552,7 +552,7 @@ data EExp =
   | ELift [Variable] EExp
   | EForce EExp
   | EUnBox
-  | ERevert
+  | EReverse
   | ERunCirc
   | EBox
   | EExBox
@@ -585,7 +585,7 @@ instance Disp EExp where
   display flag (EBox) = text "box"
   display flag (EExBox) = text "existsBox"
   display flag (EUnBox) = text "unbox"
-  display flag (ERevert) = text "revert"
+  display flag (EReverse) = text "reverse"
   display flag (ERunCirc) = text "runCirc"
   display flag (ELam ws (Abst vs e)) = 
     sep [text "\\elam" <+> brackets (sep $ map (display flag) ws),

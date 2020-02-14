@@ -65,11 +65,11 @@ qft_little_headian_Box n = box (Vec Qubit n) $ \ x -> qft_little_headian n x
 
 qft_little_headian_rev : ! (n : Nat) -> Vec Qubit n -> Vec Qubit n
 qft_little_headian_rev n =
-  unbox $ revert $ qft_little_headian_Box n
+  unbox $ reverse $ qft_little_headian_Box n
   -- (box Vec Qubit n : qft_little_headian n)
 
 qft_little_headian_rev_B : ! (n : Nat) -> Circ(Vec Qubit n, Vec Qubit n)
-qft_little_headian_rev_B n = revert $ qft_little_headian_Box n
+qft_little_headian_rev_B n = reverse $ qft_little_headian_Box n
 
 -- qft_little_headian_rev_B_t1 = qft_little_headian_rev_B eight
 
@@ -90,7 +90,7 @@ qft4_little : Circ(Vec Qubit 4, Vec Qubit 4)
 qft4_little = qft_little_headian_Box 4
 
 qft4_little_rev : Circ(Vec Qubit 4, Vec Qubit 4)
-qft4_little_rev = revert qft4_little
+qft4_little_rev = reverse qft4_little
 
 qft_both : ! (n : Nat) -> Vec Qubit n -> Vec Qubit n
 qft_both n l = qft_little_headian_rev n $ qft_little_headian n l

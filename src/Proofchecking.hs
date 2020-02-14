@@ -274,7 +274,7 @@ proofInfer flag a@(AppTm t1 t2) =
                    then return m'
                    else return $ Forall (abst (tail xs) m') kd
 
-proofInfer flag Revert =
+proofInfer flag Reverse =
   freshNames ["a", "b"] $ \ [a, b] ->
   let va = Var a
       vb = Var b

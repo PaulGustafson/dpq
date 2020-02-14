@@ -46,8 +46,8 @@ foldM f a l =
          foldM f a bs
 
 
-revertSimpleFunction : ! forall b -> (a : Type) -> (Simple a, Simple b) => !(a -> b) -> !(b -> a)
-revertSimpleFunction a f x = unbox (revert $ box a f) x
+reverseSimpleFunction : ! forall b -> (a : Type) -> (Simple a, Simple b) => !(a -> b) -> !(b -> a)
+reverseSimpleFunction a f x = unbox (reverse $ box a f) x
 
 switch : ! forall a b c d -> (a * b -> c * d) -> (b * a -> d * c)
 switch f a = swap $ f (swap a)

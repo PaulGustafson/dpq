@@ -30,7 +30,7 @@ import Control.Monad.State
 -- | Check an expression against a type. The flag = True indicates
 --  it is kinding or sorting, flag = False indicates type checking.
 -- For simplicity, we do not allow direct mentioning
--- of lambda, box, unbox, revert, runCirc, existsBox in types (these will give rise to
+-- of lambda, box, unbox, reverse, runCirc, existsBox in types (these will give rise to
 -- type errors saying no typing rule for inference). 
 
 typeCheck :: Bool -> Exp -> Exp -> TCMonad (Exp, Exp)
@@ -89,7 +89,7 @@ typeInfer False a@(UnBox) =
       ty = Forall (abst [a, b] t1') Set
   in return (ty, UnBox)
 
-typeInfer False a@(Revert) =
+typeInfer False a@(Reverse) =
   freshNames ["a", "b"] $ \ [a, b] ->
   let va = Var a
       vb = Var b
@@ -97,7 +97,7 @@ typeInfer False a@(Revert) =
       t1 = Arrow (Circ va vb) (Circ vb va)
       t1' = Imply [App' (Base simpClass) va , App' (Base simpClass) vb] t1
       ty = Forall (abst [a, b] t1') Set
-  in return (ty, Revert)
+  in return (ty, Reverse)
 
 typeInfer False t@(Box) = freshNames ["a", "b"] $ \ [a, b] ->
   do let va = Var a

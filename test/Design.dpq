@@ -7,7 +7,7 @@ toffoli x c =
   let (c1, c2) = c in ToffoliGate True True x c1 c2
 
 tgate_inv : ! (Qubit -> Qubit)
-tgate_inv = unbox $ revert $ box Qubit TGate
+tgate_inv = unbox $ reverse $ box Qubit TGate
 controlled SGate : Qubit -> Qubit
 
 sgate : ! (Qubit -> Qubit)
@@ -61,7 +61,7 @@ negateOn a x =
 negateOn' : !(Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit)
 negateOn' a x r = 
   let (a, x1, x2, z) = negateOn a x
-      negateOn_rev = revert $ box (Qubit * Qubit) $ uncurry negateOn 
+      negateOn_rev = reverse $ box (Qubit * Qubit) $ uncurry negateOn 
       (r, z) = CNot r z
       (a, x) = unbox negateOn_rev (a, x1, x2, z)
   in (a, x, r)

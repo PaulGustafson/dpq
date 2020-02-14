@@ -41,7 +41,7 @@ nfoldZ n a c b d1 d2 =
   let (a', b', c') = cascade n a c b
       (d1', r) = CZ d1 (d2, c')
       (d2', c'') = r
-      cascade' = unbox $ revert $ box_cascade n
+      cascade' = unbox $ reverse $ box_cascade n
       (a'', c''', b'') = cascade' (a', b', c'')
   in (d1', d2', a'', c''', b'')
 

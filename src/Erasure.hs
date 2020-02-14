@@ -167,7 +167,7 @@ erasure (Force' t) = EForce <$> erasure t
 
 erasure (UnBox) = return EUnBox
 
-erasure (Revert) = return ERevert
+erasure (Reverse) = return EReverse
 erasure (RunCirc) = return ERunCirc
 
 erasure a@(Box) = return EBox
@@ -309,7 +309,7 @@ countVar xs e =
         helper (EBase _) x = 0
         helper (ELBase _) x = 0
         helper EUnBox x = 0
-        helper ERevert x = 0
+        helper EReverse x = 0
         helper ERunCirc x = 0
         helper EBox x = 0
         helper EExBox x = 0

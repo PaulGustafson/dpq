@@ -655,9 +655,9 @@ exBoxExp = reserved "existsBox" >> return ExBox
 unBoxExp :: Parser Exp
 unBoxExp = reserved "unbox" >> return UnBox 
 
--- | Parse a revert expression.
-revertExp :: Parser Exp
-revertExp = reserved "revert" >> return Revert
+-- | Parse a reverse expression.
+reverseExp :: Parser Exp
+reverseExp = reserved "reverse" >> return Reverse
 
 -- | Parse a runCirc expression.
 runCircExp :: Parser Exp
@@ -725,7 +725,7 @@ appExp =
                  pos <- getPosition;
                  return $ foldl (\ z x -> Pos (P pos) $ App z x) head}) arg
   where headExp = wrapPos $ try unit <|> try opExp <|> unitTy <|> set <|> boxExp <|> exBoxExp
-                  <|> unBoxExp <|> revertExp <|> runCircExp
+                  <|> unBoxExp <|> reverseExp <|> runCircExp
                   <|> try varExp <|> try constExp <|>
                   do{
                      tms <- parens (term `sepBy1` comma);
@@ -881,7 +881,7 @@ dpqStyle = Token.LanguageDef
                     "gate", "in", "let", "controlled",
                     "case", "of", "exists", "implicitly",
                     "data", "import", "class", "instance",
-                    "simple", "revert", "box", "unbox", "existsBox",
+                    "simple", "reverse", "box", "unbox", "existsBox",
                     "runCirc",
                     "object", "Circ", "Unit", "do",
                     "where", "module", "infix","infixr", "infixl",
