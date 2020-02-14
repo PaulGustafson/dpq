@@ -76,36 +76,36 @@ infixl 11 ++
 (++) : ! forall a (n m : Nat) -> Vec a n  -> Vec a m -> Vec a (add n m)
 (++) = append 
 
-reverseh : ! {a : Type} -> {n m : Nat} -> Vec a n -> Vec a m -> Vec a (add n m)
-reverseh a n m l1 l2 =
+reverse_aux : ! {a : Type} -> {n m : Nat} -> Vec a n -> Vec a m -> Vec a (add n m)
+reverse_aux a n m l1 l2 =
   case n of
     Z -> case l1 of
            VNil -> l2
     S n' -> case l1 of
              VCons q qs -> 
-    	       subst (\ x -> Vec a x) (addS n' m) $ reverseh qs (VCons q l2)
+    	       subst (\ x -> Vec a x) (addS n' m) $ reverse_aux qs (VCons q l2)
 -- a n' (S m)
   -- case n of
   --   Z -> case l1 of
   --          VNil -> l2
   --   S n' -> let VCons q qs = l1
-  --           in subst (\ x -> Vec a x) (addS n' m) $ reverseh a n' (S m) qs (VCons q l2)
+  --           in subst (\ x -> Vec a x) (addS n' m) $ reverse_aux a n' (S m) qs (VCons q l2)
 
--- reverseh' : ! (a : Type) -> (n m : Nat) -> Vec a n -> Vec a m -> Vec a (add n m)
--- reverseh' a n m l1 l2 =
+-- reverse_aux' : ! (a : Type) -> (n m : Nat) -> Vec a n -> Vec a m -> Vec a (add n m)
+-- reverse_aux' a n m l1 l2 =
 --   case l1 of
 --     VNil -> l2
 --     VCons q qs -> let S n' = n
---                   in subst (\ x -> Vec a x) (addS n' m) $ reverseh' a n' (S m) qs (VCons q l2)    
+--                   in subst (\ x -> Vec a x) (addS n' m) $ reverse_aux' a n' (S m) qs (VCons q l2)    
   -- case n of
   --   Z -> case l1 of
   --          VNil -> l2
   --   S n' -> case l1 of
   --            VCons q qs -> 
-  --   	       subst (\ x -> Vec a x) (addS n' m) $ reverseh a n' (S m) qs (VCons q l2)
+  --   	       subst (\ x -> Vec a x) (addS n' m) $ reverse_aux a n' (S m) qs (VCons q l2)
 
 reverse_vec : ! {a : Type} -> {n : Nat} -> Vec a n -> Vec a n
-reverse_vec a n l = subst (\ x -> Vec a x) (addZ n) $ reverseh l VNil
+reverse_vec a n l = subst (\ x -> Vec a x) (addZ n) $ reverse_aux l VNil
 
 zipWith : ! forall a b c (n : Nat) -> !(a -> b -> c) ->
               Vec a n -> Vec b n -> Vec c n
