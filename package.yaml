@@ -1,8 +1,8 @@
 name:                dpq
-version:             0.0.1
+version:             0.0.1.0
 github:              "https://gitlab.com/frank-peng-fu/dpq-remake.git"
 license:             BSD3
-author:              "Frank (Peng) Fu, Peter Selinger"
+author:              "Frank (Peng) Fu, Kohei Kishida, Neil J. Ross, Peter Selinger"
 maintainer:          "peng.frank.fu@gmail.com, selinger@mathstat.dal.ca"
 copyright:           "2019"
 
@@ -10,16 +10,24 @@ extra-source-files:
 - README.md
 - ChangeLog.md
 
+data-files:          lib/*.dpq,
+                     test/*.dpq
+
+
 # Metadata used when publishing your package
 synopsis: Dependently typed Proto-Quipper (Proto-Quipper-D)
 
-# category:            Web
+category:            Programming language
 
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description: Please see the README at <https://gitlab.com/frank-peng-fu/dpq-remake#readme>
- for information about installation. 
+description:
+        A linear dependent typed language for quantum circuit programming.   
+        Please see the README at <https://gitlab.com/frank-peng-fu/dpq-remake#readme>
+        for more information. 
+
+homepage:   https://gitlab.com/frank-peng-fu/dpq-remake           
 
 dependencies:
 - base >= 4.7 && < 5
@@ -48,7 +56,6 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     - -O3
-    - -fforce-recomp
     dependencies:
     - dpq
 
