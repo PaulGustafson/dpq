@@ -54,7 +54,7 @@ type Label = AtomOfKind L
 instance Disp (AtomOfKind L) where
   display _ t = text (show t)
 
--- | A non-Unicode pattern definition for opening a binder.  
+-- | A prefix pattern definition for opening a binder.  
 pattern Abst :: (Bindable a, Nominal t) => a -> t -> Bind a t
 pattern Abst x t <- ((\ b -> open b (\ x b' -> (x, b'))) -> (x, t))
 
@@ -68,14 +68,14 @@ freshNames (n:ns) body =
   where freshName s k =
           with_fresh $ \a -> k (Variable a (NoBind s))
 
--- | Generate a list of fresh labels from a given list of strings.
-freshLabels :: [String] -> ([Label] -> t) -> t
-freshLabels [] body = body []
-freshLabels (n:ns) body =
-  freshLabel n $ \ a ->
-  freshLabels ns $ \ as ->
+-- | Generate a list of fresh labels from a given length.
+freshLabels :: Int -> ([Label] -> t) -> t
+freshLabels n body | n == 0  = body []
+freshLabels n body | otherwise  =
+  freshLabel $ \ a ->
+  freshLabels (n-1) $ \ as ->
   body (a:as)
-  where freshLabel s k =
+  where freshLabel k =
           with_fresh $ \a -> k a
 
 -- | Constant identifiers, they are used for top-level definitions and constructors.
@@ -91,8 +91,8 @@ instance Disp Id where
     if (isAlpha $ head s) then text s
     else parens (text s)
 
--- | Position information for error reporting. Build-in positions are
--- generated from the build-in type classes. 
+-- | Position information for error reporting. Built-in positions are
+-- generated from the built-in type classes. 
 data Position = P SourcePos | DummyPos | BuiltIn Int
   deriving (Show, Eq, NominalShow, NominalSupport, Generic, Nominal)
 
@@ -192,7 +192,7 @@ data Count =
 
 -- | The count zipper, the left component is for the
 -- current count (may be in a branch), the right component is
--- a stack of history(also called context).
+-- a stack of history (also called context).
 type ZipCount = (Count, [Count]) 
 
 -- | Initial count.
@@ -209,7 +209,7 @@ incr (c, cxt) =
     mapC f (C id o ns) = C id o (map (\ (kid, c) -> (kid, mapC f c)) ns)
 
 -- | Evaluate a count to a concrete number,
--- return Nothing if the count is not consistent due to branching, i.e.
+-- return @Nothing@ if the count is not consistent due to branching, i.e.
 -- a linear variables misused due to branching.
 evalCount :: ZipCount -> Maybe Int
 evalCount x = helper $ fst x 

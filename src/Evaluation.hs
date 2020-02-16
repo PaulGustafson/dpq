@@ -355,7 +355,7 @@ evalApp v w =
 -- | Evaluate a box term.
 evalBox :: Either Value EExp -> Value -> Eval Value               
 evalBox body uv =
-  freshLabels (genNames uv) $! \ vs ->
+  freshLabels (size uv) $! \ vs ->
    do st <- get
       b <- case body of
                 Right body' -> eval body'
@@ -380,7 +380,7 @@ evalBox body uv =
 -- So we define 'evalExbox' and 'evalBox' separately to enforce the assumptions.
 evalExbox :: EExp -> Value -> Eval Value        
 evalExbox body uv =
-  freshLabels (genNames uv) $! \ vs ->
+  freshLabels (size uv) $! \ vs ->
    do st <- get
       b <- eval body
       let uv' = toVal uv vs
@@ -460,14 +460,6 @@ invertName id | getName id == "Mea" = error "cannot invert Mea gate"
 invertName id | getName id == "Discard" = error "cannot invert Discard gate"
 invertName id =  Id $! getName id ++ "*"
 
-
--- | Generate a list of wirenames from a simple data type.
-genNames :: Value -> [String]
-genNames uv =
-  let n = size uv
-      ls = "l":ls
-      names = take n ls
-  in names
 
 -- | Rename /uv/ using fresh labels draw from /vs/.
 toVal :: Value -> [Label] -> Value

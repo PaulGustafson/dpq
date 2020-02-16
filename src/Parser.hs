@@ -480,7 +480,7 @@ followedBy m p =
      return r
 
 -- | Parse a natural number literal. Currently, we will convert a number into
--- the algebraic data type Nat in the standard library.  
+-- the algebraic data type @Nat@ in the standard library.  
 nat :: Parser Exp
 nat =
   do i <- naturals
@@ -489,14 +489,14 @@ nat =
            toNat i | otherwise = App (Base "S") $ toNat (i-1)
 
 -- | Parse the vector bracket notation. Currently, we will convert a vector notation into
--- the algebraic data type Vec in the standard library.  
+-- the algebraic data type @Vec@ in the standard library.  
 vector :: Parser Exp
 vector =
   do elems <- brackets (term `sepBy` comma)
      return $ foldr (\ x y -> App (App (Base "VCons") x) y) (Base "VNil") elems
 
 -- | Parse an if-then-else expression. Currently, if-then-else is translated
--- to pattern matching on the type Bool in the standard library.
+-- to pattern matching on the type @Bool@ in the standard library.
 ifExp :: Parser Exp
 ifExp =
   do reserved "if"
@@ -782,7 +782,7 @@ wrapPos par =
   where pos x (Pos y e) | x == y = Pos y e
         pos x y = Pos x y
 
--- | Parse an idiom braket. Currently we translate it using 'join', 'pure' and 'ap' from the
+-- | Parse an idiom braket. Currently we translate it using @join@, @pure@ and @ap@ from the
 -- standard library.
 idiomExp :: Parser Exp
 idiomExp = do try $ reservedOp "[|"
@@ -797,7 +797,7 @@ idiomExp = do try $ reservedOp "[|"
 -- | A data type for all the possible statements in the do-notation. 
 data DoBinding = LetStmt [Binding] | PatternBind (Binding, Exp) | Stmt Exp                
 
--- | Parse a do expression. We currently rely on the 'bind', 'seq' and 'return' from the
+-- | Parse a do expression. We currently rely on the @bind@, @seq@ and @return@ from the
 -- standard library. We allow direct pattern matching when using '<-',
 -- such pattern matching is translated to let pattern matching. We also allow
 -- let statement.

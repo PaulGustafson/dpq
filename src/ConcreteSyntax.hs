@@ -1,6 +1,6 @@
 -- | This module defines the concrete syntax for the Proto-Quipper-D surface language. 
--- The concrete syntax will be resolved into abstract syntax where bindings are appropriately
--- modelled. 
+-- The concrete syntax will be resolved into abstract syntax where the variable
+-- bindings are appropriately modelled. 
 
 
 module ConcreteSyntax where
@@ -15,7 +15,7 @@ import Prelude hiding((<>))
 -- | The expression data type. 
 data Exp =
   Base String -- ^ Constructors must begin with upper case.
-  | Var String -- ^ Variables and function identifiers, must begin with lower case.
+  | Var String -- ^ Variables and function identifiers must begin with lower case.
   | Set -- ^ The kind: @Type@.
   | Star -- ^ The term unit: @()@.
   | Unit -- ^ The unit type: @Unit@.
@@ -24,12 +24,12 @@ data Exp =
   | Tensor Exp Exp -- ^ Tensor product: @T * T'@.
   | Bang Exp -- ^ Bang type: @!A@.
   | Circ Exp Exp -- ^ Circuit type: @Circ(S, S')@.
-  | Pi [String] Exp Exp -- ^ Linear dependent type: @(x :: T) -> T'@.
-  | PiImp [String] Exp Exp -- ^ Implicit dependent type: @{x :: T} -> T'@.
-  | Exists String Exp Exp -- ^ Linear existential type: @exists x :: T. T'@.
-  | Forall [([String], Exp)] Exp -- ^ Irrelevant quantification: @forall (x :: T) . t@.
-  | Lam [String] Exp -- ^ Lambda abstraction: @\\ x . t@.
-  | LamAnn [String] Exp Exp -- ^ Annotated lambda abstraction: @\\ (x :: T) . t@.
+  | Pi [String] Exp Exp -- ^ Linear dependent type: @(x : T) -> T'@.
+  | PiImp [String] Exp Exp -- ^ Implicit dependent type: @{x : T} -> T'@.
+  | Exists String Exp Exp -- ^ Linear existential type: @(x : T) * T'@.
+  | Forall [([String], Exp)] Exp -- ^ Irrelevant quantification: @forall (x : T) -> t@.
+  | Lam [String] Exp -- ^ Lambda abstraction: @\\ x -> t@.
+  | LamAnn [String] Exp Exp -- ^ Annotated lambda abstraction: @\\ (x : T) -> t@.
   | App Exp Exp -- ^ Application: @t t'@.
   | Pair Exp Exp -- ^ Pair and existential pair: @(a, b)@.
   | Let [Binding] Exp -- ^ Let expression.
@@ -41,7 +41,7 @@ data Exp =
   | Case Exp Branches -- ^ Case expression.
   | Wild -- ^ Wildcard. 
   | Pos Position Exp -- ^ Position wrapper.
-  | WithAnn Exp Exp -- ^ Type annotation: @t :: T@.
+  | WithAnn Exp Exp -- ^ Type annotation: @t : T@.
   deriving (Show, Eq)
 
 -- | Branches for case expression. We currently do not support
@@ -141,8 +141,6 @@ data Command =
   | GateCount (Maybe String) Exp
     -- ^ The number of a gate in a circuit expression if name is supplied,
     -- otherwise the total gate. 
-    
-            
   deriving (Show)
 
 -- | A Proto-Quipper-D program is a list of declarations.

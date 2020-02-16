@@ -533,10 +533,10 @@ makeGate id ps t =
   let lp = length ps + 1
       ns = getName "x" lp
       (inss, outExp) = makeInOut t
-      outNames = genNames outExp
+      outNames = size outExp
       inExp = if null inss then VUnit
                 else foldl VTensor (head inss) (tail inss)
-      inNames = genNames inExp
+      inNames = size inExp
   in
       freshNames ns $ \ (y:xs) ->
       freshLabels inNames $ \ ins ->
@@ -577,10 +577,10 @@ makeControl id ps t =
   let lp = length ps + 1
       ns = getName "x" lp
       (inss, outExp) = makeInOut t
-      outNames = genNames outExp
+      outNames = size outExp
       inExp = if null inss then VUnit
                 else foldl VTensor (head inss) (tail inss)
-      inNames = genNames inExp
+      inNames = size inExp
   in
       freshNames ("dict":"ctrl":ns) $ \ (d:c:y:xs) ->
       freshLabels inNames $ \ ins ->

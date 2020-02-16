@@ -11,7 +11,7 @@
 
 {-|
 This module describes the abstract syntax of Proto-Quipper-D. We use Peter Selinger's
-nominal library to handle the affair of binding in abstract syntax.
+nominal library to handle the affair of variable bindings in the abstract syntax.
 Please see <http://hackage.haskell.org/package/nominal here> for
 the documentation of nominal library.
 -}
