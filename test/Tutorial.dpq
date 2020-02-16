@@ -1,0 +1,359 @@
+module Tutorial where
+
+-- ----------------------------------------------------------------------
+-- * The natural numbers and booleans.
+
+data Bool = True | False
+
+data Nat = Z | S Nat
+
+-- ----------------------------------------------------------------------
+-- * Objects
+
+object Qubit
+object Bit
+
+-- ----------------------------------------------------------------------
+-- * Gates
+
+-- Qubit initialization.
+gate Init0 : Unit -> Qubit
+gate Init1 : Unit -> Qubit
+
+-- Qubit termination. 
+gate Term0 : Qubit -> Unit
+gate Term1 : Qubit -> Unit
+
+-- Hadamard gate. 
+gate H : Qubit -> Qubit  
+
+-- CNot gate, the second qubit is the control bit. 
+gate CNot : Qubit -> Qubit -> Qubit * Qubit
+
+-- Controlled R gate, the second qubit is the control bit. 
+gate R Nat : Qubit -> Qubit -> Qubit * Qubit
+
+-- Toffoli gate with signed controls. The first qubit is the target.
+-- The second qubit is a control with sign indicated
+-- by the first boolean parameter (positive or negative).
+-- Similarly, the third qubit is also a control with
+-- sign indicated by the second boolean parameter.
+gate ToffoliGate Bool Bool : Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit
+
+-- Bit discard gate.
+gate Discard : Bit -> Unit
+
+-- Classical controlled X gate.
+gate C_X : Qubit -> Bit -> Qubit * Bit
+
+-- Classical controlled Z gate.
+gate C_Z : Qubit -> Bit -> Qubit * Bit
+
+-- Measurement gate.
+gate Meas : Qubit -> Bit
+
+-- ----------------------------------------------------------------------
+-- * Addition function
+
+add : !(Nat -> Nat -> Nat)
+add n m =
+      case n of
+           Z -> m
+           S n' -> S (add n' m)
+
+-- ----------------------------------------------------------------------
+-- * Leibniz equality
+
+-- A theorem about addition: n + (S m) = (S n) + m
+addS : ! (p : Nat -> Type) -> (n m : Nat) -> p (add n (S m)) -> p (add (S n) m) 
+addS p n m l = case n of
+                  Z -> l
+		  S n' -> addS (λ y -> p (S y)) n' m l
+
+-- Another theorem about addition: n + Z = n
+addZ : ! (p : Nat -> Type) -> (n : Nat) -> p (add n Z) -> p n
+addZ p n l = case n of
+                  Z -> l
+		  S n' -> addZ (λ y -> p (S y)) n' l
+
+-- ----------------------------------------------------------------------
+-- * Quantum teleportation
+
+-- Create the Bell state beta00. 
+bell00 : ! (Unit -> Qubit * Qubit)
+bell00 u = 
+  let x = Init0 ()
+      y = Init0 ()
+      x' = H x
+  in CNot y x'
+
+-- Measure two qubits in the Bell basis. 
+bellMeas : ! (Qubit -> Qubit -> Bit * Bit)
+bellMeas x y = 
+  let (x', y') = CNot x y
+      y'' = H y'
+  in (Meas x', Meas y'') 
+
+-- Box bell00 as a circuit. 
+bell00Box : Circ(Unit, Qubit * Qubit)
+bell00Box = box Unit bell00
+
+-- Teleport the input qubit to the output qubit. 
+tele : ! (Qubit -> Qubit)
+tele phi =
+  let (bob, alice) = bell00 ()
+      (a', phi') = bellMeas alice phi
+      (bob', a'') = C_X bob a'
+      (r, phi'') = C_Z bob' phi'
+      u = Discard phi''
+      u = Discard a''
+  in r         
+
+-- Box the tele function into a circuit. 
+teleBox : Circ(Qubit, Qubit)
+teleBox = box Qubit tele
+
+-- ----------------------------------------------------------------------
+-- * Vectors and simple data types
+
+simple Vec a : Nat -> Type where
+    Vec a Z = VNil
+    Vec a (S n) = VCons a (Vec a n)
+
+-- Although the kind of simple data types we support are limited,
+-- we can already achieve some highly nontrivial composition. For example,
+-- in the following DVec, each element of DVec is a vector,
+-- with the length indexed by its position.   
+simple DVec a : Nat -> Type where
+  DVec a Z = DNil 
+  DVec a (S n) = DCons (Vec a n) (DVec a n)
+
+-- The following are two examples of non-simple declarations. Both
+-- are rejected by the type checker. 
+
+-- simple ColorVec a : Nat -> Type where
+--        ColorVec a Z = CNil
+--        ColorVec a (S n) = VConsBlue a (ColorVec a n)
+--        ColorVec a (S n) = VConsRed a (ColorVec a n)
+
+-- simple InfVec a : Nat -> Type where
+--        InfVec a Z = InfNil
+--        InfVec a (S n) = VConsInf a (InfVec a (S n))
+
+
+-- ----------------------------------------------------------------------
+-- * Vector reversing and appending
+
+reverse_aux : ! (a : Type) -> (n m : Nat) ->
+                      Vec a n -> Vec a m -> Vec a (add n m)
+reverse_aux a n m v1 v2 =
+  case n of
+    Z -> let VNil = v1 in v2
+    S n' ->
+      let VCons q qs = v1 in
+      let ih = reverse_aux a n' (S m) qs (VCons q v2) in
+      addS (Vec a) n' m ih
+
+reverse_vec : ! (a : Type) -> (n : Nat) -> Vec a n -> Vec a n
+reverse_vec a n v = addZ (Vec a) n (reverse_aux a n Z v VNil)
+
+append : ! forall a (n m : Nat) -> Vec a n -> Vec a m -> Vec a (add n m)
+append v1 v2 = case v1 of
+                  VNil -> v2
+    	          VCons x xs -> VCons x (append xs v2)
+
+-- ----------------------------------------------------------------------
+-- * The Quantum Fourier Transform
+
+rotate : ! forall (y : Nat) -> Nat -> Qubit -> Vec Qubit y -> Qubit * Vec Qubit y
+rotate m q v =
+    case v of
+      VNil -> (q, VNil)
+      VCons x xs ->
+        let (q', x') = R m q x
+            (q'', xs') = rotate (S m) q' xs
+        in (q'', VCons x' xs')
+
+-- Apply one round of hadamard and rotations.
+oneRotation : ! (n : Nat) -> Circ(Qubit * Vec Qubit n, Qubit * Vec Qubit n)
+oneRotation n =
+  box (Qubit * Vec Qubit n) 
+    (λ x ->
+       let (q, v) = x in rotate 2 (H q) v)
+                     
+qft : ! forall (n : Nat) -> Vec Qubit n -> Vec Qubit n
+qft v =
+  case v of
+    VNil -> VNil
+    VCons q qs ->
+      let q' = H q
+          (q'', qs') = rotate 2 q' qs
+          qs'' = qft qs'
+      in VCons q'' qs''
+
+qftBox : ! (n : Nat) -> Circ(Vec Qubit n, Vec Qubit n)
+qftBox n = box (Vec Qubit n) qft
+
+qftBoxLittle : ! (n : Nat) -> Circ(Vec Qubit n, Vec Qubit n)
+qftBoxLittle n = box (Vec Qubit n) (λ v -> qft (reverse_vec Qubit n v))
+
+boxQftRev : ! (n : Nat) -> Circ(Vec Qubit n, Vec Qubit n)
+boxQftRev n = reverse (qftBox n)
+
+-- ----------------------------------------------------------------------
+-- * Simple and parameter type classes
+
+data List a = Nil | Cons a (List a)
+
+-- A combinator that discards its argument.
+kill : ! forall a -> (Parameter a) => a -> Unit
+kill x = ()
+
+test1 : !(List Nat -> Unit)
+test1 x = kill x
+
+-- Discard a linear term, which is not allowed. 
+-- test2 : ! (List Qubit -> Unit)
+-- test2 x = kill x
+
+-- Box a non-simple function, which is not allowed.
+-- boxId : Circ(List Qubit, List Qubit)
+-- boxId = box (List Qubit) (λ x -> x)
+
+-- ----------------------------------------------------------------------
+-- * The monad type class
+
+class Monad (m : Type -> Type) where
+  return : forall a -> a -> m a
+  bind : forall a b -> m a -> (a -> m b) -> m b
+
+pure : ! forall (m : Type -> Type) ->
+           (Monad m) => forall a -> a -> m a
+pure = return
+
+seq : ! forall (m : Type -> Type) ->
+            (Monad m) =>
+              forall b ->
+                 m Unit -> m b -> m b
+seq x f = bind x (λ u -> f)
+
+
+join : ! forall a (m : Type -> Type) -> (Monad m) => m (m a) -> m a
+join mma =
+  bind mma (λ ma -> ma)
+
+ap : ! forall a b (m : Type -> Type) -> (Monad m) =>  m (a -> b) -> m a -> m b
+ap f x =
+  bind f (λ g ->
+  bind x (λ y ->
+  return (g y)))
+
+-- ----------------------------------------------------------------------
+-- * The WithGarbage monad and Disposable class
+
+data WithGarbage a = WG ((n : Nat) * Vec Qubit n) a
+
+instance Monad WithGarbage where
+  return x = WG (Z, VNil) x
+  bind wg f = let WG ng r = wg
+                  (n, g) = ng
+                  WG mg' r' = f r
+                  (m, g') = mg'
+               in WG (add n m, append g g') r'
+
+unGarbage : ! forall a -> WithGarbage a -> (n : Nat) * Vec Qubit n * a
+unGarbage z = let WG ex a = z in let (n, v) = ex in (n, (v, a))
+
+class Disposable a where
+  dispose : a -> WithGarbage Unit
+
+instance Disposable Qubit where
+  dispose q = WG (1, VCons q VNil) ()
+
+-- ----------------------------------------------------------------------
+-- * Obtain reversible circuits from WithGarbage
+
+with_computed : ! forall d ->  (a b c : Type) ->
+                    (Simple a, Simple b) =>
+                    !(a -> WithGarbage b) ->
+                    !(c * b -> d * b) -> (c * a -> d * a)
+with_computed a b c f g input =
+  let (y, x) = input
+      (_, circ) = existsBox a (λx -> Vec Qubit x * b) (λz -> unGarbage (f z))
+      h' = unbox circ
+      (v, r) = h' x
+      circ_rev = unbox (reverse circ)
+      (d, r') = g (y, r)
+      res = circ_rev (v, r')
+  in (d, res)
+
+boxGarbage : ! forall c -> (a b d : Type) -> (Simple a , Simple b, Simple c, Simple d) =>
+                     !(a -> WithGarbage b) -> !(d * b -> c * b) -> Circ(d * a, c * a)
+boxGarbage a b d f g =
+   box (d * a) (λ x -> with_computed a b d f g x)
+
+-- ----------------------------------------------------------------------
+-- * Reversible adder oracle
+
+infixl 13 ||
+infixl 8 &&
+
+(&&) : !(Qubit -> Qubit -> WithGarbage Qubit)
+(&&) x y =
+    let z = Init0 ()
+        (z', y', x') =  ToffoliGate True True z y x
+    in do dispose x'
+          dispose y'
+          return z'
+
+(||) : !(Qubit -> Qubit -> WithGarbage Qubit)
+(||) x y =
+    let z = Init0 ()
+        (z', y', x') = ToffoliGate False False z y x
+    in do dispose x'
+          dispose y'
+          return z'
+
+xor : !(Qubit -> Qubit -> WithGarbage Qubit)
+xor x y =
+  do let z = Init0 ()
+         (z', x') = CNot z x
+         (z'', y') = CNot z' y
+     dispose x'
+     dispose y'
+     return z''
+
+copy3 : !(Qubit -> Qubit * Qubit * Qubit)
+copy3 q =
+   let (q1, q2) = CNot (Init0 ()) q
+       (q1, q3) = CNot (Init0 ()) q1
+   in (q1, q2, q3)
+
+adder : !(Qubit -> Qubit -> Qubit -> WithGarbage (Qubit * Qubit))
+adder a b carryIn = do
+  let (a1, a2, a3) = copy3 a
+      (b1, b2, b3) = copy3 b
+      (carryIn1, carryIn2, carryIn3) = copy3 carryIn 
+  s <- [| xor (xor a1 b1) (pure carryIn1)|]
+  carryOut <- [| [| (a2 && b2) || (a3 && carryIn2) |] || (b3 && carryIn3) |]
+  return (s, carryOut)
+
+-- Uncurry adder function.
+adder' : ! (Qubit * Qubit * Qubit -> WithGarbage (Qubit * Qubit))
+adder' = λ x -> let (a, b, c) = x in adder a b c 
+
+-- Copy the result from the adder'.  
+copy : !(Qubit * Qubit * (Qubit * Qubit) -> Qubit * Qubit * (Qubit * Qubit))
+copy p = 
+  let (input, q) = p
+      (in1, in2) = input
+      (q1, q2) = q
+      (q3, q4) = CNot in1 q1
+      (q5, q6) = CNot in2 q2
+  in ((q3, q5), (q4, q6))
+
+-- Box adder' into a reversible circuit.
+adderRev : Circ(Qubit * Qubit * (Qubit * Qubit * Qubit),
+                  Qubit * Qubit * (Qubit * Qubit * Qubit))
+adderRev = 
+   boxGarbage (Qubit * Qubit * Qubit) (Qubit * Qubit) (Qubit * Qubit) adder' copy
