@@ -9,6 +9,8 @@ import Substitution
 import Nominal
 import Data.List
 import qualified Data.Set as S
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 
 -- | Remove all the vacuous pi quantifiers.
 removeVacuousPi :: Exp -> Exp
@@ -879,3 +881,97 @@ gateCount (Just n) (Wired (Abst _ (VCircuit (Morphism _ gs _)))) =
           | otherwise = helper n s m
         
 
+-- | Relabel each gate to ensure the input and output
+-- wires have the same label names.  It assumes each gate is regular,
+-- i.e., input and output should have the same arity for all the
+-- non-terminal and non-initial gates. It tries to re-use the label
+-- names once a label is terminated.
+refresh_gates m [] s = ([], m)
+refresh_gates m (Gate name [] input VStar VStar : gs) s
+  | getName name == "Term0" || getName name == "Term1" =
+    let newInput = renameTemp input m
+        (gs', newMap') = refresh_gates m gs (getWires newInput ++ s)
+    in (Gate name [] newInput VStar VStar : gs', newMap')
+
+refresh_gates m (Gate name [] input VStar VStar : gs) s
+  | getName name == "Discard" =
+    let newInput = renameTemp input m
+        (gs', newMap') = refresh_gates m gs (getWires newInput ++ s)
+    in (Gate name [] newInput VStar VStar : gs', newMap')
+
+refresh_gates m (Gate name [] VStar output VStar : gs) []
+  | getName name == "Init0" || getName name == "Init1" =
+    let (gs', newMap') = refresh_gates m gs []
+    in (Gate name [] VStar output VStar : gs', newMap')
+
+refresh_gates m (Gate name [] VStar output VStar : gs) (h:s)
+  | getName name == "Init0" || getName name == "Init1" =
+    let x:[] = getWires output
+        m' = m `Map.union` Map.fromList [(x, h)]
+        (gs', newMap') = refresh_gates m' gs s
+    in (Gate name [] VStar (VLabel h) VStar : gs', newMap')
+
+-- All the other possible initialization.
+refresh_gates m (Gate name vs VStar output ctrl : gs) s =
+  let (gs', newMap') = refresh_gates m gs s
+  in (Gate name vs VStar output ctrl : gs', newMap')
+
+-- All the other possible termination.
+refresh_gates m (Gate name vs input VStar ctrl : gs) s =
+  let input' = renameTemp input m
+      (gs', newMap') = refresh_gates m gs s
+  in (Gate name vs input' VStar ctrl : gs', newMap')
+
+
+refresh_gates m (Gate name vs input output ctrl : gs) s =
+  let newInput = renameTemp input m
+      newCtrl = renameTemp ctrl m
+      outWires = getWires output
+      newOutput = newInput
+      ins = getWires newInput
+      newMap = m `Map.union` Map.fromList (zip outWires ins)
+      (gs', newMap') = refresh_gates newMap gs s
+  in (Gate name vs newInput newOutput newCtrl : gs', newMap')
+
+-- | Check whether a value is a boolean constant.
+isBool (VConst x) | getName x == "True" = True
+isBool (VConst x) | getName x == "False" = True
+isBool _ = False
+
+-- | Convert a boolean value to 'Bool'. It is an error to call this
+-- with a value that is not a boolean constant.
+toBool (VConst x) | getName x == "True" = True
+toBool (VConst x) | getName x == "False" = False
+
+-- | Convert a value to a natural number. It is an error to call this
+-- with a value that is not a Peano number.
+toNum (VConst x) | getName x == "Z" = 0
+toNum (VApp (VConst s) n) | getName s == "S" =
+  toNum n + 1
+
+
+-- | Rename the labels of a morphism according to a binding.
+rename :: Morphism -> Map Label Label -> Morphism            
+rename (Morphism ins gs outs) m =
+  let ins' = renameTemp ins m
+      outs' = renameTemp outs m
+      gs' = renameGs gs m
+  in Morphism ins' gs' outs'
+
+-- | Rename a template value according to a binding.
+renameTemp :: Value -> Map Label Label -> Value
+renameTemp (VLabel x) m =
+  case Map.lookup x m of
+    Nothing -> (VLabel x)
+    Just y -> VLabel y
+renameTemp a@(VConst _) m = a
+renameTemp VStar m = VStar
+renameTemp (VApp e1 e2) m = VApp (renameTemp e1 m) (renameTemp e2 m)
+renameTemp (VPair e1 e2) m = VPair (renameTemp e1 m) (renameTemp e2 m)
+renameTemp a m = error "applying renameTemp function to an ill-formed template"     
+
+-- | Rename a list of gates according to a binding.
+renameGs :: [Gate] -> Map Label Label -> [Gate]
+renameGs gs m = map helper gs
+  where helper (Gate id params ins outs ctrls) =
+          Gate id params (renameTemp ins m) (renameTemp outs m) (renameTemp ctrls m)

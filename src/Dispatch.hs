@@ -19,6 +19,7 @@ import ProcessDecls
 import Printcircuits
 
 import Nominal
+import Graphics.EasyRender
 import System.Exit
 import System.Directory
 import System.FilePath
@@ -382,4 +383,6 @@ system_pdf_viewer zoom pdffile = do
           do print (text "we currently only support acroread and xpdf for display" $$
                     text "please use the :p command to print the circuit to a file")
              return $ ExitFailure 1     
+
+
 

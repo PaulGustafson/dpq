@@ -5,7 +5,7 @@
 -- | This module implements a closure-based call-by-value evaluation.
 -- It still has memory problem when generating super-large circuits.
 
-module Evaluation (evaluation, evaluate, renameTemp, size, toVal, getAllWires) where
+module Evaluation (evaluation, evaluate,  size, toVal, getAllWires) where
 
 import Syntax
 import Erasure
@@ -428,31 +428,7 @@ makeBinding w v =
                "\n" ++ (show $! disp v))
        else Map.fromList (zip ws vs)
 
--- | Rename the labels of a morphism according to a binding.
-rename :: Morphism -> Map Label Label -> Morphism            
-rename (Morphism ins gs outs) m =
-  let ins' = renameTemp ins m
-      outs' = renameTemp outs m
-      gs' = renameGs gs m
-  in Morphism ins' gs' outs'
 
--- | Rename a template value according to a binding.
-renameTemp :: Value -> Map Label Label -> Value
-renameTemp (VLabel x) m =
-  case Map.lookup x m of
-    Nothing -> (VLabel x)
-    Just y -> VLabel y
-renameTemp a@(VConst _) m = a
-renameTemp VStar m = VStar
-renameTemp (VApp e1 e2) m = VApp (renameTemp e1 m) (renameTemp e2 m)
-renameTemp (VPair e1 e2) m = VPair (renameTemp e1 m) (renameTemp e2 m)
-renameTemp a m = error "applying renameTemp function to an ill-formed template"     
-
--- | Rename a list of gates according to a binding.
-renameGs :: [Gate] -> Map Label Label -> [Gate]
-renameGs gs m = map helper gs
-  where helper (Gate id params ins outs ctrls) =
-          Gate id params (renameTemp ins m) (renameTemp outs m) (renameTemp ctrls m)
 
    
 -- | Reverse a list of gate in theory, in reality it only
