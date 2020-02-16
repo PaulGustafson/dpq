@@ -975,3 +975,51 @@ renameGs :: [Gate] -> Map Label Label -> [Gate]
 renameGs gs m = map helper gs
   where helper (Gate id params ins outs ctrls) =
           Gate id params (renameTemp ins m) (renameTemp outs m) (renameTemp ctrls m)
+
+-- | Get a the set of free variable from a 'EExp'.
+evarsHelper :: EExp -> S.Set Variable
+evarsHelper a@(EVar y) = S.insert y S.empty
+evarsHelper (EApp t tm) =
+   (evarsHelper t) `S.union` (evarsHelper tm)
+evarsHelper (ELam vs bind) = S.fromList vs
+evarsHelper (EPair t tm) =
+   (evarsHelper t) `S.union` (evarsHelper tm)
+
+evarsHelper (EForce t) = (evarsHelper t)
+evarsHelper (ELift vs t) = S.fromList vs
+evarsHelper (ELet m bd) =
+  let m' = evarsHelper m in
+    open bd $ \ (y, _) b -> S.union m'(S.difference (evarsHelper b) (S.fromList [y])) 
+
+evarsHelper (ELetPair m bd) =
+  let m' = evarsHelper m in
+    open bd $ \ y b -> S.union m'(S.difference (evarsHelper b) (S.fromList $ map fst y)) 
+
+
+evarsHelper (ELetPat m bd) =
+  let m' = evarsHelper m in
+   open bd $ \ (EPApp id ps) b ->
+    S.union m' (S.difference (evarsHelper b) (S.fromList $ map fst ps)) 
+
+        
+evarsHelper (ECase tm (EB br)) =
+  (evarsHelper tm) `S.union` (helper' br)
+  where helper' br =
+          S.unions $ map (\ b -> open b $
+                                 \ (EPApp id ps) m ->
+                                 S.difference (evarsHelper m) $ S.fromList $ map fst ps)
+                        br
+evarsHelper _ = S.empty
+
+-- | Get the list of free variables in an 'EExp'.
+evars :: EExp -> [Variable]
+evars e = S.toList $ evarsHelper e
+
+-- | Retrieve the variables that a closure refers to. This
+-- must be done efficiently since it is used for evaluation.
+vars :: Value -> [Variable]
+vars (VLam ws (Abst _ e)) = ws
+vars (VLift ws e) = ws
+vars (VPair e1 e2) = (vars e1) ++ (vars e2)
+vars (VTensor e1 e2) = (vars e1) ++ (vars e2)
+vars _ = []

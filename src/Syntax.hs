@@ -18,7 +18,6 @@ the documentation of nominal library.
 module Syntax where
 
 import Utils
-
 import Prelude hiding ((.), (<>))
 
 
@@ -38,13 +37,12 @@ import Debug.Trace
 
 
 
--- | The core abstract syntax tree for dpq expression. We use prime ' to indicate 
--- the given constructor belongs to the parameter fragment. The core syntax contains
+-- | The core abstract syntax tree for dpq expression. The core syntax contains
 -- the surface syntax and other forms of annotations for proof checking.
 data Exp =
   Var Variable -- ^ Variable. 
-  | EigenVar Variable  -- ^ Eigenvariable, acts as constant during unification. 
-  | GoalVar Variable -- ^ Goal variable, to be substituted by a dictionary. 
+  | EigenVar Variable  -- ^ Eigenvariable, it acts as constant during unification. 
+  | GoalVar Variable -- ^ Goal variable, it is to be substituted by a dictionary. 
 
   -- User defined constant
   | Const Id  -- ^ Data constructors or functions. 
@@ -111,7 +109,6 @@ data Exp =
   | LamDepTy (Bind [Variable] Exp) -- ^ Dependent lambda abstraction (abstracting type). 
   | AppDepTy Exp Exp -- ^ Dependent application (type application). 
 
-
   | LamAnn Exp (Bind [Variable] Exp)
     -- ^ Annotated lambda abstraction. This uses infer mode to infer the body. 
   | LamAnn' Exp (Bind [Variable] Exp) -- ^ Shape of 'LamAnn'. 
@@ -138,8 +135,6 @@ data Branches = B [Bind Pattern Exp]
 data Pattern = PApp Id [Either (NoBind Exp) Variable] 
              deriving (Eq, Generic, NominalShow, NominalSupport, Nominal, Bindable, Show)
 
-
-
 instance Disp Pattern where
   display flag (PApp id vs) =
     display flag id <+>
@@ -149,16 +144,14 @@ instance Disp Pattern where
           helper (Right x) = display flag x 
 
 -- | A helper function for display various of applications.
-          
+dispAt :: Bool -> String -> Doc          
 dispAt b s =
   if b then text "" else text (" @"++s)
 
 instance Disp Exp where
   display flag (Var x) = display flag x
-  display flag (GoalVar x) =
-    if flag then disp x else braces $ dispRaw x
-  display flag (EigenVar x) =
-    if flag then disp x else brackets $ dispRaw x
+  display flag (GoalVar x) = display flag x
+  display flag (EigenVar x) = display flag x
   display flag (Const id) = display flag id
   display flag (LBase id) = display flag id
   display flag (Base id) = display flag id
@@ -202,7 +195,9 @@ instance Disp Exp where
 
   display flag (Forall bds t) =
     open bds $ \ vs b ->
-    fsep [text "forall", parens ((hsep $ map (display flag) vs) <+> text ":" <+> display flag t) <+> text "->", nest 5 $ display flag b]
+    fsep [text "forall",
+          parens ((hsep $ map (display flag) vs) <+> text ":" <+> display flag t)
+          <+> text "->", nest 5 $ display flag b]
 
   display flag a@(App t t') =
      fsep [dParen flag (precedence a - 1) t, dParen flag (precedence a) t']
@@ -358,14 +353,14 @@ data Value =
   | VBase Id -- ^ Runtime non-simple type. 
   | VLam [Variable] (Bind [(Variable, Integer)] EExp)
     -- ^ Lambda forms a closure. ['Variable']
-    -- is the list of variables that is refered by this closure.
+    -- is the list of variables that are referred by this closure.
   | VPair Value Value -- ^ Pair of values.
   | VStar -- ^ Unit value. 
   | VLift [Variable] EExp -- ^ Lift forms a closure. ['Variable']
     -- is the list of variables that is refered by this closure.
   | VLiftCirc (Bind [Variable] (Bind LEnv EExp))
-    -- ^ Circuit binding, [Variable] is like a lambda that handles parameter arguments
-    -- and the control argument, LEnv binds a variable to a circuit.
+    -- ^ Circuit binding, [Variable] is like a lambda that handles the parameter arguments
+    -- and the control argument, LEnv binds a variable to a circuit value.
   | VCircuit Morphism
     -- ^ Unbound circuit (incomplete). 
   | Wired (Bind [Label] Value)
@@ -379,7 +374,8 @@ data Value =
   | VRunCirc -- ^ Value version of 'RunCirc'.
   deriving (Show, NominalShow, NominalSupport, Generic)
 
--- | Local value environment for evaluation. 
+-- | Local variable environment for evaluation. It contains the
+-- approximate number of uses of for each variable. 
 type LEnv = Map Variable (Value, Integer)
 
 instance Bindable (Map Variable (Value, Integer)) where
@@ -498,7 +494,8 @@ instance Disp Value where
 instance Disp (Map Variable (Value, Integer)) where
    display flag l =
      vcat $
-     map (\ (x, (y, n)) -> display False x<> text ":" <> integer n <+> text ":=" <+> display flag y) (Map.toList l)
+     map (\ (x, (y, n)) -> display False x<> text ":" <> integer n
+                           <+> text ":=" <+> display flag y) (Map.toList l)
 
 instance Disp (Map Variable (Value, Integer, Integer)) where
    display flag l =
@@ -533,36 +530,37 @@ data Decl = Object Position Id -- ^ Declaration for qubit or bit.
             
           | Data Position Id Exp [(Position, Id, Exp)]
             -- ^ Data type declaration.
-            -- Id: the type constructor, Exp: a kind expression, [(Position, Id, Exp)]:
+            -- 'Id': the type constructor, 'Exp': a kind expression, [('Position', 'Id', 'Exp')]:
             -- the list of data constructors with corresponding types. 
           | SimpData Position Id Int Exp [(Position, Maybe Int, Id, Exp)]
             -- ^ Simple data type declaration.
-            -- Id: the type constructor, Int: the number of type arguments,
-            -- Exp: partial kind annotation. In [(Position, Maybe Int, Id, Exp)],
-            -- Maybe Int: the position where dependent pattern matching is performed.
-            -- Id: data constructor, Exp: pretypes for the data constructors, to
+            -- 'Id': the type constructor, 'Int': the number of type arguments,
+            -- 'Exp': partial kind annotation. In [('Position', 'Maybe' 'Int', 'Id', 'Exp')],
+            -- 'Maybe' 'Int': the position where dependent pattern matching is performed.
+            -- 'Id': data constructor, 'Exp': pretypes for the data constructors, to
             -- be further processed. 
           | Class Position Id Exp Id Exp [(Position, Id, Exp)]
             -- ^ Class declaration.
-            -- Id: class name, Exp: instance function type,
-            -- [(Position, Id, Exp)]: list of methods and their definitions.
+            -- 'Id': class name, 'Exp': instance function type,
+            -- [('Position', 'Id', 'Exp')]: list of methods and their definitions.
           | Instance Position Id Exp [(Position, Id, Exp)]
             -- ^ Instance declaration.
-            -- Id: instance function name, Exp: instance function type,
-            -- [(Position, Id, Exp)]: list of methods and their definitions.
+            -- 'Id': instance function name, 'Exp': instance function type,
+            -- [('Position', 'Id', 'Exp')]: list of methods and their definitions.
           | Def Position Id Exp Exp
-            -- ^ Function declaration. Id: name, Exp: type, Exp: definition
+            -- ^ Function declaration. 'Id': name, 'Exp': type, 'Exp': definition
           | GateDecl Position Id [Exp] Exp
-            -- ^ Gate declaration. Id: name, [Exp]: parameters, Exp: input/output.
+            -- ^ Gate declaration. 'Id': name, ['Exp']: parameters, 'Exp': input/output.
           | ControlDecl Position Id [Exp] Exp
-            -- ^ Controlled gate declaration. Id: name, [Exp]: parameters, Exp: input/output.
+            -- ^ Controlled gate declaration. 'Id': name, ['Exp']: parameters, 'Exp': input/output.
           | ImportDecl Position String
             -- ^ Importation.
           | OperatorDecl Position String Int String
             -- ^ Operator declaration. String: operator name, Int: precedence, String: fixity.
           | Defn Position Id (Maybe Exp) Exp
-            -- ^ Function declaration in infer mode. Id: name, May Exp: maybe a partial type,
-            -- Exp: definition
+            -- ^ Function declaration in infer mode. 'Id': name,
+            -- 'May' 'Exp': maybe a partial type,
+            -- 'Exp': definition
 
 
 -- | A data structure for the erased expression, all bind variables are annotated
@@ -593,10 +591,11 @@ data EExp =
   | EUnit
   deriving (Eq, Generic, Nominal, NominalShow, NominalSupport, Show)
 
+-- | Branches for erased case.
 data EBranches = EB [Bind EPattern EExp]
                deriving (Eq, Generic, Show, NominalSupport, NominalShow, Nominal)
 
-
+-- | Erased pattern.
 data EPattern = EPApp Id [(Variable, Integer)]
               deriving (Eq, Generic, NominalShow, NominalSupport, Nominal, Bindable, Show)
 
@@ -618,7 +617,8 @@ instance Disp EExp where
   display flag (ERunCirc) = text "runCirc"
   display flag (ELam ws (Abst vs e)) = 
     sep [text "\\elam" <+> brackets (sep $ map (display flag) ws),
-         hsep (map (\ (x, y) -> parens (display False x <> text ":" <> integer y)) vs) <+>text "->", nest 2 (display flag e)]
+         hsep (map (\ (x, y) -> parens (display False x <> text ":" <> integer y)) vs)
+         <+> text "->", nest 2 (display flag e)]
   display flag (ELift ws e) = 
    text "elift" <+> (brackets $ sep (map (display flag) ws)) <+> display flag e
 
@@ -652,47 +652,3 @@ instance Disp EPattern where
     display flag id <+>
     hsep (map (\ (x, n) -> parens (display False x <> text ":" <> integer n)) vs) 
 
--- | Get a the set of free variable from a 'EExp'          
-evarsHelper a@(EVar y) = S.insert y S.empty
-evarsHelper (EApp t tm) =
-   (evarsHelper t) `S.union` (evarsHelper tm)
-evarsHelper (ELam vs bind) = S.fromList vs
-evarsHelper (EPair t tm) =
-   (evarsHelper t) `S.union` (evarsHelper tm)
-
-evarsHelper (EForce t) = (evarsHelper t)
-evarsHelper (ELift vs t) = S.fromList vs
-evarsHelper (ELet m bd) =
-  let m' = evarsHelper m in
-    open bd $ \ (y, _) b -> S.union m'(S.difference (evarsHelper b) (S.fromList [y])) 
-
-evarsHelper (ELetPair m bd) =
-  let m' = evarsHelper m in
-    open bd $ \ y b -> S.union m'(S.difference (evarsHelper b) (S.fromList $ map fst y)) 
-
-
-evarsHelper (ELetPat m bd) =
-  let m' = evarsHelper m in
-   open bd $ \ (EPApp id ps) b ->
-    S.union m' (S.difference (evarsHelper b) (S.fromList $ map fst ps)) 
-
-        
-evarsHelper (ECase tm (EB br)) =
-  (evarsHelper tm) `S.union` (helper' br)
-  where helper' br =
-          S.unions $ map (\ b -> open b $
-                                 \ (EPApp id ps) m ->
-                                 S.difference (evarsHelper m) $ S.fromList $ map fst ps)
-                        br
-evarsHelper _ = S.empty
-
--- | Get the list of free variables in an 'EExp'.  
-evars e = S.toList $ evarsHelper e
-
--- | Retrieve the variables that a closure refers to. This
--- must be done efficiently since it is used for evaluation. 
-vars (VLam ws (Abst _ e)) = ws
-vars (VLift ws e) = ws
-vars (VPair e1 e2) = (vars e1) ++ (vars e2)
-vars (VTensor e1 e2) = (vars e1) ++ (vars e2)
-vars _ = []
