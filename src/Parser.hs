@@ -29,10 +29,10 @@ import Data.List
 type Parser a = IndentParser String ParserState a
 
 -- | A parser state contains an expression parser together with
--- an operator table. The expression parser is build by combining 
+-- an operator table. The expression parser is built by combining 
 -- operator table with the atomic expression parser. The operator table
 -- is updated when encountering an operator declaration,
--- in this case the expression parser will be rebuild as well.
+-- in this case the expression parser will be rebuilt as well.
 
 data ParserState =
   ParserState {
@@ -141,7 +141,7 @@ displaying =
      eof
      return $ Display t
 
--- | Parse the display existential circuit command.
+-- | Parse the displaying existential circuit command.
 displayEx :: Parser Command
 displayEx =
   do reserved ":e"
@@ -149,7 +149,7 @@ displayEx =
      eof
      return $ DisplayEx t
 
--- | Parse show annotation command.
+-- | Parse the show annotation command.
 annotation :: Parser Command 
 annotation =
   do reserved ":a"
@@ -157,7 +157,7 @@ annotation =
      eof
      return $ Annotation t
 
--- | Parse load command.
+-- | Parse the load command.
 load :: Parser Command
 load =
   do reserved ":l"
@@ -165,20 +165,20 @@ load =
      eof
      return $ Load True path
 
--- | Parse an expression, for evaluation.
+-- | Parse an expression.
 eval :: Parser Command
 eval =
   do t <- term
      eof
      return $ Eval t
 
+-- | Parse a gate count command. 
 gateC =
   do reserved ":g"
      name <- option Nothing $ (stringLiteral >>= \ x -> return $ Just x)
      t <- term
      eof
      return $ GateCount name t
-
 
 
 -- * Parsers for various of declarations
@@ -230,7 +230,7 @@ importDecl = impGlobal
 
 -- | Parse a type class declaration. We allow phatom class, i.e. class without
 -- any method, in that case, one should not use the keyword "where".
--- Methods declarations have to have same level of indentation.
+-- Method definitions have to have same level of indentation.
 classDecl :: Parser Decl
 classDecl =
   do reserved "class"
@@ -250,7 +250,7 @@ classDecl =
 
 -- | Parse an instance declaration. For the instance of the phantom class,
 -- one should not use the keyword "where".
--- Methods definitions have to have same level of indentation.
+-- Method definitions have to have same level of indentation.
 instanceDecl :: Parser Decl
 instanceDecl =
   do reserved "instance"
@@ -299,7 +299,8 @@ controlDecl =
 
 -- | Parse a data type declaration. We allow data type without any constructor,
 -- in that case, one should not use '='. The syntax is similar to Haskell 98
--- data type declaration, except we allow existential dependent data type.
+-- data type declaration, except we allow existential dependent data type and constraint
+-- data type.
 dataDecl :: Parser Decl
 dataDecl = 
   do reserved "data"
@@ -351,7 +352,7 @@ simpleDecl =
                   singlePat
 
  
--- | Parse a function declaration. Top level annotation is required for the function.
+-- | Parse a function declaration with top-level type annotation.
 funDecl :: Parser Decl
 funDecl =
   do (f, ty) <- try $ do{ 
@@ -370,7 +371,7 @@ funDecl =
      return $ Def (P p) f ty args def
 
 -- | Parse a function definition in the infer mode, where one only annotates
--- the arguments of the function.
+-- types for arguments of the function.
 funDef :: Parser Decl
 funDef =
   do p <- getPosition 
@@ -420,7 +421,6 @@ atomExp = wrapPos (
        <|> caseExp
        <|> letExp
        <|> doExp
-
        <|> lamAnn
        <|> lam
        <|> idiomExp
@@ -452,7 +452,7 @@ singlePat = wrapPos (try varExp <|> try constExp <|> parens patApp <?> "single p
 singleExp :: Parser Exp
 singleExp = wrapPos (try varExp <|> try constExp <|> parens term <?> "single expression")
 
--- | Parse an annotation. E.g. @(x1 x2 :: Nat)@.
+-- | Parse an annotation. E.g. @(x1 x2 : Nat)@.
 ann :: Parser ([String], Exp)
 ann = parens $ 
       do xs <- many1 var
@@ -461,7 +461,7 @@ ann = parens $
          return (xs, ty)    
 
 -- | Parse an implicit annotation. E.g. in @List a@, the variable @a@
--- is parsed to @(a :: Type)@.
+-- is parsed to @(a : Type)@.
 impAnn :: Parser ([String], Exp)
 impAnn = var >>= \ x -> return ([x], Set)
 
@@ -479,7 +479,8 @@ followedBy m p =
      p
      return r
 
--- | Parse a natural number literal.
+-- | Parse a natural number literal. Currently, we will convert a number into
+-- the algebraic data type Nat in the standard library.  
 nat :: Parser Exp
 nat =
   do i <- naturals
@@ -487,15 +488,15 @@ nat =
      where toNat i | i == 0 = Base "Z"
            toNat i | otherwise = App (Base "S") $ toNat (i-1)
 
--- | Parse the vector bracket notation.
+-- | Parse the vector bracket notation. Currently, we will convert a vector notation into
+-- the algebraic data type Vec in the standard library.  
 vector :: Parser Exp
 vector =
-  do elems <- brackets $
-              (term `sepBy` comma)
+  do elems <- brackets (term `sepBy` comma)
      return $ foldr (\ x y -> App (App (Base "VCons") x) y) (Base "VNil") elems
 
--- | Parse an if-then-else expression. The if-then-else is translated
--- to pattern matching.
+-- | Parse an if-then-else expression. Currently, if-then-else is translated
+-- to pattern matching on the type Bool in the standard library.
 ifExp :: Parser Exp
 ifExp =
   do reserved "if"
@@ -506,7 +507,7 @@ ifExp =
      t2 <- term
      return $ Case c [("True", [], t1), ("False", [], t2)]
 
--- | Parse a pi-type.
+-- | Parse a dependent pi-type.
 piType :: Parser Exp
 piType =
   do (vs, ty) <- try $ followedBy (parens $
@@ -533,7 +534,6 @@ implicitType =
 -- | Parse an existential type.
 existsType :: Parser Exp
 existsType =
--- do -- reserved "exists"
   do (v, ty) <- try $ parens $ do {v <- var;
                                    reservedOp ":";
                                    ty <- typeExp;
@@ -782,19 +782,11 @@ wrapPos par =
   where pos x (Pos y e) | x == y = Pos y e
         pos x y = Pos x y
 
--- | Parse the inside of an idiom braket.
--- applicativeExp :: Parser Exp
--- applicativeExp =
---    manyLines (do{head <- wrapPos $ try varExp <|> try constExp <|> parens term <|> idiomExp;
---                 return $ foldl' (\ z x -> App (App (Var "ap") z) x)
---                 (App (Var "pure") head)}) (wrapPos $ arg)
---   where arg = try varExp <|> try constExp <|> parens term <|> idiomExp
-              
-
--- | Parse an idiom braket. We apply a /join/ to the /applicativeExp/.
+-- | Parse an idiom braket. Currently we translate it using 'join', 'pure' and 'ap' from the
+-- standard library.
 idiomExp :: Parser Exp
 idiomExp = do try $ reservedOp "[|"
-              t <- term -- applicativeExp
+              t <- term
               let t' = toApplicative t
               reservedOp "|]"
               return (App (Var "join") t')
@@ -802,10 +794,11 @@ idiomExp = do try $ reservedOp "[|"
         toApplicative (Pos p e) = Pos p (toApplicative e)
         toApplicative head = App (Var "pure") head
 
--- | A data type for all the statements in do notation. 
+-- | A data type for all the possible statements in the do-notation. 
 data DoBinding = LetStmt [Binding] | PatternBind (Binding, Exp) | Stmt Exp                
 
--- | Parse a do expression. We allow direct pattern matching when using '<-',
+-- | Parse a do expression. We currently rely on the 'bind', 'seq' and 'return' from the
+-- standard library. We allow direct pattern matching when using '<-',
 -- such pattern matching is translated to let pattern matching. We also allow
 -- let statement.
 doExp :: Parser Exp
@@ -879,7 +872,7 @@ dpqStyle = Token.LanguageDef
                 , Token.reservedNames =
                   [
                     "gate", "in", "let", "controlled",
-                    "case", "of", "exists", "implicitly",
+                    "case", "of",
                     "data", "import", "class", "instance",
                     "simple", "reverse", "box", "unbox", "existsBox",
                     "runCirc",
