@@ -4,43 +4,28 @@
 (require 'compile)
 (set-face-foreground 'font-lock-builtin-face "#2aa198")
 (setq-default indent-tabs-mode nil)
-;; (set-face-foreground 'font-lock-builtin-face "blue")
-;; (set-face-foreground 'font-lock-constant-face "blue")
-;; (set-face-foreground 'font-lock-comment-face "grey")
-;; (set-face-bold 'font-lock-builtin-face nil)
 
 (setq dpq-myKeywords
       '(
-        ("\\b\\(Simple\\|Parameter\\|Unit\\|Type\\|Real\\)\\b" . font-lock-builtin-face)
+        ("\\b\\(Simple\\|Parameter\\|Unit\\|Type\\)\\b" . font-lock-builtin-face)
         ("\\b[[:upper:]][[:alnum:]'_]*\\b" . font-lock-type-face)
         
-        ("\\b\\(let\\|in\\|do\\|simple\\|forall\\|infixr\\|infixl\\|infix\\|import\\|type\\|gate\\|data\\|class\\|controlled\\|implicitly\\|exists\\|with\\|instance\\|object\\|case\\|of\\|module\\|withType\\|where\\|if\\|then\\|else\\)\\b" . font-lock-keyword-face)
+        ("\\b\\(let\\|in\\|do\\|simple\\|forall\\|infixr\\|infixl\\|infix\\|import\\|type\\|gate\\|data\\|class\\|controlled\\|exists\\|instance\\|object\\|case\\|of\\|module\\|where\\|if\\|then\\|else\\)\\b" . font-lock-keyword-face)
         ("\\b\\(box\\|unbox\\|reverse\\|existsBox\\|runCirc\\)\\b" . font-lock-constant-face)
-        ("\\([\\λ=*]\\|:\\|->\\|<-\\|\\.\\|()\\|::\\|!\\|&\\||\\|<\\|>\\|[[]\\|[]]\\|{\\|}\\|[$]\\)" . font-lock-constant-face)
+        ("\\([\\λ=*]\\|:\\|->\\|<-\\|\\.\\|()\\|!\\|&\\||\\|<\\|>\\|[[]\\|[]]\\|{\\|}\\|[$]\\)" . font-lock-constant-face)
         )
       )
 
-;; (defvar dpq-type-regexp "\\b[[:upper:]][[:alnum:]'_]*\\b")
-;; (defvar dpq-key-word "\\b\\(let\\|in\\|simple\\|fun\\|force\\|primitive\\|type\\|gate\\|box\\|unbox\\|data\\|family\\|object\\|case\\|of\\|module\\|where\\)\\b")
-;; (defvar dpq-op "\\([\\λ=*]\\|->\\|()\\|::\\|!\\|&\\||\\)")
 ;; syntax table
-
 (defvar dpq-syntax-table nil "Syntax table for `dpq-mode'.")
 (setq dpq-syntax-table
       (let ((synTable (make-syntax-table)))
-
-	;; Haskell-style comment "-- ..." 
-	;; (modify-syntax-entry ?- ". 12b" synTable)
-
-	;; Haskell-style comment "{- ... -}"
 	(modify-syntax-entry ?\{ "(}1nb" synTable)
 	(modify-syntax-entry ?\} "){4nb" synTable)
 	(modify-syntax-entry ?- "_ 123" synTable)
 	(modify-syntax-entry ?\n ">" synTable)
-
 	(modify-syntax-entry ?_ "w")
 	(modify-syntax-entry ?# "w")
-
         synTable))
 
 
@@ -54,7 +39,7 @@
 )
 
 
-;; Adapted from trellys's mode, fixed a problem in dpq-repl-send-cmd by
+;; Adapted from Iowa trellys' emacs mode, fixed a problem in dpq-repl-send-cmd by
 ;; trial and error. 
 
 (defconst dpq-repl-error-regexp-alist
@@ -64,7 +49,6 @@
 
 (setq auto-mode-alist (cons '("\\.dpq\\'" . dpq-mode)
 			    auto-mode-alist))
-
 
 (defun dpq-repl-load ()
         "Load the file in the current buffer."
@@ -100,11 +84,6 @@
 
 
   )
-  ;; (if (not switch-p)
-  ;;     (switch-to-buffer "*dpq*" )))
-  ;; (unless (get-buffer-window inferior-dpq-buffer 0)
-  ;;   )
-       
 
 (define-derived-mode dpq-repl-mode comint-mode "dpq"
         "Mode for interacting with dpq interactive process"
