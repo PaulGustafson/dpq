@@ -610,7 +610,7 @@ dependentUnif index isDpm head t =
                    Just subst -> 
                      helper subst vars eSub
             _ -> throwError $ UnifErr head t
-  where -- change relavent variables back into eigenvariables after dependent pattern-matching 
+  where -- change relavent variables back into eigenvariables after dependent pattern-matching. 
         helper subst (v:vars) eSub =
           let subst' = Map.mapWithKey (\ k val -> if k == v then toEigen val else val) subst
               subst'' = Map.map (\ val -> apply eSub val) subst'

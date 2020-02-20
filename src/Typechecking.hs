@@ -1,13 +1,13 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 -- | This module implements a bi-directional algorithm for elaborating
--- a surface level language into the core language. The elaborated programs
+-- the surface language into the core language. The elaborated programs
 -- will be checked by the "Proofchecking" module. The elaboration aims for soundness, i.e.,
--- if the elaboration is successful, then it will past the proof-checker. Otherwise it
--- would indicate there is a bug in the elaboration. 
+-- if the elaboration is successful, then it shoud past the proof-checker. Otherwise it
+-- means there is a bug in the elaboration. 
 
 
-module Typechecking where
+module Typechecking (typeCheck, typeInfer) where
 
 import Syntax
 import SyntacticOperations
@@ -27,15 +27,16 @@ import Debug.Trace
 import Control.Monad.Except
 import Control.Monad.State
 
--- | Check an expression against a type. The flag = True indicates
---  it is kinding or sorting, flag = False indicates type checking.
+-- | Check an expression against a type, retun elaborated term and type.
+-- The flag = True indicates
+-- it is during kinding or sorting, flag = False indicates it is during type checking.
 -- For simplicity, we do not allow direct mentioning
 -- of lambda, box, unbox, reverse, runCirc, existsBox in types (these will give rise to
 -- type errors saying no typing rule for inference). 
 
 typeCheck :: Bool -> Exp -> Exp -> TCMonad (Exp, Exp)
 
--- | Infer a type for a term. 
+-- | Infer a type for a term, also return elaborated term.
 typeInfer :: Bool -> Exp -> TCMonad (Exp, Exp)
 
 typeInfer flag (Pos p e) =
@@ -669,8 +670,6 @@ typeCheck flag (LetPat m bd) goal =
                  ann2' <- resolveGoals (substitute subb ann2)
                  -- !!!! Note that let pat is ok to leak local substitution,
                  -- as the branch is really global!.
-                 -- when isDpm $ updateSubst ss
-                 -- when (not isDpm) $ updateSubst subb
                  mapM removeLocalInst ins
                  let axs' = map (substVar subb) axs
                      goal''' = substitute subb goal''
@@ -762,7 +761,7 @@ typeCheck flag a@(Case tm (B brs)) goal =
                          -- because the variable axs may be in the domain
                          -- of the substitution, hence it is necessary to update
                          -- axs as well before binding.
-                         let axs' = map (substVar subb) axs
+v                         let axs' = map (substVar subb) axs
                          mapM_ (\ (Right v) -> removeVar v) vs
                          mapM removeLocalInst ins
                          return (goal''', abst (PApp kid axs') ann2')
@@ -770,7 +769,7 @@ typeCheck flag a@(Case tm (B brs)) goal =
 typeCheck flag tm ty = equality flag tm ty
 
 
--- | Infer a type for tm, and check if it is unifiable with ty.
+-- | Infer a type for /tm/, and check if it is unifiable with /ty/.
 equality :: Bool -> Exp -> Exp -> TCMonad (Exp, Exp)
 equality flag tm ty =
   do ty' <- updateWithSubst ty
@@ -792,9 +791,6 @@ equality flag tm ty =
              unifRes <- normalizeUnif tym' ty1
              case unifRes of
                Nothing -> 
-                 -- do tyN1 <- normalize tym'
-                 --    tyN2 <- normalize ty1
-                 --    throwError $ NotEq tm tyN2 tyN1
                  throwError $ NotEq tm ty1 tym'
                Just s ->
                  do ss <- getSubst
@@ -803,11 +799,9 @@ equality flag tm ty =
                     return (ty1, a2)
 
 
-
-
--- | Normalize and unify two expressions (head and t), taking
+-- | Normalize and unify two expressions (/head/ and /t/), taking
 -- dependent pattern matching into account. Dependent pattern matching
--- has the effect of reverting eigenvariables into variables.
+-- has the effect of converting eigenvariables into variables.
 patternUnif :: Exp -> Bool -> Maybe Int -> Exp -> Exp -> TCMonad (Maybe (Map Variable Exp))
 patternUnif m isDpm index head t =
   if isDpm then
@@ -828,7 +822,7 @@ patternUnif m isDpm index head t =
                         helper subst vars eSub
             _ -> throwError $ withPosition m (UnifErr head t)
   else normalizeUnif head t
-  where -- change relavent variables back into eigenvariables after dependent pattern-matching 
+  where -- change relavent variables back into eigenvariables after dependent pattern-matching. 
         helper subst (v:vars) eSub =
           let subst' = Map.mapWithKey (\ k val -> if k == v then toEigen val else val) subst
               subst'' = Map.map (\ val -> apply eSub val) subst'
@@ -870,10 +864,10 @@ normalizeUnif t1 t2 =
 -- | Extend the typing environment with
 -- the environment induced by pattern. Its first argument is the list from 'Pattern'.
 -- Its second argument is the type of the constructor, its third argument is the constructor
--- of the pattern. It will return the following, Exp: head of the type expression,
--- [Either a Variable]: essentially an extended list of pattern variables,
--- [Variable]: a list of dictionary variables, Exp: annotated version of the constructor,
--- [Variable]: a list of eigenvariables.
+-- of the pattern. It will return the following, 'Exp': head of the type expression,
+-- ['Either' a 'Variable']: essentially an extended list of pattern variables,
+-- ['Variable']: a list of dictionary variables, Exp: annotated version of the constructor,
+-- ['Variable']: a list of eigenvariables.
 
 extendEnv :: [Either (NoBind Exp) Variable] -> Exp -> Exp ->
              TCMonad (Exp, [Either a Variable], [Variable], Exp, [Variable])

@@ -7,7 +7,7 @@
 -- declaration also gives rise to a function that turns the simple type into a simple term.
 -- We support two kinds of gate declarations, an ordinary gate declaration and a generic
 -- control gate declaration. We support Haskell 98 style data type declaration with type class
--- constraint, moreover, we support a limited form of existential dependent data type in this
+-- constraint. Moreover, we support existential dependent data type in this
 -- format. All top level functions must be of parameter types. Functions can be defined 
 -- by first giving its type annotation, or one can just annotate the types
 -- for its arguments (in that case dependent pattern matching is not supported). 
@@ -549,8 +549,6 @@ makeGate id ps t =
           env = Map.fromList [(y, (morph, 1))] 
           unbox_morph = ELam [y] $ etaPair (length inss) (EForce $ EApp EUnBox (EVar y))
           res = VLiftCirc (abst xs (abst env unbox_morph))
-            -- if null xs then VLift (abst env unbox_morph)
-            --     else VLiftCirc (abst xs (abst env unbox_morph))
       in res
   where makeInOut (Arrow t t') =
           let (ins, outs) = makeInOut t'
@@ -674,10 +672,3 @@ proofChecking b exp ty =
   proofCheck b exp ty `catchError` \ e -> throwError $ PfErrWrapper exp e ty
 
 
--- | Generate a list of strings from a value.
-genNames :: Value -> [String]
-genNames uv =
-  let n = size uv
-      ls = "l":ls
-      names = take n ls
-  in names
