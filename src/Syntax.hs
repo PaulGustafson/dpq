@@ -15,7 +15,23 @@ nominal library to handle the affair of variable bindings in the abstract syntax
 Please see <http://hackage.haskell.org/package/nominal here> for
 the documentation of nominal library.
 -}
-module Syntax where
+module Syntax
+       (
+         Exp(..),
+         EExp(..),
+         Value(..),
+         Pattern(..),
+         Branches(..),
+         EBranches(..),
+         EPattern(..),
+         Gate(..),
+         Morphism(..),
+         LEnv,
+         Gates,
+         Decl(..),
+         toExp
+       )
+       where
 
 import Utils
 import Prelude hiding ((.), (<>))

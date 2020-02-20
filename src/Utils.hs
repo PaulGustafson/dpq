@@ -5,7 +5,29 @@
 
 -- | This module implements various of utility functions. 
 
-module Utils where
+module Utils
+       (
+         getName,
+         pattern Abst,
+         freshNames,
+         freshLabels,
+         Disp(..),
+         Variable,
+         Id(..),
+         Position(..),
+         Label,
+         dParen,
+         initCount,
+         ZipCount,
+         evalCount,
+         incr,
+         enterCase,
+         nextCase,
+         exitCase,
+         hashPos
+         
+       )
+       where
 
 
 import System.FilePath

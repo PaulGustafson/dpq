@@ -2,7 +2,12 @@
 -- | An indentation sensitive parser for Proto-Quipper-D.
 -- We use <https://hackage.haskell.org/package/parsec parsec library>
 -- and <https://hackage.haskell.org/package/indents indents library> for parsing. 
-module Parser (ParserState, parseModule, initialParserState, parseImports, parseCommand)
+module Parser
+       (ParserState,
+        parseModule,
+        initialParserState,
+        parseImports,
+        parseCommand)
        where
 
 import ConcreteSyntax

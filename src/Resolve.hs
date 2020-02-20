@@ -32,8 +32,8 @@ import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.List
 
--- | A global scope that contains a map to tracks strings to known global names
--- (such as function and constructor names). 
+-- | A global scope that contains a map from strings to known global names
+-- (i.e., function and constructor names). 
 
 data Scope = Scope {
   scopeMap :: Map String (Exp, Position)
@@ -54,7 +54,7 @@ lookupScope scope x =
 
 
 -- | A local scope that contains a global scope,
--- a map to track local string and variables.
+-- a map from local strings to variables.
 data LScope = LScope {
   localScope :: Map String Variable,
   globalScope :: Scope
@@ -96,7 +96,7 @@ lookupLScope lscope x =
     global = globalScope lscope
 
 
--- | Scope error information. Please see its 'Disp' instance to see
+-- | Scope errors' information. Please see its 'Disp' instance to see
 -- the meaning of each error. 
 data ScopeError = NotInScope String 
                  | ConstrErr Exp

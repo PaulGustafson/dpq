@@ -1,6 +1,40 @@
 -- | This module defines various of syntactic operations on the abstract syntax.
 
-module SyntacticOperations where
+module SyntacticOperations
+       (
+         removeVacuousPi,
+         getVars,
+         VarSwitch(..),
+         erasePos,
+         obtainPos,
+         getWires,
+         toBool,
+         refresh_gates,
+         isBool,
+         toNum,
+         flatten,
+         vacuousForall,
+         isKind,
+         flattenArrows,
+         isCirc,
+         unPair,
+         removePrefixes,
+         toEigen,
+         isExplicit,
+         unTensor,
+         unEigen,
+         isEigenVar,
+         unEigenBound,
+         evars,
+         vars,
+         unVPair,
+         vflatten,
+         rename,
+         isConst,
+         unwind,
+         UnwindFlag(..),
+         gateCount
+       ) where
 
 import Syntax
 import Utils
@@ -13,12 +47,18 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 
 -- | Remove all the vacuous pi quantifiers.
+
 removeVacuousPi :: Exp -> Exp
+
 removeVacuousPi (Pos p e) = removeVacuousPi e
+
 removeVacuousPi (Forall (Abst xs m) ty) =
   Forall (abst xs $ removeVacuousPi m) (removeVacuousPi ty)
+
+-- Will decide what to do with implicit quantifiers later.
 removeVacuousPi (PiImp (Abst xs m) ty) =
  PiImp (abst xs $ removeVacuousPi m) (removeVacuousPi ty)
+
 removeVacuousPi (Pi (Abst xs m) ty) =
   let fvs = getVars AllowEigen m
       xs' = map (\ x ->
@@ -231,7 +271,7 @@ getVars b (Case t (B brs)) =
 getVars b (Pos p e) = getVars b e
 getVars b a = error $ "from getVars  " ++ show (disp a)
 
--- | Get variables according to 'VarSwitch'.
+-- | Get a variable according to 'VarSwitch'.
 varSwitch :: VarSwitch -> Exp -> S.Set Variable
 varSwitch AllowEigen (EigenVar x) = S.insert x S.empty
 varSwitch OnlyEigen (EigenVar x) = S.insert x S.empty
@@ -271,7 +311,7 @@ unTensor n (Tensor x y) | n > 2 =
 unTensor _ _ = Nothing
 
 -- | Flatten a type expression into bodies and head, with variables intact.
--- e.g. @flattenArrows ((x :: A1) -> A2 -> (P) => H)@ produces
+-- e.g. @flattenArrows ((x : A1) -> A2 -> (P) => H)@ produces
 -- @([(Just x, A1), (Nothing, A2), (Nothing, P)], H)@
 
 flattenArrows :: Exp -> ([(Maybe Variable, Exp)], Exp)
@@ -357,8 +397,8 @@ vflatten (VApp t1 t2) =
 vflatten _ = Nothing
 
 
--- | Determine whether an expression is a kind expression. Note we allow
--- dependent kind such as: @(a :: Type) -> a -> Type@.
+-- | Determine whether an expression is a kind expression. Note that we allow
+-- dependent kind such as: @(a : Type) -> a -> Type@.
 isKind :: Exp -> Bool
 isKind (Set) = True
 isKind (Arrow k1 k2) = isKind k2
@@ -872,6 +912,7 @@ toEigen t =
   in apply sub t
 
 -- | Count the number of gates in a circuit.
+gateCount :: Maybe String -> Value -> Integer
 gateCount Nothing (Wired (Abst _ (VCircuit (Morphism _ gs _)))) = genericLength gs
 gateCount (Just n) (Wired (Abst _ (VCircuit (Morphism _ gs _)))) =
   helper n gs 0
@@ -885,7 +926,9 @@ gateCount (Just n) (Wired (Abst _ (VCircuit (Morphism _ gs _)))) =
 -- wires have the same label names.  It assumes each gate is regular,
 -- i.e., input and output should have the same arity for all the
 -- non-terminal and non-initial gates. It tries to re-use the label
--- names once a label is terminated.
+-- names once a label is terminated, this is reflected in the input ['Label']. 
+
+refresh_gates ::  Map Label Label -> [Gate] -> [Label] -> ([Gate], Map Label Label)
 refresh_gates m [] s = ([], m)
 refresh_gates m (Gate name [] input VStar VStar : gs) s
   | getName name == "Term0" || getName name == "Term1" =
@@ -934,17 +977,20 @@ refresh_gates m (Gate name vs input output ctrl : gs) s =
   in (Gate name vs newInput newOutput newCtrl : gs', newMap')
 
 -- | Check whether a value is a boolean constant.
+isBool :: Value -> Bool
 isBool (VConst x) | getName x == "True" = True
 isBool (VConst x) | getName x == "False" = True
 isBool _ = False
 
 -- | Convert a boolean value to 'Bool'. It is an error to call this
 -- with a value that is not a boolean constant.
+toBool :: Value -> Bool
 toBool (VConst x) | getName x == "True" = True
 toBool (VConst x) | getName x == "False" = False
 
 -- | Convert a value to a natural number. It is an error to call this
 -- with a value that is not a Peano number.
+toNum :: (Num p) => Value -> p
 toNum (VConst x) | getName x == "Z" = 0
 toNum (VApp (VConst s) n) | getName s == "S" =
   toNum n + 1
@@ -976,7 +1022,7 @@ renameGs gs m = map helper gs
   where helper (Gate id params ins outs ctrls) =
           Gate id params (renameTemp ins m) (renameTemp outs m) (renameTemp ctrls m)
 
--- | Get a the set of free variable from a 'EExp'.
+-- | Get the set of free variables from a 'EExp'.
 evarsHelper :: EExp -> S.Set Variable
 evarsHelper a@(EVar y) = S.insert y S.empty
 evarsHelper (EApp t tm) =
