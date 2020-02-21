@@ -119,17 +119,17 @@ unify (Tensor t1 t2) (Tensor t3 t4) =
                unify (substitute sub t2) (substitute sub t4)
        else return False
 
-unify (Circ t1 t2) (Circ t3 t4) =
+unify (Circ t1 t2 _) (Circ t3 t4 _) =
   do a <- unify t1 t3
      if a
        then do sub <- get
                unify (substitute sub t2) (substitute sub t4)
        else return False
 
-unify (Bang t) (Bang t') = unify t t'
+unify (Bang t _) (Bang t' _) = unify t t'
 unify (Force t) (Force t') = unify t t'
 unify (Force' t) (Force' t') = unify t t'
-unify (Lift t) (Lift t') = unify t t'
+unify (Lift t _) (Lift t' _) = unify t t'
 
 unify (App t1 t2) (App t3 t4) =
   do a <- unify t1 t3

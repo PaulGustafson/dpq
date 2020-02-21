@@ -79,7 +79,7 @@ removeVacuousPi (Arrow ty1 ty2) =
 removeVacuousPi (Imply ps ty2) =
   Imply ps (removeVacuousPi ty2)
 
-removeVacuousPi (Bang ty) = Bang $ removeVacuousPi ty
+removeVacuousPi (Bang ty m) = Bang (removeVacuousPi ty) m
 removeVacuousPi a = a
 
 -- | Detect vacuous forall and implicit quantifications,
@@ -110,7 +110,7 @@ vacuousForall (PiImp bds ty) =
              Just (Nothing, diff, ty, m)
 
 vacuousForall (Imply ts t2) = vacuousForall t2
-vacuousForall (Bang t2) = vacuousForall t2
+vacuousForall (Bang t2 _) = vacuousForall t2
 vacuousForall (Forall bds ty) =
   open bds $ \ vs m ->
    let fvs = getVars NoImply m
@@ -181,7 +181,7 @@ getVars b (Arrow' ty tm) =
 getVars NoImply (Imply ty tm) = getVars NoImply tm
 getVars b (Imply ty tm) =
   (S.unions $ map (getVars b) ty) `S.union` getVars b tm  
-getVars b (Bang t) = getVars b t
+getVars b (Bang t _) = getVars b t
 getVars b (Pi bind t) =
   getVars b t `S.union`
   (open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs)
@@ -224,7 +224,7 @@ getVars b (LamDict bind) =
 getVars b (Forall bind ty) =
   open bind $ \ xs m -> S.union (getVars b m `S.difference` S.fromList xs) (getVars b ty)
                     
-getVars b (Circ t u) = S.union (getVars b t) (getVars b u)
+getVars b (Circ t u _) = S.union (getVars b t) (getVars b u)
 getVars b (Pair ty tm) =
   getVars b ty `S.union` getVars b tm
 
@@ -254,7 +254,7 @@ getVars b (Force t) = getVars b t
 getVars b (Force' t) = getVars b t
 getVars b (Box) = S.empty
 getVars b (ExBox) = S.empty
-getVars b (Lift t) = getVars b t
+getVars b (Lift t _) = getVars b t
 getVars b (Case t (B brs)) =
   getVars b t `S.union` S.unions (map helper brs)
   where helper bind = open bind $ \ ps m ->
@@ -434,17 +434,17 @@ erasePos (Pair e1 e2) = Pair (erasePos e1) (erasePos e2)
 erasePos (Arrow e1 e2) = Arrow (erasePos e1) (erasePos e2)
 erasePos (Arrow' e1 e2) = Arrow' (erasePos e1) (erasePos e2)
 erasePos (Imply e1 e2) = Imply (map erasePos e1) (erasePos e2)
-erasePos (Bang e) = Bang $ erasePos e
+erasePos (Bang e m) = Bang (erasePos e) m
 erasePos (UnBox) = UnBox
 erasePos (Reverse) = Reverse
 erasePos (RunCirc) = RunCirc
 erasePos (Box) = Box
 erasePos a@(ExBox) = a
-erasePos (Lift e) = Lift $ erasePos e
+erasePos (Lift e m) = Lift (erasePos e) m
 
 erasePos (Force e) = Force $ erasePos e
 erasePos (Force' e) = Force' $ erasePos e
-erasePos (Circ e1 e2) = Circ (erasePos e1) (erasePos e2)
+erasePos (Circ e1 e2 m) = Circ (erasePos e1) (erasePos e2) m
 erasePos (Pi (Abst vs b) e) = Pi (abst vs (erasePos b)) (erasePos e)
 erasePos (PiImp (Abst vs b) e) = PiImp (abst vs (erasePos b)) (erasePos e)
 
@@ -574,20 +574,20 @@ unEigenBound vars (Imply e1 e2) =
       e2' = unEigenBound vars e2
   in Imply e1' e2'
 
-unEigenBound vars (Bang e) = Bang (unEigenBound vars e)
+unEigenBound vars (Bang e m) = Bang (unEigenBound vars e) m
 unEigenBound vars (UnBox) = UnBox
 unEigenBound vars (Reverse) = Reverse
 unEigenBound vars (RunCirc) = RunCirc
 unEigenBound vars (Box) = Box 
 unEigenBound vars (ExBox) = ExBox 
-unEigenBound vars (Lift e) = Lift (unEigenBound vars e)
+unEigenBound vars (Lift e m) = Lift (unEigenBound vars e) m
 unEigenBound vars (Force e) = Force (unEigenBound vars e)
 unEigenBound vars (Force' e) = Force' (unEigenBound vars e)
 
-unEigenBound vars (Circ e1 e2) =
+unEigenBound vars (Circ e1 e2 m) =
   let e1' = (unEigenBound vars e1)
       e2' = (unEigenBound vars e2)
-  in Circ e1' e2'
+  in Circ e1' e2' m
 
 unEigenBound vars (LetPair m bd) = open bd $ \ xs b ->
   let m' = (unEigenBound vars m)
@@ -864,7 +864,7 @@ isExplicit s (Tensor t tm) =
    
 isExplicit s (Force t) = (isExplicit s t)
 isExplicit s (Force' t) = (isExplicit s t)
-isExplicit s (Lift t) = (isExplicit s t)
+isExplicit s (Lift t m) = (isExplicit s t)
        
 isExplicit s (Let m bd) =
   if isExplicit s m then True

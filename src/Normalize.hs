@@ -43,20 +43,20 @@ betaNormalize a@(LamType bd) = return a
 betaNormalize a@(LamTm bd) = return a
 betaNormalize a@(LamAnn _ _) = return a
 betaNormalize a@(LamAnn' _ _) = return a
-betaNormalize a@(Lift x) = 
+betaNormalize a@(Lift x m) = 
   do x' <- betaNormalize x
-     return $ Lift x'
+     return $ Lift x' m
 
 betaNormalize (Force x) =
   do x' <- betaNormalize x
      case x' of
-       Lift m -> betaNormalize m
+       Lift m _ -> betaNormalize m
        a -> return $ Force a
 
 betaNormalize (Force' x) =
   do x' <- betaNormalize x
      case x' of
-       Lift m ->
+       Lift m _ ->
          shape m >>= betaNormalize 
        a -> return $ Force' a
 
@@ -65,9 +65,9 @@ betaNormalize a@(Tensor t1 t2) =
      t2' <- betaNormalize t2
      return $ Tensor t1' t2'
 
-betaNormalize a@(Bang t) = 
+betaNormalize a@(Bang t m) = 
   do t' <- betaNormalize t
-     return $ Bang t'
+     return $ Bang t' m
 
 betaNormalize a@(Arrow t1 t2) =
   do t1' <- betaNormalize t1
@@ -85,10 +85,10 @@ betaNormalize a@(Imply t1 t2) =
      return $ Imply t1' t2'
 
 
-betaNormalize a@(Circ t1 t2) = 
+betaNormalize a@(Circ t1 t2 m) = 
   do t1' <- betaNormalize t1
      t2' <- betaNormalize t2
-     return $ Circ t1' t2'
+     return $ Circ t1' t2' m
 
 betaNormalize a@(Pi bd t) =
   open bd $ \ xs t' ->
@@ -295,7 +295,7 @@ normalize a@(Base k) = return a
 normalize (Force' m) =
   do m' <- normalize m 
      case erasePos m' of
-       Lift n ->
+       Lift n _ ->
          shape n >>= normalize
        n -> return (Force' n)
 
@@ -396,10 +396,10 @@ normalize (Pair m n) =
      w <- normalize n 
      return (Pair v w)
 
-normalize (Circ m n) = 
+normalize (Circ m n mode) = 
   do v <- normalize m 
      w <- normalize n 
-     return (Circ v w)
+     return (Circ v w mode)
 
 normalize (Arrow' m n) = 
   do v <- normalize m 
@@ -472,9 +472,9 @@ normalize (Imply (e1:es) e2) =
          return (Imply (e1':es') e2')
 
      
-normalize (Bang e) =
+normalize (Bang e m) =
   do e' <- normalize e 
-     return (Bang e')
+     return (Bang e' m)
 
 normalize b@(Case m (B bd)) =
   do m' <- normalize m
@@ -497,7 +497,7 @@ normalize b@(Case m (B bd)) =
           helper args vs m
         helper [] [] m = m
 
-normalize a@(Lift _) = return a
+normalize a@(Lift _ _) = return a
 
 normalize a@(Lam' _) = return a
 normalize a@(Lam _) = return a

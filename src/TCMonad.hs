@@ -280,8 +280,8 @@ isParam (Tensor t t') =
 isParam (Arrow' t t') = return True
 isParam (Pi' (Abst x t) ty) = return True
 isParam (Imply xs t) = isParam t     
-isParam (Bang q) = return True
-isParam (Circ t1 t2) = return True
+isParam (Bang q _) = return True
+isParam (Circ t1 t2 _) = return True
 isParam (Pos _ e) = isParam e
 isParam (Exists (Abst x t) ty) =
   do x <- isParam t
@@ -326,9 +326,9 @@ isSemiParam (Tensor t t') =
      r2 <- isSemiParam t'
      return $ r1 && r2     
 
-isSemiParam (Bang q) = return True
+isSemiParam (Bang q _) = return True
 
-isSemiParam (Circ t1 t2) = return True
+isSemiParam (Circ t1 t2 _) = return True
 
 isSemiParam (Exists (Abst x t) ty) =
   do r1 <- isSemiParam t     
@@ -390,9 +390,9 @@ shape a@(EigenVar x) =
                        | otherwise -> return a
   
 shape a@(GoalVar _) = return a
-shape a@(Bang _) = return a
-shape a@(Lift _) = return a
-shape a@(Circ _ _) = return a
+shape a@(Bang _ _) = return a
+shape a@(Lift _ _) = return a
+shape a@(Circ _ _ _) = return a
 
 shape a@(Force' m) = return a
 shape (Force m) =
@@ -697,7 +697,7 @@ isValue (Lam _) = return True
 isValue (LamAnn _ _) = return True
 isValue (LamAnn' _ _) = return True
 isValue (Lam' _) = return True
-isValue (Lift _) = return True
+isValue (Lift _ _) = return True
 isValue (LamDepTy _) = return True
 isValue (LamDep _) = return True
 isValue (LamDep' _) = return True

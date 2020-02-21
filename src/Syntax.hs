@@ -90,10 +90,10 @@ data Exp =
   | Case Exp Branches -- ^ Case expression.
 
     -- Lift and force  
-  | Bang Exp -- ^ Linear exponential type.
+  | Bang Exp Modality -- ^ Linear exponential type.
   | Force Exp -- ^ Force. 
   | Force' Exp -- ^ Force', the parameter version of Force.
-  | Lift Exp -- ^ Lift. 
+  | Lift Exp Modality -- ^ Lift. 
 
     -- Circuit operations  
   | Box -- ^ Circuit boxing. 
@@ -101,7 +101,7 @@ data Exp =
   | UnBox -- ^ Circuit unboxing.
   | RunCirc -- ^ Run classical circuits.
   | Reverse  -- ^ Obtain the adjoint of a circuit.
-  | Circ Exp Exp -- ^ The circuit type. 
+  | Circ Exp Exp Modality -- ^ The circuit type. 
     
     -- constants  
   | Star  -- ^ Unique inhabitant of unit type.
@@ -151,6 +151,17 @@ data Branches = B [Bind Pattern Exp]
 data Pattern = PApp Id [Either (NoBind Exp) Variable] 
              deriving (Eq, Generic, NominalShow, NominalSupport, Nominal, Bindable, Show)
 
+-- | Boolean expression.
+data BExp = BConst Bool
+          | BVar Variable
+          | BAnd BExp BExp
+  deriving (Show, NominalShow, NominalSupport, Generic, Nominal, Eq)
+
+-- | A data type for modality: bx, ctrl, adj
+data Modality = M BExp BExp BExp
+  deriving (Show, NominalShow, NominalSupport, Generic, Nominal, Eq)
+
+  
 instance Disp Pattern where
   display flag (PApp id vs) =
     display flag id <+>
@@ -245,7 +256,7 @@ instance Disp Exp where
      fsep [dParen flag (precedence a - 1) t <> dispAt flag "AppTm",
            dParen flag (precedence a) t']
     
-  display flag a@(Bang t) = text "!" <> dParen flag (precedence a - 1) t
+  display flag a@(Bang t _) = text "!" <> dParen flag (precedence a - 1) t
 
   display flag a@(Arrow t1 t2) =
     fsep [dParen flag (precedence a) t1, text "->" , dParen flag (precedence a - 1) t2]
@@ -269,9 +280,9 @@ instance Disp Exp where
     
   display flag (Force m) = text "&" <> display flag m
   display flag (Force' m) = text "&'" <> display flag m
-  display flag (Lift m) = text "lift" <+> display flag m
+  display flag (Lift m _) = text "lift" <+> display flag m
 
-  display flag (Circ u t) =
+  display flag (Circ u t _) =
     text "Circ" <> (parens $ fsep [display flag u <> comma, display flag t])
   display flag (Pi bd t) =
     open bd $ \ vs b ->
@@ -327,7 +338,7 @@ instance Disp Exp where
   precedence (Base _ ) = 12
   precedence (LBase _ ) = 12
   precedence (Const _ ) = 12
-  precedence (Circ _ _ ) = 12
+  precedence (Circ _ _ _) = 12
   precedence (Unit) = 12
   precedence (Star) = 12
   precedence (Box) = 12
@@ -346,7 +357,7 @@ instance Disp Exp where
   precedence (Arrow _ _) = 7
   precedence (Arrow' _ _) = 7
   precedence (Tensor _ _) = 8
-  precedence (Bang _) = 9
+  precedence (Bang _ _) = 9
   precedence (Pos p e) = precedence e
   precedence _ = 0
 

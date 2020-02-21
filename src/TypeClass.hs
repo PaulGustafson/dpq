@@ -125,8 +125,8 @@ match (Var x) t =
                | otherwise -> return False
 
 match (Force' t) (Force' t') = match t t'
-match (Lift t) (Lift t') = match t t'
-match (Bang t) (Bang t') = match t t'
+match (Lift t _) (Lift t' _) = match t t'
+match (Bang t _) (Bang t' _) = match t t'
 
 match (App t1 t2) (App t3 t4) =
   do r <- match t1 t3
@@ -164,7 +164,7 @@ match (Tensor t1 t2) (Tensor t3 t4) =
      if r then match t2 t4
        else return False
 
-match (Circ t1 t2) (Circ t3 t4) =
+match (Circ t1 t2 _) (Circ t3 t4 _) =
   do r <- match t1 t3
      if r then match t2 t4
        else return False

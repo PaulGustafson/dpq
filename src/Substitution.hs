@@ -69,16 +69,18 @@ substitute s (Tensor t t') =
   let t1' = substitute s t
       t2' = substitute s t'
   in Tensor t1' t2'
-substitute s (Circ t t') =
+substitute s (Circ t t' m) =
   let t1' = substitute s t
       t2' = substitute s t'
-  in Circ t1' t2'
-substitute s (Bang t) = Bang (substitute s t)
+  in Circ t1' t2' m
+
+substitute s (Bang t m) = Bang (substitute s t) m
 
 substitute s (Pi bind t) =
   open bind $
   \ ys m -> Pi (abst ys (substitute s m))
            (substitute s t) 
+
 substitute s (PiImp bind t) =
   open bind $
   \ ys m -> PiImp (abst ys (substitute s m))
@@ -167,7 +169,7 @@ substitute s (Pair t tm) =
 
 substitute s (Force t) = Force (substitute s t)
 substitute s (Force' t) = Force' (substitute s t)
-substitute s (Lift t) = Lift (substitute s t)
+substitute s (Lift t m) = Lift (substitute s t) m
 substitute s (UnBox) = UnBox
 substitute s (Reverse) = Reverse
 substitute s (RunCirc) = RunCirc
