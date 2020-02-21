@@ -668,3 +668,6 @@ instance Disp EPattern where
     display flag id <+>
     hsep (map (\ (x, n) -> parens (display False x <> text ":" <> integer n)) vs) 
 
+
+
+  

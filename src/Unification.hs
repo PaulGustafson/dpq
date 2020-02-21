@@ -1,7 +1,7 @@
 -- | This module implements a version of first-order unification. We support
 -- a restricted version of unification for case expression and existential types.
 
-module Unification where
+module Unification (runUnify) where
 
 import Syntax
 import Substitution
@@ -15,7 +15,7 @@ import Control.Monad.State
 import Debug.Trace
 
 
--- | Run the unification function. 
+-- | Unify two expressions, if success, return the substitution, otherwise return 'Nothing'. 
 runUnify :: Exp -> Exp -> Maybe Subst
 runUnify t1 t2 =
   let t1' = erasePos t1
