@@ -761,7 +761,7 @@ typeCheck flag a@(Case tm (B brs)) goal =
                          -- because the variable axs may be in the domain
                          -- of the substitution, hence it is necessary to update
                          -- axs as well before binding.
-v                         let axs' = map (substVar subb) axs
+                         let axs' = map (substVar subb) axs
                          mapM_ (\ (Right v) -> removeVar v) vs
                          mapM removeLocalInst ins
                          return (goal''', abst (PApp kid axs') ann2')
