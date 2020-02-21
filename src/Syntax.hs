@@ -29,7 +29,8 @@ module Syntax
          LEnv,
          Gates,
          Decl(..),
-         toExp
+         toExp,
+         BExp(..)
        )
        where
 
@@ -160,6 +161,7 @@ data BExp = BConst Bool
 -- | A data type for modality: bx, ctrl, adj
 data Modality = M BExp BExp BExp
   deriving (Show, NominalShow, NominalSupport, Generic, Nominal, Eq)
+
 
   
 instance Disp Pattern where

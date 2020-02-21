@@ -81,60 +81,66 @@ typeInfer flag a@(App t1 t2) =
        else handleTermApp flag ann t1 t' t1 t2
 
 typeInfer False a@(UnBox) =
-  freshNames ["a", "b"] $ \ [a, b] ->
+  freshNames ["a", "b", "alpha", "beta"] $ \ [a, b, alpha, beta] ->
   let va = Var a
       vb = Var b
       simpClass = Id "Simple"
-      t1 = Arrow (Circ va vb) (Bang (Arrow va vb))
+      boxMode = M (BConst True) (BVar alpha) (BVar beta)
+      t1 = Arrow (Circ va vb boxMode) (Bang (Arrow va vb) boxMode)
       t1' = Imply [App' (Base simpClass) va , App' (Base simpClass) vb] t1
       ty = Forall (abst [a, b] t1') Set
   in return (ty, UnBox)
 
 typeInfer False a@(Reverse) =
-  freshNames ["a", "b"] $ \ [a, b] ->
+  freshNames ["a", "b", "alpha"] $ \ [a, b, alpha] ->
   let va = Var a
       vb = Var b
       simpClass = Id "Simple"
-      t1 = Arrow (Circ va vb) (Circ vb va)
+      boxMode = M (BConst True) (BVar alpha) (BConst True)
+      t1 = Arrow (Circ va vb boxMode) (Circ vb va boxMode)
       t1' = Imply [App' (Base simpClass) va , App' (Base simpClass) vb] t1
       ty = Forall (abst [a, b] t1') Set
   in return (ty, Reverse)
 
-typeInfer False t@(Box) = freshNames ["a", "b"] $ \ [a, b] ->
+typeInfer False t@(Box) = freshNames ["a", "b", "alpha", "beta"] $ \ [a, b, alpha, beta] ->
   do let va = Var a
          vb = Var b
          simpClass = Id "Simple"
-         t1 = Arrow (Bang (Arrow va vb)) (Circ va vb)
+         boxMode = M (BConst True) (BVar alpha) (BVar beta)
+         t1 = Arrow (Bang (Arrow va vb) boxMode) (Circ va vb boxMode)
          t1' = Imply [App' (Base simpClass) va , App' (Base simpClass) vb] t1
          boxType = Pi (abst [a] (Forall (abst [b] t1') Set)) Set
      return (boxType, t)
 
-typeInfer False t@(RunCirc) = freshNames ["a", "b", "c", "d"] $ \ [a, b, c, d] ->
+typeInfer False t@(RunCirc) =
+  freshNames ["a", "b", "c", "d", "alpha", "beta"] $ \ [a, b, c, d, alpha, beta] ->
   do let va = Var a
          vb = Var b
          vc = Var c
          vd = Var d
          simpParam = Id "SimpParam"
+         boxMode = M (BConst True) (BVar alpha) (BVar beta)
          t1 = Arrow (Circ va vb) (Arrow vc vd)
          t1' = Imply [App' (App' (Base simpParam) va) vc , App' (App' (Base simpParam) vb) vd] t1
          res = Forall (abst [a, b, c, d] t1') Set
      return (res, t)
 
 typeInfer False t@(ExBox) =
-  freshNames ["a", "b", "p", "n"] $ \ [a, b, p, n] ->
+  freshNames ["a", "b", "p", "n", "alpha", "beta"] $ \ [a, b, p, n, alpha, beta] ->
   do let va = Var a
          vb = Var b
          vp = Var p
          vn = Var n
          simpClass = Id "Simple"
          paramClass = Id "Parameter"
-         kp = Arrow (vb) Set
+         kp = Arrow vb Set
+         boxMode = M (BConst True) (BVar alpha) (BVar beta)
          simpA = App' (Base simpClass) va
          paramB = App' (Base paramClass) vb
          simpP = App' (Base simpClass) (App' vp vn)
-         t1Output = Exists (abst n (App' vp vn)) (vb)
-         t1 = Bang (Arrow va t1Output)
-         output = Exists (abst n $ Imply [simpP] (Circ va (App' vp vn))) (vb)
+         t1Output = Exists (abst n (App' vp vn)) va
+         t1 = Bang (Arrow va t1Output) boxMode
+         output = Exists (abst n $ Imply [simpP] (Circ va (App' vp vn) boxMode)) vb
          beforePi = Arrow t1 output
          r = Pi (abst [a] $
                  Forall (abst [b] (Imply [simpA, paramB] $ Pi (abst [p] $ beforePi) kp)) Set) Set
