@@ -67,6 +67,7 @@ data TypeError = Unhandle Exp
                | ImplicitVarErr Variable Exp
                | LamInferErr Exp
                | ArityExistsErr Exp [Variable]
+               | ModalityErr Modality Modality Exp
                deriving Show
 
 -- | A data type for evaluation errors.
@@ -409,5 +410,11 @@ instance Disp TypeError where
     text "unexpected pair pattern for existential type." $$
     text "when checking:" <+> hsep (map (display flag) xs) $$
     text "against:" <+> display flag at
-    
+
+  display flag (ModalityErr cm m a) =
+    text "modality mismatch." $$
+    text "current mode:" <+> display flag cm $$
+    text "expected mode:" <+> display flag cm $$
+    text "when checking" $$ display flag a
+
   display flag a = error $ "from display TypeError:" ++ show a 

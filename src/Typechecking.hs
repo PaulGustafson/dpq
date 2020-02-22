@@ -424,8 +424,10 @@ typeCheck flag a (Bang ty m) =
                      return (Bang t (abstractM mode), Lift ann)
                 mode@(M _ _ _) ->
                   do currentMode <- getMode
-                     checkMode mode currentMode
-                     return (Bang t (abstractM mode), Lift ann)
+                     if checkMode currentMode mode then
+                         do putMode DummyM
+                            return (Bang t (abstractM currentMode), Lift ann)
+                       else throwError $ ModalityErr currentMode mode a
        else equality flag a (Bang ty m)
 
 

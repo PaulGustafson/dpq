@@ -158,20 +158,21 @@ data Pattern = PApp Id [Either (NoBind Exp) Variable]
 -- | Boolean expression.
 data BExp = BConst Bool
           | BVar Variable
-          | BAnd BExp BExp
   deriving (Show, NominalShow, NominalSupport, Generic, Nominal, Eq)
 
 getBVar (BVar x) = [x]
 getBVar (BConst _) = []
-getBVar (BAnd e1 e2) = getBVar e1 ++ getBVar e2
+
 
 -- | A data type for modality: bx, ctrl, adj
 data Modality = M BExp BExp BExp | DummyM
-  deriving (Show, NominalShow, NominalSupport, Generic, Nominal, Eq)
+  deriving (Show, NominalShow, NominalSupport, Generic, Nominal)
+
+instance Eq Modality where
+  m1 == m2 = True
 
 -- | Take a bitwise conjunction on the modality.
 modalAnd :: Modality -> Modality -> Modality
-modalAnd m1 m2 | m1 == m2 = m1
 modalAnd DummyM m = m
 modalAnd m DummyM = m
 modalAnd (M e1 e2 e3) (M e1' e2' e3') =
@@ -180,14 +181,15 @@ modalAnd (M e1 e2 e3) (M e1' e2' e3') =
           helper (BConst False) e = BConst False
           helper e (BConst True) = e
           helper e (BConst False) = BConst False
-          helper e e' = BAnd e e'
+
 
 abstractM :: Modality -> Bind [Variable] Modality
 abstractM DummyM = abst [] DummyM
 abstractM m@(M x y z) =
   let fv = getBVar x ++ getBVar y ++ getBVar z
   in abst fv m 
-  
+
+
 instance Disp Pattern where
   display flag (PApp id vs) =
     display flag id <+>
@@ -282,7 +284,8 @@ instance Disp Exp where
      fsep [dParen flag (precedence a - 1) t <> dispAt flag "AppTm",
            dParen flag (precedence a) t']
     
-  display flag a@(Bang t (Abst vs m)) = text "!" <> parens (display flag m) <> dParen flag (precedence a - 1) t
+  display flag a@(Bang t (Abst vs m)) =
+    text "!" <> display flag m <> dParen flag (precedence a - 1) t
 
   display flag a@(Arrow t1 t2) =
     fsep [dParen flag (precedence a) t1, text "->" , dParen flag (precedence a - 1) t2]
@@ -308,8 +311,8 @@ instance Disp Exp where
   display flag (Force' m) = text "&'" <> display flag m
   display flag (Lift m) = text "lift" <+> display flag m
 
-  display flag (Circ u t _) =
-    text "Circ" <> (parens $ fsep [display flag u <> comma, display flag t])
+  display flag (Circ u t (Abst _ m)) =
+    text "Circ" <> display flag m <> (parens $ fsep [display flag u <> comma, display flag t])
   display flag (Pi bd t) =
     open bd $ \ vs b ->
     fsep [parens ((hsep $ map (display flag) vs) <+> text ":" <+> display flag t)
@@ -709,10 +712,12 @@ instance Disp BExp where
   display flag (BVar x) = dispRaw x
   display flag (BConst True) = text "1"
   display flag (BConst False) = text "0"
-  display flag (BAnd e1 e2) = display flag e1 <> text "&" <> display flag e2
+
   
 instance Disp Modality where
   display flag (DummyM) = text ""
-  display flag (M x y z) = display flag x <> comma <> display flag y <> comma <> display flag z 
+  display flag (M x y z) =
+    parens $ text "Box:" <> display flag x <> comma
+             <> text "Ctrl:" <> display flag y <> comma <> text "Adj:" <> display flag z 
 
   

@@ -113,7 +113,7 @@ process (Def pos f' ty' def') =
      b <- isBasicValue v
      v' <- if b then typeChecking False (toExp v) ty1' >>= \ x -> return $ Just (snd x)
            else if isCirc v then return $ Just (Const f') else return Nothing
-     let info2 = Info { classifier = ty1,
+     let info2 = Info { classifier = ty1',
                         identification = DefinedFunction (Just (ann, v, v'))}
      addNewId f' info2
 
