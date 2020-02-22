@@ -167,12 +167,12 @@ process (Defn pos f (Just tt) def) =
      -- the second check
      (tk', def') <- typeChecking False (Pos pos def) tk1
      a' <- erasure def'
-     proofChecking False def' tk1
+     proofChecking False def' tk'
      v <- evaluation a'
      b <- isBasicValue v
      v' <- if b then typeChecking False (toExp v) tk1 >>= \ x -> return $ Just (snd x)
            else return Nothing
-     let fp = Info {classifier = tk1,
+     let fp = Info {classifier = tk',
                    identification = DefinedFunction (Just (def', v, v'))
                    }
      addNewId f fp
@@ -253,12 +253,12 @@ process (Object pos id) =
                
 
 
-process (GateDecl pos id params t) =
+process (GateDecl pos id params t m) =
   do mapM_ checkParam params
      let (bds, h) = flattenArrows t
      mapM_ checkStrictSimple (h:(map snd bds))
      when (null bds) $ throwError (GateErr pos id)
-     let ty = Bang (foldr Arrow t params) undefined
+     let ty = Bang (foldr Arrow t params) (abst [] m)
      (_, tk) <- typeChecking True ty Set
      let gate = makeGate id (map erasePos params) (erasePos t)
      let fp = Info {classifier = erasePos tk,
@@ -289,7 +289,8 @@ process (ControlDecl pos id params t) =
               bds' = (map snd bds)++[Var a]
               t' = foldr Arrow head bds' 
               ty = Bang (Forall (abst [a] (Imply [App s (Var a)]
-                                           $ foldr Arrow t' params)) Set) undefined
+                                           $ foldr Arrow t' params)) Set)
+                   (abst [] $ M (BConst True) (BConst True) (BConst True))
           (_, tk) <- typeChecking True ty Set 
           let gate = makeControl id (map erasePos params) (erasePos t)
           let fp = Info {classifier = erasePos tk,

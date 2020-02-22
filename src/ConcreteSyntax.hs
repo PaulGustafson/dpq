@@ -57,7 +57,7 @@ data Binding =
   deriving (Show, Eq)
 
 -- | Top-level declarations.
-data Decl = GateDecl Position String [Exp] Exp
+data Decl = GateDecl Position String [Exp] Exp (Maybe String)
             -- ^ Gate declaration, ['Exp'] are the parameters for the gate, 'Exp' is
             -- a type expression specifying the input and output of the gate. 
           | ControlDecl Position String [Exp] Exp

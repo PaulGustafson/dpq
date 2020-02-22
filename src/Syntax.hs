@@ -282,7 +282,7 @@ instance Disp Exp where
      fsep [dParen flag (precedence a - 1) t <> dispAt flag "AppTm",
            dParen flag (precedence a) t']
     
-  display flag a@(Bang t _) = text "!" <> dParen flag (precedence a - 1) t
+  display flag a@(Bang t (Abst vs m)) = text "!" <> parens (display flag m) <> dParen flag (precedence a - 1) t
 
   display flag a@(Arrow t1 t2) =
     fsep [dParen flag (precedence a) t1, text "->" , dParen flag (precedence a - 1) t2]
@@ -602,7 +602,7 @@ data Decl = Object Position Id -- ^ Declaration for qubit or bit.
             -- [('Position', 'Id', 'Exp')]: list of methods and their definitions.
           | Def Position Id Exp Exp
             -- ^ Function declaration. 'Id': name, 'Exp': type, 'Exp': definition
-          | GateDecl Position Id [Exp] Exp
+          | GateDecl Position Id [Exp] Exp Modality
             -- ^ Gate declaration. 'Id': name, ['Exp']: parameters, 'Exp': input/output.
           | ControlDecl Position Id [Exp] Exp
             -- ^ Controlled gate declaration. 'Id': name, ['Exp']: parameters, 'Exp': input/output.
@@ -705,6 +705,14 @@ instance Disp EPattern where
     display flag id <+>
     hsep (map (\ (x, n) -> parens (display False x <> text ":" <> integer n)) vs) 
 
-
+instance Disp BExp where
+  display flag (BVar x) = dispRaw x
+  display flag (BConst True) = text "1"
+  display flag (BConst False) = text "0"
+  display flag (BAnd e1 e2) = display flag e1 <> text "&" <> display flag e2
+  
+instance Disp Modality where
+  display flag (DummyM) = text ""
+  display flag (M x y z) = display flag x <> comma <> display flag y <> comma <> display flag z 
 
   

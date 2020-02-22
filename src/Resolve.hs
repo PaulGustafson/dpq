@@ -331,12 +331,22 @@ addConst p x f scope =
 
 -- | Resolve a concrete declaration into an abstract declaration.
 resolveDecl :: Scope -> C.Decl -> Resolve (Decl, Scope)
-resolveDecl scope (C.GateDecl p gn params t) =
+resolveDecl scope (C.GateDecl p gn params t strs) =
   do (id, scope') <- addConst p gn Const scope 
      let lscope' = toLScope scope'
      params' <- mapM (resolve lscope') params
      e <- resolve lscope' t
-     return (GateDecl p id params' e, scope')
+     case strs of
+       Nothing ->
+         return (GateDecl p id params' e
+                 (M (BConst True) (BConst False) (BConst False)), scope')
+       Just x | x == "Adj" ->
+         return (GateDecl p id params' e
+                 (M (BConst True) (BConst True) (BConst False)), scope')
+       Just x | x == "Ctrl" ->
+         return (GateDecl p id params' e
+                 (M (BConst True) (BConst True) (BConst True)), scope')
+     
 
 resolveDecl scope (C.ControlDecl p gn params t) =
   do (id, scope') <- addConst p gn Const scope 

@@ -280,16 +280,23 @@ objectDecl =
      o <- const
      return $ Object (P p) o
 
+-- | Parse a mode declaration.
+parseMode =
+  do input <- braces ((reserved "Ctrl" >> return "Ctrl") <|> (reserved "Adj" >> return "Adj")) 
+     return $ Just input
+                    
+     
 -- | Parse a gate declaration.
 gateDecl :: Parser Decl
 gateDecl =
   do reserved "gate"
      p <- getPosition
+     m <- option Nothing parseMode
      g <- const
      args <- many (const >>= \ a -> return $ Pos (P p) (Base a))
      reservedOp ":"
      ty <- typeExp
-     return $ GateDecl (P p) g args ty
+     return $ GateDecl (P p) g args ty m
 
 -- | Parse a generalized controlled gate declaration. 
 controlDecl :: Parser Decl
@@ -880,7 +887,7 @@ dpqStyle = Token.LanguageDef
                     "case", "of",
                     "data", "import", "class", "instance",
                     "simple", "reverse", "box", "unbox", "existsBox",
-                    "runCirc",
+                    "runCirc", "Mode", "Adj", "Ctrl",
                     "object", "Circ", "Unit", "do",
                     "where", "module", "infix","infixr", "infixl",
                     "Type", "forall", "if", "then", "else",
@@ -889,7 +896,7 @@ dpqStyle = Token.LanguageDef
                     "round"
                   ]
                , Token.reservedOpNames =
-                    ["λ", ".", "\\", "<-", "->", "*", "()", "!", "_", ":", "=", "=>", "[|", "|]"]
+                    ["λ", ".", "\\", "<-", "->", "*", "()", "!", "#", "_", ":", "=", "=>", "[|", "|]", "{-#", "#-}"]
                 }
 
 -- | Parse a Proto-Quipper-D token.
@@ -955,3 +962,5 @@ dot = Token.dot tokenizer
 -- | Parse a comma.
 comma :: (Stream s m Char, Monad m) => ParsecT s u m String
 comma = Token.comma tokenizer
+
+
