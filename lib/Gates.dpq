@@ -5,7 +5,7 @@ import "lib/Nat.dpq"
 
 
 -- All gates must have at least one input->
-gate Init0 : Unit -> Qubit
+gate Init0 : Unit -> Qubit {-# Mode   #-}
 gate Init1 : Unit -> Qubit
 
 gate Term0 : Qubit -> Unit

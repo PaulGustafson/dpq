@@ -85,7 +85,7 @@ typeInfer False a@(UnBox) =
   let va = Var a
       vb = Var b
       simpClass = Id "Simple"
-      boxMode = M (BConst True) (BVar alpha) (BVar beta)
+      boxMode = abst [alpha, beta] $ M (BConst True) (BVar alpha) (BVar beta)
       t1 = Arrow (Circ va vb boxMode) (Bang (Arrow va vb) boxMode)
       t1' = Imply [App' (Base simpClass) va , App' (Base simpClass) vb] t1
       ty = Forall (abst [a, b] t1') Set
@@ -96,7 +96,7 @@ typeInfer False a@(Reverse) =
   let va = Var a
       vb = Var b
       simpClass = Id "Simple"
-      boxMode = M (BConst True) (BVar alpha) (BConst True)
+      boxMode = abst [alpha] $ M (BConst True) (BVar alpha) (BConst True)
       t1 = Arrow (Circ va vb boxMode) (Circ vb va boxMode)
       t1' = Imply [App' (Base simpClass) va , App' (Base simpClass) vb] t1
       ty = Forall (abst [a, b] t1') Set
@@ -106,7 +106,7 @@ typeInfer False t@(Box) = freshNames ["a", "b", "alpha", "beta"] $ \ [a, b, alph
   do let va = Var a
          vb = Var b
          simpClass = Id "Simple"
-         boxMode = M (BConst True) (BVar alpha) (BVar beta)
+         boxMode = abst [alpha, beta] $ M (BConst True) (BVar alpha) (BVar beta)
          t1 = Arrow (Bang (Arrow va vb) boxMode) (Circ va vb boxMode)
          t1' = Imply [App' (Base simpClass) va , App' (Base simpClass) vb] t1
          boxType = Pi (abst [a] (Forall (abst [b] t1') Set)) Set
@@ -119,8 +119,8 @@ typeInfer False t@(RunCirc) =
          vc = Var c
          vd = Var d
          simpParam = Id "SimpParam"
-         boxMode = M (BConst True) (BVar alpha) (BVar beta)
-         t1 = Arrow (Circ va vb) (Arrow vc vd)
+         boxMode = abst [alpha, beta] $ M (BConst True) (BVar alpha) (BVar beta)
+         t1 = Arrow (Circ va vb boxMode) (Arrow vc vd)
          t1' = Imply [App' (App' (Base simpParam) va) vc , App' (App' (Base simpParam) vb) vd] t1
          res = Forall (abst [a, b, c, d] t1') Set
      return (res, t)
@@ -134,7 +134,7 @@ typeInfer False t@(ExBox) =
          simpClass = Id "Simple"
          paramClass = Id "Parameter"
          kp = Arrow vb Set
-         boxMode = M (BConst True) (BVar alpha) (BVar beta)
+         boxMode = abst [alpha, beta] $ M (BConst True) (BVar alpha) (BVar beta)
          simpA = App' (Base simpClass) va
          paramB = App' (Base paramClass) vb
          simpP = App' (Base simpClass) (App' vp vn)
@@ -227,9 +227,9 @@ typeCheck True (Pi (Abst xs m) ty) Sort =
 -- Kind check
 typeCheck True Unit Set = return (Set, Unit)
 
-typeCheck True (Bang ty) Set =
+typeCheck True (Bang ty m) Set =
   do (_, a) <- typeCheck True ty Set
-     return (Set, Bang a)
+     return (Set, Bang a m)
 
 typeCheck True (Arrow ty1 ty2) Set =
   do (_, ty1') <- if isKind ty1 
@@ -253,10 +253,10 @@ typeCheck True (Tensor ty1 ty2) Set =
      (_, ty2') <- typeCheck True ty2 Set
      return (Set, Tensor ty1' ty2')
      
-typeCheck True (Circ t u) Set =
+typeCheck True (Circ t u m) Set =
   do (_, t') <- typeCheck True t Set
      (_, u') <- typeCheck True u Set
-     return (Set, Circ t' u')
+     return (Set, Circ t' u' m)
 
 typeCheck True (Pi (Abst xs m) ty) Set = 
     do (_, tyAnn) <- if isKind ty then typeCheck True ty Sort else typeCheck True ty Set
@@ -408,16 +408,25 @@ typeCheck flag a (Imply bds ty) =
           let res = LamDict (abst ns ann') 
           return (Imply bds t, res)
 
-typeCheck flag a (Bang ty) =
+typeCheck flag a (Bang ty m) =
   do r <- isValue a
      if r then
        do checkParamCxt a
           (t, ann) <- typeCheck flag a ty
           case erasePos ann of
-            Force ann' -> return (Bang t, ann')
-            _ -> return (Bang t, Lift ann)
-          
-       else equality flag a (Bang ty)
+            Force ann' -> return (Bang t m, ann')
+            _ ->
+              open m $ \ vs m' -> 
+              case m' of
+                DummyM ->
+                  do mode <- getMode
+                     putMode DummyM
+                     return (Bang t (abstractM mode), Lift ann)
+                mode@(M _ _ _) ->
+                  do currentMode <- getMode
+                     checkMode mode currentMode
+                     return (Bang t (abstractM mode), Lift ann)
+       else equality flag a (Bang ty m)
 
 
 typeCheck False c@(Lam bind) t =
@@ -786,10 +795,11 @@ equality flag tm ty =
           ty1 <- updateWithSubst ty'
           -- Here we are assuming there is no types like !!A
           case (erasePos tym1, erasePos ty1) of
-            (Bang tym1, Bang ty1) ->
+            (Bang tym1 (Abst vs1 m1), Bang ty1 (Abst vs2 m1')) ->
               do (ty1, a2) <- handleEquality tm ann tym1 ty1
-                 return (Bang ty1, a2)
-            (tym1 , Bang ty1) -> throwError $ BangValue tm (Bang ty1)
+                 let m = abstractM (modalAnd m1 m1')
+                 return (Bang ty1 m, a2)
+            (tym1 , Bang ty1 m) -> throwError $ BangValue tm (Bang ty1 m)
             (tym1, ty1) -> handleEquality tm ann tym1 ty1
   where handleEquality tm ann tym1 ty1 = 
           do (a2, tym', anEnv) <- addAnn flag tm ann tym1 []
@@ -1000,10 +1010,16 @@ handleTermApp flag ann pos t' t1 t2 =
 addAnn :: Bool -> Exp -> Exp -> Exp -> [(Variable, Exp)] -> TCMonad (Exp, Exp, [(Variable, Exp)])
 addAnn flag e a (Pos _ t) env = addAnn flag e a t env
 
-addAnn flag e a (Bang t) env =
+addAnn flag e a (Bang t m) env =
   do let force = if flag then Force' else Force
      t' <- if flag then shape t else return t
-     addAnn flag e (force a) t' env
+     open m $ \ vs m' ->
+       case m' of
+         DummyM -> 
+           addAnn flag e (force a) t' env
+         mode@(M _ _ _) ->
+           do addMode mode 
+              addAnn flag e (force a) t' env
 
 addAnn flag e a (Forall bd ty) env | isKind ty = open bd $ \ xs t ->
        let a' = foldl AppType a (map Var xs)

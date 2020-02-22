@@ -121,13 +121,14 @@ data TypeState = TS {
                      checkForallBound :: Bool, -- ^ Whether or not to check if a Forall variable
                                               -- is well-quantified. It is unchecked when the
                                               -- type is intended to be used as an instance type.
-                     infer :: Bool -- ^ If it is in infer mode.
+                     infer :: Bool, -- ^ If it is in infer mode.
+                     modeConstraints :: Modality
                     }
 
 -- | Initial type state from a global typing context and a
 -- global type class instance context.
 initTS :: Map Id Info -> GlobalInstanceCxt -> TypeState
-initTS gl inst = TS (fromGlobal gl) Map.empty 0 (makeInstanceCxt inst) True False
+initTS gl inst = TS (fromGlobal gl) Map.empty 0 (makeInstanceCxt inst) True False DummyM
 
 -- | A run function for 'TCMonadT'.
 runTCMonadT :: Context -> GlobalInstanceCxt -> 
@@ -391,7 +392,7 @@ shape a@(EigenVar x) =
   
 shape a@(GoalVar _) = return a
 shape a@(Bang _ _) = return a
-shape a@(Lift _ _) = return a
+shape a@(Lift _) = return a
 shape a@(Circ _ _ _) = return a
 
 shape a@(Force' m) = return a
@@ -697,7 +698,7 @@ isValue (Lam _) = return True
 isValue (LamAnn _ _) = return True
 isValue (LamAnn' _ _) = return True
 isValue (Lam' _) = return True
-isValue (Lift _ _) = return True
+isValue (Lift _) = return True
 isValue (LamDepTy _) = return True
 isValue (LamDep _) = return True
 isValue (LamDep' _) = return True
@@ -882,3 +883,21 @@ collapsePos :: Position -> TypeError -> TypeError
 collapsePos p a@(ErrPos _ _) = a
 collapsePos p a = ErrPos p a
 
+addMode :: Modality -> TCMonad ()
+addMode m =
+  do ts <- get
+     let m' = modeConstraints ts
+         m'' = modalAnd m m'
+     put ts{modeConstraints = m''}
+
+getMode :: TCMonad Modality
+getMode =
+  do ts <- get
+     let m' = modeConstraints ts
+     return m'
+putMode :: Modality -> TCMonad ()
+putMode m =
+  do ts <- get
+     put ts{modeConstraints = m}
+
+checkMode = undefined

@@ -52,12 +52,12 @@ proofInfer True ty@(Arrow t1 t2) =
        (Set, Sort) -> return Sort
        (Sort, Sort) -> return Sort
        (b1, b2) -> throwError (NotEq ty Set (Arrow b1 b2))
-proofInfer True ty@(Circ t1 t2) =
+proofInfer True ty@(Circ t1 t2 m) =
   do a1 <- proofInfer True t1
      a2 <- proofInfer True t2
      case (a1, a2) of
        (Set, Set) -> return Set
-       (b1, b2) -> throwError (NotEq ty Set (Circ b1 b2))
+       (b1, b2) -> throwError (NotEq ty Set (Circ b1 b2 m))
 
 proofInfer True a@(Imply [] t) =
   do ty <- proofInfer True t
@@ -72,7 +72,7 @@ proofInfer True a@(Imply (x:xs) t) =
        Set -> proofInfer True (Imply xs t)
        _ -> throwError (NotEq x Set ty)
 
-proofInfer True (Bang ty) =
+proofInfer True (Bang ty _) =
   do a <- proofInfer True ty
      case a of
        Set -> return Set
@@ -279,7 +279,8 @@ proofInfer flag Reverse =
   let va = Var a
       vb = Var b
       simpClass = Id "Simple"
-      t1 = Arrow (Circ va vb) (Circ vb va)
+      dummyMode = abst [] DummyM
+      t1 = Arrow (Circ va vb dummyMode) (Circ vb va dummyMode)
       t1' = Imply [App' (Base simpClass) va , App' (Base simpClass) vb] t1
       ty = Forall (abst [a, b] t1') Set
   in return ty
@@ -289,7 +290,8 @@ proofInfer flag UnBox =
   let va = Var a
       vb = Var b
       simpClass = Id "Simple"
-      t1 = Arrow (Circ va vb) (Bang (Arrow va vb))
+      dummyMode = abst [] DummyM
+      t1 = Arrow (Circ va vb dummyMode) (Bang (Arrow va vb) dummyMode)
       t1' = Imply [App' (Base simpClass) va , App' (Base simpClass) vb] t1
       ty = Forall (abst [a, b] t1') Set
   in return ty
@@ -298,7 +300,8 @@ proofInfer flag t@(Box) = freshNames ["a", "b"] $ \ [a, b] ->
   do let va = Var a
          vb = Var b
          simpClass = Id "Simple"
-         t1 = Arrow (Bang (Arrow va vb)) (Circ va vb)
+         dummyMode = abst [] DummyM
+         t1 = Arrow (Bang (Arrow va vb) dummyMode) (Circ va vb dummyMode)
          t1' = Imply [(App' (Base simpClass) va), (App' (Base simpClass) vb)] t1
          boxType = Pi (abst [a] (Forall (abst [b] t1') Set)) Set
      return boxType
@@ -309,7 +312,8 @@ proofInfer flag t@(RunCirc) = freshNames ["a", "b", "c", "d"] $ \ [a, b, c, d] -
          vc = Var c
          vd = Var d
          simpParam = Id "SimpParam"
-         t1 = Arrow (Circ va vb) (Arrow vc vd)
+         dummyMode = abst [] DummyM
+         t1 = Arrow (Circ va vb dummyMode) (Arrow vc vd)
          t1' = Imply [App' (App' (Base simpParam) va) vc , App' (App' (Base simpParam) vb) vd] t1
          res = Forall (abst [a, b, c, d] t1') Set
      return res
@@ -323,12 +327,13 @@ proofInfer flag t@(ExBox) =
          kp = Arrow vb Set
          simpClass = Id "Simple"
          paramClass = Id "Parameter"
+         dummyMode = abst [] DummyM
          simpA = App' (Base simpClass) va
          paramB = App' (Base paramClass) vb
          simpP = App' (Base simpClass) (App' vp vn)
          t1Output = Exists (abst n (App' vp vn)) (vb)
-         t1 = Bang (Arrow va t1Output)
-         output = Exists (abst n $ Imply [simpP] (Circ va (App' vp vn))) (vb)
+         t1 = Bang (Arrow va t1Output) dummyMode
+         output = Exists (abst n $ Imply [simpP] (Circ va (App' vp vn) dummyMode)) vb
          beforePi = Arrow t1 output
          r = Pi (abst [a] $
                  Forall (abst [b] (Imply [simpA, paramB] $ Pi (abst [p] $ beforePi) kp)) Set) Set
@@ -339,13 +344,13 @@ proofInfer flag (Star) = return Unit
 proofInfer False a@(Force t) =
   do ty <- proofInfer False t
      case ty of
-       Bang ty' -> return ty'
+       Bang ty' _ -> return ty'
        b -> throwError $ BangErr t b 
 
 proofInfer flag a@(Force' t) =
   do ty <- proofInfer True t
      case ty of
-       Bang ty' -> shape ty'
+       Bang ty' _ -> shape ty'
        b -> throwError $ BangErr t b 
 
 proofInfer flag a@(Pair t1 t2) =
@@ -433,7 +438,7 @@ proofCheck flag (LamTm bd1) exp@(Forall bd2 ty) =
 proofCheck flag (LamType bd1) exp@(Forall bd2 ty) =
   handleAbs flag LamType Forall bd1 bd2 ty False
 
-proofCheck flag (Lift m) (Bang t) =
+proofCheck flag (Lift m) (Bang t _) =
   do checkParamCxt m
      proofCheck flag m t
 

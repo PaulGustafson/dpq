@@ -125,7 +125,7 @@ match (Var x) t =
                | otherwise -> return False
 
 match (Force' t) (Force' t') = match t t'
-match (Lift t _) (Lift t' _) = match t t'
+match (Lift t) (Lift t') = match t t'
 match (Bang t _) (Bang t' _) = match t t'
 
 match (App t1 t2) (App t3 t4) =

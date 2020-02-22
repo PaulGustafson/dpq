@@ -43,20 +43,20 @@ betaNormalize a@(LamType bd) = return a
 betaNormalize a@(LamTm bd) = return a
 betaNormalize a@(LamAnn _ _) = return a
 betaNormalize a@(LamAnn' _ _) = return a
-betaNormalize a@(Lift x m) = 
+betaNormalize a@(Lift x) = 
   do x' <- betaNormalize x
-     return $ Lift x' m
+     return $ Lift x' 
 
 betaNormalize (Force x) =
   do x' <- betaNormalize x
      case x' of
-       Lift m _ -> betaNormalize m
+       Lift m -> betaNormalize m
        a -> return $ Force a
 
 betaNormalize (Force' x) =
   do x' <- betaNormalize x
      case x' of
-       Lift m _ ->
+       Lift m ->
          shape m >>= betaNormalize 
        a -> return $ Force' a
 
@@ -295,7 +295,7 @@ normalize a@(Base k) = return a
 normalize (Force' m) =
   do m' <- normalize m 
      case erasePos m' of
-       Lift n _ ->
+       Lift n ->
          shape n >>= normalize
        n -> return (Force' n)
 
@@ -497,7 +497,7 @@ normalize b@(Case m (B bd)) =
           helper args vs m
         helper [] [] m = m
 
-normalize a@(Lift _ _) = return a
+normalize a@(Lift _) = return a
 
 normalize a@(Lam' _) = return a
 normalize a@(Lam _) = return a

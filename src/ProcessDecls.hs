@@ -258,7 +258,7 @@ process (GateDecl pos id params t) =
      let (bds, h) = flattenArrows t
      mapM_ checkStrictSimple (h:(map snd bds))
      when (null bds) $ throwError (GateErr pos id)
-     let ty = Bang $ foldr Arrow t params
+     let ty = Bang (foldr Arrow t params) undefined
      (_, tk) <- typeChecking True ty Set
      let gate = makeGate id (map erasePos params) (erasePos t)
      let fp = Info {classifier = erasePos tk,
@@ -288,8 +288,8 @@ process (ControlDecl pos id params t) =
        do let head = Tensor h (Var a)
               bds' = (map snd bds)++[Var a]
               t' = foldr Arrow head bds' 
-              ty = Bang $ Forall (abst [a] (Imply [App s (Var a)]
-                                           $ foldr Arrow t' params)) Set
+              ty = Bang (Forall (abst [a] (Imply [App s (Var a)]
+                                           $ foldr Arrow t' params)) Set) undefined
           (_, tk) <- typeChecking True ty Set 
           let gate = makeControl id (map erasePos params) (erasePos t)
           let fp = Info {classifier = erasePos tk,

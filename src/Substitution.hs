@@ -169,7 +169,7 @@ substitute s (Pair t tm) =
 
 substitute s (Force t) = Force (substitute s t)
 substitute s (Force' t) = Force' (substitute s t)
-substitute s (Lift t m) = Lift (substitute s t) m
+substitute s (Lift t) = Lift (substitute s t) 
 substitute s (UnBox) = UnBox
 substitute s (Reverse) = Reverse
 substitute s (RunCirc) = RunCirc

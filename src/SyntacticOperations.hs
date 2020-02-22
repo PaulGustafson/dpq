@@ -254,7 +254,7 @@ getVars b (Force t) = getVars b t
 getVars b (Force' t) = getVars b t
 getVars b (Box) = S.empty
 getVars b (ExBox) = S.empty
-getVars b (Lift t _) = getVars b t
+getVars b (Lift t) = getVars b t
 getVars b (Case t (B brs)) =
   getVars b t `S.union` S.unions (map helper brs)
   where helper bind = open bind $ \ ps m ->
@@ -440,7 +440,7 @@ erasePos (Reverse) = Reverse
 erasePos (RunCirc) = RunCirc
 erasePos (Box) = Box
 erasePos a@(ExBox) = a
-erasePos (Lift e m) = Lift (erasePos e) m
+erasePos (Lift e) = Lift (erasePos e) 
 
 erasePos (Force e) = Force $ erasePos e
 erasePos (Force' e) = Force' $ erasePos e
@@ -580,7 +580,7 @@ unEigenBound vars (Reverse) = Reverse
 unEigenBound vars (RunCirc) = RunCirc
 unEigenBound vars (Box) = Box 
 unEigenBound vars (ExBox) = ExBox 
-unEigenBound vars (Lift e m) = Lift (unEigenBound vars e) m
+unEigenBound vars (Lift e) = Lift (unEigenBound vars e) 
 unEigenBound vars (Force e) = Force (unEigenBound vars e)
 unEigenBound vars (Force' e) = Force' (unEigenBound vars e)
 
@@ -864,7 +864,7 @@ isExplicit s (Tensor t tm) =
    
 isExplicit s (Force t) = (isExplicit s t)
 isExplicit s (Force' t) = (isExplicit s t)
-isExplicit s (Lift t m) = (isExplicit s t)
+isExplicit s (Lift t) = (isExplicit s t)
        
 isExplicit s (Let m bd) =
   if isExplicit s m then True

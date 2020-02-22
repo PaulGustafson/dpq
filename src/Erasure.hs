@@ -157,7 +157,7 @@ erasure (LamTm bd) =
 erasure (LamType bd) =
   open bd $ \ xs m -> erasure m
 
-erasure (Lift t _) =
+erasure (Lift t) =
   do t' <- erasure t
      let fvs = evars t'
      return (ELift fvs t')

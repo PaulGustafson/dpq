@@ -52,10 +52,10 @@ main =
                  Mess DummyPos (text "cannot find the main function in:" <+> text file)
                Just (circ', t) ->
                    case t of
-                     A.Circ _ _ ->
+                     A.Circ _ _ _ ->
                        do let n = gateCount name circ'
                           liftIO $ print (n :: Integer)
-                     A.Exists (Abst m (A.Circ _ _)) _ ->
+                     A.Exists (Abst m (A.Circ _ _ _)) _ ->
                        case circ' of
                          A.VPair _ res -> 
                            do let n = gateCount name res
@@ -70,8 +70,8 @@ main =
               throwError $ Mess DummyPos (text "cannot find the main function in:" <+> text file)
             Just (circ', t) ->
                    case t of
-                     A.Circ _ _ -> ioTop $ printCirc circ' target
-                     A.Exists (Abst n (A.Circ _ _)) _ ->
+                     A.Circ _ _ _ -> ioTop $ printCirc circ' target
+                     A.Exists (Abst n (A.Circ _ _ _)) _ ->
                        case circ' of
                          A.VPair n res -> ioTop $ printCirc res target
                      ty -> liftIO $ print (text "main is not a circuit")

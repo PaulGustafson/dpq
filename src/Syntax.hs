@@ -30,7 +30,10 @@ module Syntax
          Gates,
          Decl(..),
          toExp,
-         BExp(..)
+         BExp(..),
+         Modality(..),
+         modalAnd,
+         abstractM
        )
        where
 
@@ -91,10 +94,10 @@ data Exp =
   | Case Exp Branches -- ^ Case expression.
 
     -- Lift and force  
-  | Bang Exp Modality -- ^ Linear exponential type.
+  | Bang Exp (Bind [Variable] Modality) -- ^ Linear exponential type.
   | Force Exp -- ^ Force. 
   | Force' Exp -- ^ Force', the parameter version of Force.
-  | Lift Exp Modality -- ^ Lift. 
+  | Lift Exp -- ^ Lift. 
 
     -- Circuit operations  
   | Box -- ^ Circuit boxing. 
@@ -102,7 +105,7 @@ data Exp =
   | UnBox -- ^ Circuit unboxing.
   | RunCirc -- ^ Run classical circuits.
   | Reverse  -- ^ Obtain the adjoint of a circuit.
-  | Circ Exp Exp Modality -- ^ The circuit type. 
+  | Circ Exp Exp (Bind [Variable] Modality) -- ^ The circuit type. 
     
     -- constants  
   | Star  -- ^ Unique inhabitant of unit type.
@@ -158,11 +161,32 @@ data BExp = BConst Bool
           | BAnd BExp BExp
   deriving (Show, NominalShow, NominalSupport, Generic, Nominal, Eq)
 
+getBVar (BVar x) = [x]
+getBVar (BConst _) = []
+getBVar (BAnd e1 e2) = getBVar e1 ++ getBVar e2
+
 -- | A data type for modality: bx, ctrl, adj
-data Modality = M BExp BExp BExp
+data Modality = M BExp BExp BExp | DummyM
   deriving (Show, NominalShow, NominalSupport, Generic, Nominal, Eq)
 
+-- | Take a bitwise conjunction on the modality.
+modalAnd :: Modality -> Modality -> Modality
+modalAnd m1 m2 | m1 == m2 = m1
+modalAnd DummyM m = m
+modalAnd m DummyM = m
+modalAnd (M e1 e2 e3) (M e1' e2' e3') =
+  M (helper e1 e1') (helper e2 e2') (helper e3 e3')
+    where helper (BConst True) e = e
+          helper (BConst False) e = BConst False
+          helper e (BConst True) = e
+          helper e (BConst False) = BConst False
+          helper e e' = BAnd e e'
 
+abstractM :: Modality -> Bind [Variable] Modality
+abstractM DummyM = abst [] DummyM
+abstractM m@(M x y z) =
+  let fv = getBVar x ++ getBVar y ++ getBVar z
+  in abst fv m 
   
 instance Disp Pattern where
   display flag (PApp id vs) =
@@ -282,7 +306,7 @@ instance Disp Exp where
     
   display flag (Force m) = text "&" <> display flag m
   display flag (Force' m) = text "&'" <> display flag m
-  display flag (Lift m _) = text "lift" <+> display flag m
+  display flag (Lift m) = text "lift" <+> display flag m
 
   display flag (Circ u t _) =
     text "Circ" <> (parens $ fsep [display flag u <> comma, display flag t])

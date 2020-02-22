@@ -115,7 +115,7 @@ dispatch (Display e) =
      (t', et) <- topTypeInfer e'
      et <- tcTop $ erasure et
      case t' of
-       A.Circ _ _ ->
+       A.Circ _ _ _ ->
          do res <- tcTop $ evaluation et
             tmpdir <- liftIO $ getTemporaryDirectory
             (pdffile, fd) <- liftIO $ openTempFile tmpdir "DPQ.pdf"
@@ -133,11 +133,11 @@ dispatch (Print e file) =
      (t', et') <- topTypeInfer e'
      et <- tcTop $ erasure et'
      case t' of
-       A.Circ _ _ ->
+       A.Circ _ _ _ ->
          do res <- tcTop $ evaluation et
             (ioTop $ printCirc res file)
             return True
-       A.Exists (Abst n (A.Circ _ _)) _ ->
+       A.Exists (Abst n (A.Circ _ _ _)) _ ->
          do res <- tcTop $ evaluation et
             case res of
               A.VPair n circ -> 
@@ -153,7 +153,7 @@ dispatch (GateCount name e) =
      (t', et') <- topTypeInfer e'
      et <- tcTop $ erasure et'
      case t' of
-       A.Circ _ _ ->
+       A.Circ _ _ _ ->
          do res <- tcTop $ evaluation et
             let n = gateCount name res
             case name of
@@ -163,7 +163,7 @@ dispatch (GateCount name e) =
               Just g ->
                 do liftIO $ print (text (g++":") $$ text (show n))  
                    return True
-       A.Exists (Abst n (A.Circ _ _)) _ ->
+       A.Exists (Abst n (A.Circ _ _ _)) _ ->
          do res <- tcTop $ evaluation et
             case res of
               A.VPair m circ -> 
@@ -184,7 +184,7 @@ dispatch (DisplayEx e) =
      (t', et) <- topTypeInfer e'
      et <- tcTop $ erasure et
      case t' of
-       A.Exists (Abst n (A.Circ _ _)) _ ->
+       A.Exists (Abst n (A.Circ _ _ _)) _ ->
          do res <- tcTop $ evaluation et
             case res of
               A.VPair _ circ -> 
@@ -355,8 +355,9 @@ initializeParameterClass d =
            A.Forall (abst [a, b] $ A.Imply [A.App s (A.Var a), A.App s (A.Var b)]
                      (A.App s $ A.Tensor (A.Var a) (A.Var b))) A.Set
      tcTop $ elaborateInstance (BuiltIn (i+1)) instP2 pt []
+     let dummyMode = abst [] DummyM
      let pt2 = freshNames ["a"] $ \ [a] ->
-           A.Forall (abst [a] (A.App s $ A.Bang (A.Var a))) A.Set
+           A.Forall (abst [a] (A.App s $ A.Bang (A.Var a) dummyMode)) A.Set
      tcTop $ elaborateInstance (BuiltIn (i+2)) instP3 pt2 []
 
 

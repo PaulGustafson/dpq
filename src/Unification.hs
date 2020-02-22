@@ -129,7 +129,7 @@ unify (Circ t1 t2 _) (Circ t3 t4 _) =
 unify (Bang t _) (Bang t' _) = unify t t'
 unify (Force t) (Force t') = unify t t'
 unify (Force' t) (Force' t') = unify t t'
-unify (Lift t _) (Lift t' _) = unify t t'
+unify (Lift t) (Lift t') = unify t t'
 
 unify (App t1 t2) (App t3 t4) =
   do a <- unify t1 t3
