@@ -895,16 +895,16 @@ getMode =
   do ts <- get
      let m' = modeConstraints ts
      return m'
+
 putMode :: Modality -> TCMonad ()
 putMode m =
   do ts <- get
      put ts{modeConstraints = m}
 
 
-checkMode (M x1 y1 z1) (M x2 y2 z2) =
-  compatible x1 x2 && compatible y1 y2 && compatible z1 z2 
-  where compatible (BConst x) (BConst y) = x == y
-        compatible (BConst _) (BVar _) = True
-        compatible (BVar _) (BConst _) = True
-        compatible (BVar _) (BVar _) = True
+
+    
+  
+  
+
      

@@ -101,6 +101,11 @@ substitute s (Forall bind t) =
   \ ys m -> Forall (abst ys (substitute s m))
            (substitute s t) 
 
+substitute s (Mod bind) =
+  open bind $
+  \ ys m -> Mod (abst ys (substitute s m))
+
+
 substitute s (App t tm) =
   App (substitute s t) (substitute s tm)
 

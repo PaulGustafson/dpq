@@ -33,7 +33,12 @@ module SyntacticOperations
          isConst,
          unwind,
          UnwindFlag(..),
-         gateCount
+         gateCount,
+         modalAnd,
+         abstractMode,
+         freshMode,
+         modeResolution,
+         modeSubst
        ) where
 
 import Syntax
@@ -224,6 +229,9 @@ getVars b (LamDict bind) =
                         
 getVars b (Forall bind ty) =
   open bind $ \ xs m -> S.union (getVars b m `S.difference` S.fromList xs) (getVars b ty)
+
+getVars b (Mod bind) =
+  open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs
 
 getVars GetModVar (Circ t u m) = getBVars m
 getVars b (Circ t u m) = S.union (getVars b t) (getVars b u)
@@ -475,6 +483,7 @@ erasePos (PiImp (Abst vs b) e) = PiImp (abst vs (erasePos b)) (erasePos e)
 erasePos (Pi' (Abst vs b) e) = Pi' (abst vs (erasePos b)) (erasePos e)
 erasePos (Exists (Abst vs b) e) = Exists (abst vs (erasePos b)) (erasePos e)
 erasePos (Forall (Abst vs b) e) = Forall (abst vs (erasePos b)) (erasePos e)
+erasePos (Mod (Abst vs b)) = Mod (abst vs (erasePos b))
 erasePos (Lam (Abst vs b)) = Lam (abst vs (erasePos b))
 
 erasePos (LamAnn ty (Abst vs b)) = LamAnn (erasePos ty) (abst vs (erasePos b))
@@ -1093,3 +1102,17 @@ vars (VLift ws e) = ws
 vars (VPair e1 e2) = (vars e1) ++ (vars e2)
 vars (VTensor e1 e2) = (vars e1) ++ (vars e2)
 vars _ = []
+
+-- | Generate a fresh modality.
+freshMode :: Modality
+freshMode =
+  freshNames ["x", "y", "z"] $
+  \ [x, y, z] -> M (BVar x) (BVar y) (BVar z)
+
+abstractMode :: Exp -> Exp
+abstractMode e =
+  let s = S.toList $ getVars GetModVar e
+  in Mod (abst s e)
+
+modeResolution = undefined
+modeSubst = undefined

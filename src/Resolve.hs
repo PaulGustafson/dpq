@@ -285,12 +285,12 @@ resolve d (C.Unit) = return Unit
 
 resolve d (C.Bang t) = 
   do t' <- resolve d t
-     return (Bang t' (abst [] DummyM))
+     return (Bang t' DummyM)
 
 resolve d (C.Circ t u) = 
   do t' <- resolve d t
      u' <- resolve d u
-     return (Circ t' u' (abst [] DummyM))
+     return (Circ t' u' DummyM)
      
 resolve d (C.Pi vs t1 t2) =
   lscopeVars d vs $ \d' xs -> 
