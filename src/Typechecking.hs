@@ -435,6 +435,7 @@ typeCheck flag a (Bang ty m) =
             DummyM ->
               do cMode <- getMode
                  putMode DummyM
+                 --trace ("mode:"++ (show $ dispRaw cMode)) $ putMode DummyM
                  return (Bang t cMode, Lift ann)
             _ ->
               do cMode <- getMode
@@ -1034,7 +1035,10 @@ addAnn flag e a (Bang t m) env =
   do let force = if flag then Force' else Force
      t' <- if flag then shape t else return t
      case m of
-       DummyM -> let m = freshMode in addMode m >> addAnn flag e (force a) t' env
+       DummyM ->
+         do  s <- newNames ["mode1", "mode2", "mode3"]
+             let m' = freshMode s
+             addMode m' >> addAnn flag e (force a) t' env
        _ -> addMode m >> addAnn flag e (force a) t' env
 
 addAnn flag e a (Forall bd ty) env | isKind ty = open bd $ \ xs t ->

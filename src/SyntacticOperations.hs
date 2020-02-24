@@ -1,45 +1,45 @@
 -- | This module defines various of syntactic operations on the abstract syntax.
 
-module SyntacticOperations
-       (
-         removeVacuousPi,
-         getVars,
-         VarSwitch(..),
-         erasePos,
-         obtainPos,
-         getWires,
-         toBool,
-         refresh_gates,
-         isBool,
-         toNum,
-         flatten,
-         vacuousForall,
-         isKind,
-         flattenArrows,
-         isCirc,
-         unPair,
-         removePrefixes,
-         toEigen,
-         isExplicit,
-         unTensor,
-         unEigen,
-         isEigenVar,
-         unEigenBound,
-         evars,
-         vars,
-         unVPair,
-         vflatten,
-         rename,
-         isConst,
-         unwind,
-         UnwindFlag(..),
-         gateCount,
-         modalAnd,
-         abstractMode,
-         freshMode,
-         modeResolution,
-         modeSubst
-       ) where
+module SyntacticOperations where
+       -- (
+       --   removeVacuousPi,
+       --   getVars,
+       --   VarSwitch(..),
+       --   erasePos,
+       --   obtainPos,
+       --   getWires,
+       --   toBool,
+       --   refresh_gates,
+       --   isBool,
+       --   toNum,
+       --   flatten,
+       --   vacuousForall,
+       --   isKind,
+       --   flattenArrows,
+       --   isCirc,
+       --   unPair,
+       --   removePrefixes,
+       --   toEigen,
+       --   isExplicit,
+       --   unTensor,
+       --   unEigen,
+       --   isEigenVar,
+       --   unEigenBound,
+       --   evars,
+       --   vars,
+       --   unVPair,
+       --   vflatten,
+       --   rename,
+       --   isConst,
+       --   unwind,
+       --   UnwindFlag(..),
+       --   gateCount,
+       --   modalAnd,
+       --   abstractMode,
+       --   freshMode,
+       --   modeResolution,
+       --   modeSubst
+       -- ) where
 
 import Syntax
 import Utils
@@ -186,7 +186,7 @@ getVars b (Arrow' ty tm) =
 getVars NoImply (Imply ty tm) = getVars NoImply tm
 getVars b (Imply ty tm) =
   (S.unions $ map (getVars b) ty) `S.union` getVars b tm
-getVars GetModVar (Bang t m) = getBVars m
+getVars GetModVar (Bang t m) = getBVars m `S.union` getVars GetModVar t
 getVars b (Bang t m) = getVars b t
 getVars b (Pi bind t) =
   getVars b t `S.union`
@@ -313,7 +313,7 @@ varSwitch NoImply (Var x) = S.insert x S.empty
 varSwitch _ (Var x) = S.empty
 varSwitch GetGoal (GoalVar x) = S.insert x S.empty
 varSwitch _ (GoalVar x) = S.empty
-varSwitch GetModVar _ = S.empty
+
 
 
 -- | Flatten a n-tuple into a list.
@@ -1104,9 +1104,9 @@ vars (VTensor e1 e2) = (vars e1) ++ (vars e2)
 vars _ = []
 
 -- | Generate a fresh modality.
-freshMode :: Modality
-freshMode =
-  freshNames ["x", "y", "z"] $
+freshMode :: [String] -> Modality
+freshMode s =
+  freshNames (take 3 s) $
   \ [x, y, z] -> M (BVar x) (BVar y) (BVar z)
 
 abstractMode :: Exp -> Exp

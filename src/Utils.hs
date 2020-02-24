@@ -82,7 +82,8 @@ pattern Abst x t <- ((\ b -> open b (\ x b' -> (x, b'))) -> (x, t))
 
 -- | Generate a list of fresh variables from a given list of strings.
 -- Ideally, when using 'freshNames', we want to ensure the so-called /freshness condition/,
--- but sometimes I do not follow this, and use 'freshNames' as mean to generate
+-- but sometimes I do not follow this, and use 'freshNames' in combination with
+-- a counter (e.g., 'newNames') as mean to generate
 -- (pseudo) global fresh names, and later rebind them. 
 freshNames :: [String] -> ([Variable] -> t) -> t
 freshNames [] body = body []

@@ -113,7 +113,7 @@ process (Def pos f' ty' def') =
      b <- isBasicValue v
      v' <- if b then typeChecking False (toExp v) ty1' >>= \ x -> return $ Just (snd x)
            else if isCirc v then return $ Just (Const f') else return Nothing
-     let info2 = Info { classifier = ty1',
+     let info2 = Info { classifier = abstractMode ty1',
                         identification = DefinedFunction (Just (ann, v, v'))}
      addNewId f' info2
 
@@ -664,7 +664,7 @@ typeChecking b exp ty =
      exp'' <- resolveGoals exp'
      r <- updateWithSubst exp''
      ty'' <- resolveGoals ty' >>= updateWithSubst
-     return (abstractMode $ unEigen ty'', unEigen r)
+     return (unEigen ty'', unEigen r)
 
 
 -- | Check an annotated expression against a type. It is a wrapper on 'proofCheck' function.
