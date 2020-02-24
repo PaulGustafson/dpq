@@ -136,7 +136,7 @@ data VarSwitch = GetGoal -- ^ Get goal variables only.
   | AllowEigen  -- ^ Free variables include eigenvariables
   | NoEigen -- ^ Free variables do not include eigenvariables
   | NoImply -- ^ Does not include the variables that occur in the type class constraints. 
-
+  | GetModVar -- ^ Get modality variables.
 -- | Get a set of variables from an expression according to the flag.
 getVars :: VarSwitch -> Exp -> S.Set Variable
 getVars b a@(EigenVar x) = varSwitch b a
@@ -180,8 +180,9 @@ getVars b (Arrow' ty tm) =
   getVars b ty `S.union` getVars b tm  
 getVars NoImply (Imply ty tm) = getVars NoImply tm
 getVars b (Imply ty tm) =
-  (S.unions $ map (getVars b) ty) `S.union` getVars b tm  
-getVars b (Bang t _) = getVars b t
+  (S.unions $ map (getVars b) ty) `S.union` getVars b tm
+getVars GetModVar (Bang t m) = getBVars m
+getVars b (Bang t m) = getVars b t
 getVars b (Pi bind t) =
   getVars b t `S.union`
   (open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs)
@@ -223,8 +224,9 @@ getVars b (LamDict bind) =
                         
 getVars b (Forall bind ty) =
   open bind $ \ xs m -> S.union (getVars b m `S.difference` S.fromList xs) (getVars b ty)
-                    
-getVars b (Circ t u _) = S.union (getVars b t) (getVars b u)
+
+getVars GetModVar (Circ t u m) = getBVars m
+getVars b (Circ t u m) = S.union (getVars b t) (getVars b u)
 getVars b (Pair ty tm) =
   getVars b ty `S.union` getVars b tm
 
@@ -271,6 +273,26 @@ getVars b (Case t (B brs)) =
 getVars b (Pos p e) = getVars b e
 getVars b a = error $ "from getVars  " ++ show (disp a)
 
+-- | Get the modality variables.
+getBVars DummyM = S.empty
+getBVars (M e1 e2 e3) =
+  getBVars' e1 `S.union` getBVars' e2 `S.union` getBVars' e3
+  where getBVars' (BVar x) = S.insert x S.empty
+        getBVars' (BConst _) = S.empty
+        getBVars' (BAnd e1 e2) = S.union (getBVars' e1) (getBVars' e2)
+
+-- | Take a bitwise conjunction on the modality.
+modalAnd :: Modality -> Modality -> Modality
+modalAnd DummyM m = m
+modalAnd m DummyM = m
+modalAnd (M e1 e2 e3) (M e1' e2' e3') =
+  M (helper e1 e1') (helper e2 e2') (helper e3 e3')
+    where helper (BConst True) e = e
+          helper (BConst False) e = BConst False
+          helper e (BConst True) = e
+          helper e (BConst False) = BConst False
+          helper e1 e2 = BAnd e1 e2
+
 -- | Get a variable according to 'VarSwitch'.
 varSwitch :: VarSwitch -> Exp -> S.Set Variable
 varSwitch AllowEigen (EigenVar x) = S.insert x S.empty
@@ -283,6 +305,8 @@ varSwitch NoImply (Var x) = S.insert x S.empty
 varSwitch _ (Var x) = S.empty
 varSwitch GetGoal (GoalVar x) = S.insert x S.empty
 varSwitch _ (GoalVar x) = S.empty
+varSwitch GetModVar _ = S.empty
+
 
 -- | Flatten a n-tuple into a list.
 unPair :: (Num a, Ord a) => a -> Exp -> Maybe [Exp]

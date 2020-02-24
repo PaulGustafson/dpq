@@ -32,8 +32,6 @@ module Syntax
          toExp,
          BExp(..),
          Modality(..),
-         modalAnd,
-         abstractM
        )
        where
 
@@ -94,7 +92,7 @@ data Exp =
   | Case Exp Branches -- ^ Case expression.
 
     -- Lift and force  
-  | Bang Exp (Bind [Variable] Modality) -- ^ Linear exponential type.
+  | Bang Exp Modality -- ^ Linear exponential type.
   | Force Exp -- ^ Force. 
   | Force' Exp -- ^ Force', the parameter version of Force.
   | Lift Exp -- ^ Lift. 
@@ -105,7 +103,7 @@ data Exp =
   | UnBox -- ^ Circuit unboxing.
   | RunCirc -- ^ Run classical circuits.
   | Reverse  -- ^ Obtain the adjoint of a circuit.
-  | Circ Exp Exp (Bind [Variable] Modality) -- ^ The circuit type. 
+  | Circ Exp Exp Modality -- ^ The circuit type. 
     
     -- constants  
   | Star  -- ^ Unique inhabitant of unit type.
@@ -144,6 +142,7 @@ data Exp =
   -- others.  
   | PlaceHolder -- ^ Wildcard. 
   | Pos Position Exp -- ^ Position wrapper.
+  | Mod (Bind [Variable] Exp) -- ^ Top level binding for modality variables. 
   deriving (Eq, Generic, Nominal, NominalShow, NominalSupport, Show)
 
 -- | Branches for case expressions.
@@ -158,36 +157,15 @@ data Pattern = PApp Id [Either (NoBind Exp) Variable]
 -- | Boolean expression.
 data BExp = BConst Bool
           | BVar Variable
+          | BAnd BExp BExp
   deriving (Show, NominalShow, NominalSupport, Generic, Nominal, Eq)
-
-getBVar (BVar x) = [x]
-getBVar (BConst _) = []
-
 
 -- | A data type for modality: bx, ctrl, adj
 data Modality = M BExp BExp BExp | DummyM
-  deriving (Show, NominalShow, NominalSupport, Generic, Nominal)
-
-instance Eq Modality where
-  m1 == m2 = True
-
--- | Take a bitwise conjunction on the modality.
-modalAnd :: Modality -> Modality -> Modality
-modalAnd DummyM m = m
-modalAnd m DummyM = m
-modalAnd (M e1 e2 e3) (M e1' e2' e3') =
-  M (helper e1 e1') (helper e2 e2') (helper e3 e3')
-    where helper (BConst True) e = e
-          helper (BConst False) e = BConst False
-          helper e (BConst True) = e
-          helper e (BConst False) = BConst False
+  deriving (Show, NominalShow, NominalSupport, Generic, Nominal, Eq)
 
 
-abstractM :: Modality -> Bind [Variable] Modality
-abstractM DummyM = abst [] DummyM
-abstractM m@(M x y z) =
-  let fv = getBVar x ++ getBVar y ++ getBVar z
-  in abst fv m 
+
 
 
 instance Disp Pattern where
@@ -284,7 +262,7 @@ instance Disp Exp where
      fsep [dParen flag (precedence a - 1) t <> dispAt flag "AppTm",
            dParen flag (precedence a) t']
     
-  display flag a@(Bang t (Abst vs m)) =
+  display flag a@(Bang t m) =
     text "!" <> display flag m <> dParen flag (precedence a - 1) t
 
   display flag a@(Arrow t1 t2) =
@@ -311,7 +289,7 @@ instance Disp Exp where
   display flag (Force' m) = text "&'" <> display flag m
   display flag (Lift m) = text "lift" <+> display flag m
 
-  display flag (Circ u t (Abst _ m)) =
+  display flag (Circ u t m) =
     text "Circ" <> display flag m <> (parens $ fsep [display flag u <> comma, display flag t])
   display flag (Pi bd t) =
     open bd $ \ vs b ->
@@ -712,7 +690,7 @@ instance Disp BExp where
   display flag (BVar x) = dispRaw x
   display flag (BConst True) = text "1"
   display flag (BConst False) = text "0"
-
+  display flag (BAnd e1 e2) = display flag e1 <> text "&" <> display flag e2
   
 instance Disp Modality where
   display flag (DummyM) = text ""
