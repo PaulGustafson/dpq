@@ -189,8 +189,7 @@ instance Disp Exp where
   display flag (LBase id) = display flag id
   display flag (Base id) = display flag id
   display flag (Pos _ e) = display flag e
-  display flag (Mod (Abst vs e)) = hsep (map dispRaw vs) <>text "."<> display flag e
-
+  display flag (Mod (Abst vs e)) = display flag e
   display flag (Lam bds) =
     open bds $ \ vs b ->
     fsep [text "\\" , (hsep $ map (display flag) vs), text "->", nest 2 $ display flag b]
