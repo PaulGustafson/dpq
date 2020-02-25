@@ -296,14 +296,14 @@ resolve d (C.Unit) = return Unit
 
 resolve d (C.Bang t) = 
   do t' <- resolve d t
-     ns <- refresh ["x", "y", "z"]
+     ns <- refresh ["#x", "#y", "#z"]
      let m = freshMode ns
      return (Bang t' m)
 
 resolve d (C.Circ t u) = 
   do t' <- resolve d t
      u' <- resolve d u
-     ns <- refresh ["x", "y", "z"]
+     ns <- refresh ["#x", "#y", "#z"]
      let m = freshMode ns
      return (Circ t' u' m)
      
@@ -470,7 +470,7 @@ resolveDecl scope (C.Class pos c vs mths) =
        kd2 <- resolve lscope kd1
        let kd = removeVacuousPi kd2
        (mths', scope'') <- makeMethods scope' head vs mths
-       return (Class pos d kd dict dictType mths', scope'')
+       return (Class pos d kd dict (abstractMode dictType) mths', scope'')
          where makeMethods scope' head vs [] =
                  return ([], scope')
                makeMethods scope' head vs ((p, mname, mty):cs) =
@@ -479,7 +479,7 @@ resolveDecl scope (C.Class pos c vs mths) =
                         ty = C.Bang $ C.Forall vs (C.Imply [head] mty)
                     ty' <- resolve lscope' ty
                     (res, scope''') <- makeMethods scope'' head vs cs
-                    return ((p, d, ty'):res, scope''')
+                    return ((p, d, abstractMode ty'):res, scope''')
 
 resolveDecl scope (C.Instance pos t mths) =
   do let lscope = toLScope scope

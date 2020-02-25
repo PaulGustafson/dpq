@@ -431,18 +431,11 @@ typeCheck flag a (Bang ty m) =
      if r then
        do checkParamCxt a
           (t, ann) <- typeCheck flag a ty
-          case m of
-            DummyM ->
-              do cMode <- getMode
-                 putMode DummyM
-                 --trace ("mode:"++ (show $ dispRaw cMode)) $ putMode DummyM
-                 return (Bang t cMode, Lift ann)
-            _ ->
-              do cMode <- getMode
-                 let s = modeResolution m cMode
-                     m' = modeSubst s m
-                 putMode DummyM
-                 return (Bang t m', Lift ann)
+          cMode <- getMode
+          let s = modeResolution cMode m
+              m' = modeSubst s m
+          putMode DummyM
+          return (Bang t m', Lift ann)
                  
        else equality flag a (Bang ty m)
 

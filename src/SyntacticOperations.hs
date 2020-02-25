@@ -291,6 +291,7 @@ getBVars (M e1 e2 e3) =
 
 -- | Take a bitwise conjunction on the modality.
 modalAnd :: Modality -> Modality -> Modality
+modalAnd m1 m2 | m1 == m2 = m1
 modalAnd DummyM m = m
 modalAnd m DummyM = m
 modalAnd (M e1 e2 e3) (M e1' e2' e3') =
@@ -1114,5 +1115,11 @@ abstractMode e =
   let s = S.toList $ getVars GetModVar e
   in if null s then e else Mod (abst s e)
 
-modeResolution = undefined
+modeResolution m1 DummyM = []
+modeResolution DummyM m2 = []
+modeResolution (M x1 x2 x3) (M y1 y2 y3) =
+  
+
+  
+  
 modeSubst = undefined
