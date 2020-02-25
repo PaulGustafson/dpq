@@ -18,6 +18,7 @@ import Normalize
 import Substitution
 import TypeClass
 import Unification
+import ModeResolve
 
 import Nominal
 import qualified Data.Set as S
@@ -26,6 +27,8 @@ import Data.Map (Map)
 import Debug.Trace
 import Control.Monad.Except
 import Control.Monad.State
+import Text.PrettyPrint
+import Prelude hiding((<>))
 
 -- | Check an expression against a type, retun elaborated term and type.
 -- The flag = True indicates
@@ -432,9 +435,11 @@ typeCheck flag a (Bang ty m) =
        do checkParamCxt a
           (t, ann) <- typeCheck flag a ty
           cMode <- getMode
-          let s = modeResolution cMode m
-              m' = modeSubst s m
-          putMode DummyM
+          let s = modeResolution m cMode
+          when (s == Nothing) $ error "mode mismatch"
+          let Just s'@(s1, s2, s3) = s
+              m' = modeSubst s' m
+          trace (show $ disp m <> comma <> disp m' ) $ putMode DummyM
           return (Bang t m', Lift ann)
                  
        else equality flag a (Bang ty m)
@@ -809,7 +814,9 @@ equality flag tm ty =
             (Bang tym1 m1, Bang ty1 m2) ->
               do (ty1, a2) <- handleEquality tm ann tym1 ty1
                  let s = modeResolution m1 m2
-                     m1' = modeSubst s m1
+                 when (s == Nothing) $ error "mode mismatch" 
+                 let Just s' = s
+                     m1' = modeSubst s' m1
                  return (Bang ty1 m1', a2)
             (tym1 , Bang ty1 m) -> throwError $ BangValue tm (Bang ty1 m)
             (tym1, ty1) -> handleEquality tm ann tym1 ty1

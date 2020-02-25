@@ -696,7 +696,7 @@ instance Disp BExp where
 instance Disp Modality where
   display flag (DummyM) = text ""
   display flag (M x y z) =
-    parens $ text "Box:" <> display flag x <> comma
-             <> text "Ctrl:" <> display flag y <> comma <> text "Adj:" <> display flag z 
+    parens $ display flag x <> comma
+    <> display flag y <> comma <> display flag z 
 
   

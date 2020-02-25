@@ -1115,11 +1115,3 @@ abstractMode e =
   let s = S.toList $ getVars GetModVar e
   in if null s then e else Mod (abst s e)
 
-modeResolution m1 DummyM = []
-modeResolution DummyM m2 = []
-modeResolution (M x1 x2 x3) (M y1 y2 y3) =
-  
-
-  
-  
-modeSubst = undefined

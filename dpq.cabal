@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c90360bc64202a6100eda136813d892f99162da45aaedf2c2e2b8240f482825e
+-- hash: 704bb514a440a0f9de9d35933edf60dfff00fa269c4d0c995223c39272e32c43
 
 name:           dpq
 version:        0.0.1.0
@@ -33,6 +33,7 @@ library
       Dispatch
       Erasure
       Evaluation
+      ModeResolve
       Normalize
       Parser
       Printcircuits
