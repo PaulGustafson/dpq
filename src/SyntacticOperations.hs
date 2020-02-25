@@ -1112,7 +1112,7 @@ freshMode s =
 abstractMode :: Exp -> Exp
 abstractMode e =
   let s = S.toList $ getVars GetModVar e
-  in Mod (abst s e)
+  in if null s then e else Mod (abst s e)
 
 modeResolution = undefined
 modeSubst = undefined

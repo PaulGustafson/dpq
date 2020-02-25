@@ -28,6 +28,8 @@ import Nominal.Atomic
 import Control.Monad.Except
 import Text.PrettyPrint
 import Control.Monad.Identity
+import Control.Monad.State
+
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.List
@@ -124,11 +126,20 @@ instance Disp ScopeError where
 
 
 -- | A monad for scope resolution.
-type Resolve a = ExceptT ScopeError Identity a
+type Resolve a = ExceptT ScopeError (StateT Int Identity) a
 
 -- | A run function for the Resolve monad.
 runResolve :: Resolve a -> Either ScopeError a
-runResolve m = runIdentity $ runExceptT m
+runResolve m = runIdentity $ evalStateT (runExceptT m) 0
+
+-- | Generate fresh names for modality.
+refresh :: [String] -> Resolve [String]
+refresh ns =
+  do i <- get
+     let ns' = zipWith (\ j n -> n ++ show j) [i..]  ns
+         j = i + length ns
+     put j
+     return ns'
 
 -- | Add a position to scope error if the error does not already
 -- contain position information.
@@ -285,12 +296,16 @@ resolve d (C.Unit) = return Unit
 
 resolve d (C.Bang t) = 
   do t' <- resolve d t
-     return (Bang t' DummyM)
+     ns <- refresh ["x", "y", "z"]
+     let m = freshMode ns
+     return (Bang t' m)
 
 resolve d (C.Circ t u) = 
   do t' <- resolve d t
      u' <- resolve d u
-     return (Circ t' u' DummyM)
+     ns <- refresh ["x", "y", "z"]
+     let m = freshMode ns
+     return (Circ t' u' m)
      
 resolve d (C.Pi vs t1 t2) =
   lscopeVars d vs $ \d' xs -> 
@@ -366,7 +381,7 @@ resolveDecl scope (C.Def p f ty args def) =
      lscopeVars lscope' args $ \ d xs ->
        do def' <- resolve d def
           let res = if null xs then def' else Lam (abst xs def') 
-          return (Def p id ty' res, scope')
+          return (Def p id (abstractMode ty') res, scope')
 
 resolveDecl scope (C.Defn p f [] [] def) =
   do (id, scope') <- addConst p f Const scope
@@ -387,7 +402,7 @@ resolveDecl scope (C.Defn p f qs args def) | not $ null args =
      lscopeVars lscope' args' $ \ d xs ->
        do def' <- resolve d def
           let res = if null xs then def' else Lam (abst xs def') 
-          return (Defn p id (Just ty') res, scope')
+          return (Defn p id (Just (abstractMode ty')) res, scope')
      where toPi [] m = m 
            toPi ((Left s):xs) m = C.Imply [s] (toPi xs m)
            toPi ((Right (vs, t)):xs) m =
