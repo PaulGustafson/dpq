@@ -664,7 +664,9 @@ typeChecking b exp ty =
      exp'' <- resolveGoals exp'
      r <- updateWithSubst exp''
      ty'' <- resolveGoals ty' >>= updateWithSubst
-     return (unEigen ty'', unEigen r)
+     let ty''' = unEigen ty''
+     ty2 <- updateWithModeSubst ty'''
+     return (ty2, unEigen r)
 
 
 -- | Check an annotated expression against a type. It is a wrapper on 'proofCheck' function.

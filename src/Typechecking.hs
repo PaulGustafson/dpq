@@ -435,11 +435,12 @@ typeCheck flag a (Bang ty m) =
        do checkParamCxt a
           (t, ann) <- typeCheck flag a ty
           cMode <- getMode
-          let s = modeResolution m cMode
+          let s = modeResolution cMode m
           when (s == Nothing) $ error "mode mismatch"
           let Just s'@(s1, s2, s3) = s
               m' = modeSubst s' m
-          trace (show $ disp m <> comma <> disp m' ) $ putMode DummyM
+          updateModeSubst s'
+          putMode DummyM              
           return (Bang t m', Lift ann)
                  
        else equality flag a (Bang ty m)
@@ -817,6 +818,7 @@ equality flag tm ty =
                  when (s == Nothing) $ error "mode mismatch" 
                  let Just s' = s
                      m1' = modeSubst s' m1
+                 updateModeSubst s'
                  return (Bang ty1 m1', a2)
             (tym1 , Bang ty1 m) -> throwError $ BangValue tm (Bang ty1 m)
             (tym1, ty1) -> handleEquality tm ann tym1 ty1

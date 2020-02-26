@@ -5,6 +5,7 @@ import Syntax
 import Utils
 import Substitution
 
+import Nominal
 import Text.PrettyPrint
 import Prelude hiding((<>))
 
@@ -69,3 +70,107 @@ modeResolve (BAnd e1 e2) (BAnd e1' e2') =
 
 mergeModeSubst s1 s2 =
   s1 ++ [ (x, bSubst s1 t) | (x, t)<- s2]
+
+
+bSubstitute :: (ModeSubst, ModeSubst, ModeSubst) -> Exp -> Exp           
+bSubstitute s a@(Var y) = a
+bSubstitute s a@(GoalVar y) = a
+bSubstitute s a@(EigenVar y) = a
+bSubstitute s a@(Base _) = a
+bSubstitute s a@(LBase _) = a      
+bSubstitute s a@(Unit) = a
+bSubstitute s a@(Set) = a
+bSubstitute s a@(Sort) = a
+bSubstitute s a@(Star) = a
+bSubstitute s a@(Const _) = a
+bSubstitute s (Arrow t t') =
+  let t1' = bSubstitute s t
+      t2' = bSubstitute s t'
+  in Arrow t1' t2'
+bSubstitute s (WithType t t') =
+  let t1' = bSubstitute s t
+      t2' = bSubstitute s t'
+  in WithType t1' t2'     
+bSubstitute s (Arrow' t t') =
+  let t1' = bSubstitute s t
+      t2' = bSubstitute s t'
+  in Arrow' t1' t2'  
+bSubstitute s (Imply t t') =
+  let t1' = map (bSubstitute s) t
+      t2' = bSubstitute s t'
+  in Imply t1' t2'  
+bSubstitute s (Tensor t t') =
+  let t1' = bSubstitute s t
+      t2' = bSubstitute s t'
+  in Tensor t1' t2'
+bSubstitute s (Circ t t' m) =
+  let t1' = bSubstitute s t
+      t2' = bSubstitute s t'
+      m' = modeSubst s m
+  in Circ t1' t2' m'
+
+bSubstitute s (Bang t m) =
+  Bang (bSubstitute s t) (modeSubst s m)
+
+bSubstitute s (Pi bind t) =
+  open bind $
+  \ ys m -> Pi (abst ys (bSubstitute s m))
+           (bSubstitute s t) 
+
+bSubstitute s (PiImp bind t) =
+  open bind $
+  \ ys m -> PiImp (abst ys (bSubstitute s m))
+           (bSubstitute s t) 
+
+bSubstitute s (Pi' bind t) =
+  open bind $
+  \ ys m -> Pi' (abst ys (bSubstitute s m))
+            (bSubstitute s t) 
+
+bSubstitute s (Exists bind t) =
+  open bind $
+  \ ys m -> Exists (abst ys (bSubstitute s m))
+           (bSubstitute s t) 
+
+bSubstitute s (Forall bind t) =
+  open bind $
+  \ ys m -> Forall (abst ys (bSubstitute s m))
+           (bSubstitute s t) 
+
+bSubstitute s (Mod bind) =
+  open bind $
+  \ ys m -> Mod (abst ys (bSubstitute s m))
+
+
+bSubstitute s (App t tm) =
+  App (bSubstitute s t) (bSubstitute s tm)
+
+bSubstitute s (App' t tm) =
+  App' (bSubstitute s t) (bSubstitute s tm)
+  
+bSubstitute s (AppType t tm) =
+  AppType (bSubstitute s t) (bSubstitute s tm)
+
+bSubstitute s (AppTm t tm) =
+  AppTm (bSubstitute s t) (bSubstitute s tm)
+
+bSubstitute s (AppDep t tm) =
+  AppDep (bSubstitute s t) (bSubstitute s tm)
+bSubstitute s (AppDepTy t tm) =
+  AppDepTy (bSubstitute s t) (bSubstitute s tm)
+  
+bSubstitute s (AppDep' t tm) =
+  AppDep' (bSubstitute s t) (bSubstitute s tm)  
+bSubstitute s (AppDict t tm) =
+  AppDict (bSubstitute s t) (bSubstitute s tm)
+
+
+bSubstitute s (Pair t tm) =
+  Pair (bSubstitute s t) (bSubstitute s tm)
+
+bSubstitute s (Force' t) = Force' (bSubstitute s t)
+bSubstitute s (Lift t) = Lift (bSubstitute s t) 
+
+bSubstitute s (Pos p e) = Pos p (bSubstitute s e)
+bSubstitute s a = error ("from bSubstitute: " ++ show (disp a))  
+

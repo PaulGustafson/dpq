@@ -12,6 +12,7 @@ import TypeError
 import Substitution
 import SyntacticOperations
 import Nominal
+import ModeResolve
 
 import Control.Monad.State
 import Control.Monad.Identity
@@ -122,13 +123,15 @@ data TypeState = TS {
                                               -- is well-quantified. It is unchecked when the
                                               -- type is intended to be used as an instance type.
                      infer :: Bool, -- ^ If it is in infer mode.
-                     modeConstraints :: Modality
+                     modeConstraints :: Modality,
+                     modeSubstitution :: (ModeSubst, ModeSubst, ModeSubst)
                     }
 
 -- | Initial type state from a global typing context and a
 -- global type class instance context.
 initTS :: Map Id Info -> GlobalInstanceCxt -> TypeState
-initTS gl inst = TS (fromGlobal gl) Map.empty 0 (makeInstanceCxt inst) True False DummyM
+initTS gl inst =
+  TS (fromGlobal gl) Map.empty 0 (makeInstanceCxt inst) True False DummyM ([], [], [])
 
 -- | A run function for 'TCMonadT'.
 runTCMonadT :: Context -> GlobalInstanceCxt -> 
@@ -902,9 +905,24 @@ putMode m =
      put ts{modeConstraints = m}
 
 
+-- | update the current mode substitution.
+updateModeSubst :: (ModeSubst, ModeSubst, ModeSubst) -> TCMonad ()
+updateModeSubst s@(s1, s2, s3) =
+  do ts <- get
+     let (s1', s2', s3') = modeSubstitution ts
+         s1'' = mergeModeSubst s1 s1'
+         s2'' = mergeModeSubst s2 s2'
+         s3'' = mergeModeSubst s3 s3'
+         m = modeConstraints ts
+     put ts{modeConstraints = modeSubst s m, modeSubstitution = (s1'', s2'', s3'')}
 
+updateWithModeSubst :: Exp -> TCMonad Exp
+updateWithModeSubst e =
+  do ts <- get
+     return $ bSubstitute (modeSubstitution ts) e
     
-  
+
+
   
 
      
