@@ -431,7 +431,20 @@ typeCheck flag a@(EigenVar x) (Bang ty m) =
   equality flag a (Bang ty m)
 
 typeCheck flag a@(Const x) (Bang ty m) =
-  equality flag a (Bang ty m)
+  do (ty1, _) <- typeInfer flag a
+     case ty1 of
+       Bang _ _ -> 
+         equality flag a (Bang ty m)
+       _ ->  
+         do (t, ann) <- typeCheck flag a ty
+            cMode <- getMode
+            let s = modeResolution cMode m
+            when (s == Nothing) $ throwError $ ModalityErr cMode m a
+            let Just s'@(s1, s2, s3) = s
+                m' = modeSubst s' m
+            updateModeSubst s'
+            putMode DummyM              
+            return (Bang t (simplify m'), Lift ann)
   
 typeCheck flag a (Bang ty m) =
   do r <- isValue a
@@ -815,8 +828,8 @@ equality flag tm ty =
           ty1 <- updateWithSubst ty'
           -- Here we are assuming there is no types like !!A
           case (erasePos tym1, erasePos ty1) of
-            (Bang tym1' m1, Bang ty1 m2) ->
-              do (ty1, a2) <- handleEquality tm ann tym1' ty1
+            (Bang tym1' m1, Bang ty1' m2) ->
+              do (ty1, a2) <- handleEquality tm ann tym1' ty1'
                  let s = modeResolution m1 m2
                  when (s == Nothing) $ throwError $ ModalityErr m1 m2 tm
                  let Just s' = s
@@ -920,6 +933,8 @@ normalizeUnif t1 t2 =
 
 extendEnv :: [Either (NoBind Exp) Variable] -> Exp -> Exp ->
              TCMonad (Exp, [Either a Variable], [Variable], Exp, [Variable])
+extendEnv xs (Mod (Abst _ ty)) kid = extendEnv xs ty kid
+             
 extendEnv xs (Forall bind ty) kid | isKind ty =
   open bind $
       \ ys t' ->

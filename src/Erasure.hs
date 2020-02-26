@@ -196,9 +196,11 @@ erasure (LetPat m bd) = open bd $ \ pa b ->
          let ty = classifier funP
          args' <- helper ty args b b'
          return $ ELetPat m' (abst (EPApp kid args') b')
-  where 
+  where
+        helper (Mod (Abst _ t)) args b b' = helper t args b b'
         -- The only way a data constructor can have a Pi type
-        -- is when it is an existential type. 
+        -- is when it is an existential type.
+    
         helper (Pi bds t) args b b' | not (isKind t) =
           open bds $ \ ys m ->
           do let (vs, res) = splitAt (length ys) args
@@ -248,6 +250,7 @@ erasure l@(Case e (B br)) =
                       m' <- erasure m
                       args' <- helper2 ty args m m' 
                       return (abst (EPApp kid args') m')
+             helper2 (Mod (Abst _ t)) args b b' = helper2 t args b b'         
              -- The only way a data constructor can have a Pi type
              -- is when it is an existential type. 
                       

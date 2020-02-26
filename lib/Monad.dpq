@@ -21,16 +21,12 @@ class Monad (m : Type -> Type) where
 
 infixl 20 >>=
 
-(>>=) : ! forall (m : Type -> Type) ->
-            (Monad m) =>
-              forall (a b : Type) ->
-                 m a -> (a -> m b) -> m b
 (>>=) = bind
 
 infixl 20 >>
 
-pure : ! forall (m : Type -> Type) ->
-           (Monad m) => forall a -> a -> m a
+-- pure : ! forall (m : Type -> Type) ->
+--            (Monad m) => forall a -> a -> m a
 pure = return
 
 seq : ! forall (m : Type -> Type) ->
@@ -39,10 +35,10 @@ seq : ! forall (m : Type -> Type) ->
                  m Unit -> m b -> m b
 seq x f = x >>= \ u -> f 
 
-(>>) : ! forall (m : Type -> Type) ->
-            (Monad m) =>
-              forall b ->
-                 m Unit -> m b -> m b
+-- (>>) : ! forall (m : Type -> Type) ->
+--             (Monad m) =>
+--               forall b ->
+--                  m Unit -> m b -> m b
 (>>) = seq
 
 join : ! forall a (m : Type -> Type) -> (Monad m) => m (m a) -> m a
@@ -60,14 +56,14 @@ infixl 16 <*>
 infixl 16 <$>
 
 
-(<*>) : ! forall a b (m : Type -> Type) -> (Monad m) =>  m (a -> b) -> m a -> m b
+-- (<*>) : ! forall a b (m : Type -> Type) -> (Monad m) =>  m (a -> b) -> m a -> m b
 (<*>) = ap 
 
 fmap : ! forall a b (m : Type -> Type) -> (Monad m) => (a -> b) -> m a -> m b
 fmap f x =
   x >>= \ x' -> return (f x')
 
-(<$>) : ! forall a b (m : Type -> Type) -> (Monad m) => (a -> b) -> m a -> m b
+-- (<$>) : ! forall a b (m : Type -> Type) -> (Monad m) => (a -> b) -> m a -> m b
 (<$>) = fmap
   
 class MonadTrans (t : (Type -> Type) -> Type -> Type) where

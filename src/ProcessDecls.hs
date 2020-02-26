@@ -49,7 +49,7 @@ process (Class pos d kd dict dictType mths) =
      addNewId d tp
      checkVacuous pos dictType
      (_, dictTypeAnn) <- typeChecking True dictType Set 
-     let fp = Info{ classifier = erasePos $ removeVacuousPi dictTypeAnn,
+     let fp = Info{ classifier = abstractMode $ erasePos $ removeVacuousPi dictTypeAnn,
                     identification = DataConstr d
                  }
      addNewId dict fp              
@@ -68,7 +68,7 @@ process (Class pos d kd dict dictType mths) =
                   a' <- erasure a
                   v <- evaluation a'
 --                  proofChecking False a tyy''
-                  let fp = Info{ classifier = tyy',
+                  let fp = Info{ classifier = abstractMode tyy',
                                  identification = DefinedMethod a v
                                }
                            
@@ -143,7 +143,7 @@ process (Defn pos f Nothing def) =
              ty'' <- resolveGoals ty' >>= updateWithSubst
              let ty''' = unEigen ty''
              ty2 <- updateWithModeSubst ty'''
-             return (ty2, unEigen r)
+             return (abstractMode ty2, unEigen r)
 
 process (Defn pos f (Just tt) def) =
   do (_, tt') <- typeChecking True tt Set 
@@ -198,7 +198,7 @@ process (Data pos d kd cons) =
      addNewId d tp
      res <- mapM (\ t -> typeChecking True (Pos pos t) Set) types
      let types' = map snd res
-     let funcs = map (\ t -> Info{ classifier = erasePos $ removeVacuousPi t,
+     let funcs = map (\ t -> Info{ classifier = abstractMode $ erasePos $ removeVacuousPi t,
                                    identification = DataConstr d
                                 }) types'
      zipWithM_ addNewId constructors funcs
