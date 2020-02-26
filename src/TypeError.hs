@@ -413,8 +413,8 @@ instance Disp TypeError where
 
   display flag (ModalityErr cm m a) =
     text "modality mismatch." $$
-    text "current mode:" <+> display flag cm $$
-    text "expected mode:" <+> display flag cm $$
-    text "when checking" $$ display flag a
+    nest 2 (text "current mode:") <+> display flag cm $$
+    nest 2 (text "expected mode:") <+> display flag m $$
+    text "when checking" $$ nest 2 (display flag a)
 
   display flag a = error $ "from display TypeError:" ++ show a 

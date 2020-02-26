@@ -440,7 +440,7 @@ typeCheck flag a (Bang ty m) =
           (t, ann) <- typeCheck flag a ty
           cMode <- getMode
           let s = modeResolution cMode m
-          when (s == Nothing) $ error "mode mismatch"
+          when (s == Nothing) $ throwError $ ModalityErr cMode m a
           let Just s'@(s1, s2, s3) = s
               m' = modeSubst s' m
           updateModeSubst s'
@@ -818,7 +818,7 @@ equality flag tm ty =
             (Bang tym1' m1, Bang ty1 m2) ->
               do (ty1, a2) <- handleEquality tm ann tym1' ty1
                  let s = modeResolution m1 m2
-                 when (s == Nothing) $ error "mode mismatch" 
+                 when (s == Nothing) $ throwError $ ModalityErr m1 m2 tm
                  let Just s' = s
                      m1' = modeSubst s' m1
                  updateModeSubst s'
@@ -827,7 +827,7 @@ equality flag tm ty =
               throwError $ BangValue tm (Bang ty1 m)
             (Circ a1 a2 m1, Circ b1 b2 m2) ->
               do let s = modeResolution m1 m2
-                 when (s == Nothing) $ error "mode mismatch" 
+                 when (s == Nothing) $ throwError $ ModalityErr m1 m2 tm
                  let Just s' = s
                  let m1' = modeSubst s' m1
                  let m2' = modeSubst s' m2

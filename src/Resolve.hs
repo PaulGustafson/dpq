@@ -357,7 +357,7 @@ resolveDecl scope (C.GateDecl p gn params t strs) =
                  (M (BConst True) (BConst False) (BConst False)), scope')
        Just x | x == "Adj" ->
          return (GateDecl p id params' e
-                 (M (BConst True) (BConst True) (BConst False)), scope')
+                 (M (BConst True) (BConst False) (BConst True)), scope')
        Just x | x == "Ctrl" ->
          return (GateDecl p id params' e
                  (M (BConst True) (BConst True) (BConst True)), scope')
