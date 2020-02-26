@@ -75,7 +75,11 @@ typeInfer flag a@(EigenVar x) =
 typeInfer flag a@(Const kid) =
   do funPac <- lookupId kid
      let cl = classifier funPac
-     return (cl, a)
+     case cl of
+       Mod (Abst _ cl') -> 
+         return (cl', a)
+       _ -> return (cl, a)
+         
 
 typeInfer flag a@(App t1 t2) =
   do (t', ann) <- typeInfer flag t1
@@ -441,8 +445,7 @@ typeCheck flag a (Bang ty m) =
               m' = modeSubst s' m
           updateModeSubst s'
           putMode DummyM              
-          return (Bang t m', Lift ann)
-                 
+          return (Bang t (simplify m'), Lift ann)
        else equality flag a (Bang ty m)
 
 
@@ -812,15 +815,24 @@ equality flag tm ty =
           ty1 <- updateWithSubst ty'
           -- Here we are assuming there is no types like !!A
           case (erasePos tym1, erasePos ty1) of
-            (Bang tym1 m1, Bang ty1 m2) ->
-              do (ty1, a2) <- handleEquality tm ann tym1 ty1
+            (Bang tym1' m1, Bang ty1 m2) ->
+              do (ty1, a2) <- handleEquality tm ann tym1' ty1
                  let s = modeResolution m1 m2
                  when (s == Nothing) $ error "mode mismatch" 
                  let Just s' = s
                      m1' = modeSubst s' m1
                  updateModeSubst s'
-                 return (Bang ty1 m1', a2)
-            (tym1 , Bang ty1 m) -> throwError $ BangValue tm (Bang ty1 m)
+                 return (Bang ty1 (simplify m1'), a2)
+            (tym1 , Bang ty1 m) -> 
+              throwError $ BangValue tm (Bang ty1 m)
+            (Circ a1 a2 m1, Circ b1 b2 m2) ->
+              do let s = modeResolution m1 m2
+                 when (s == Nothing) $ error "mode mismatch" 
+                 let Just s' = s
+                 let m1' = modeSubst s' m1
+                 let m2' = modeSubst s' m2
+                 updateModeSubst s'
+                 handleEquality tm ann (Circ a1 a2 m1') (Circ b1 b2 m2')
             (tym1, ty1) -> handleEquality tm ann tym1 ty1
   where handleEquality tm ann tym1 ty1 = 
           do (a2, tym', anEnv) <- addAnn flag tm ann tym1 []
@@ -990,7 +1002,8 @@ handleTermApp flag ann pos t' t1 t2 =
        Arrow ty1 ty2 ->
          do (_, ann2) <- typeCheck flag t2 ty1
             let res = if flag then App' a1' ann2 else App a1' ann2
-            return (ty2, res)
+            ty2' <- updateWithModeSubst ty2
+            return (ty2', res)
        Arrow' ty1 ty2 ->
          do (_, ann2) <- typeCheck True t2 ty1
             let res = App' a1' ann2

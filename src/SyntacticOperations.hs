@@ -531,6 +531,7 @@ unEigenBound vars (Pos p e) = Pos p (unEigenBound vars e)
 unEigenBound vars (Unit) = Unit
 unEigenBound vars (Set) = Set
 unEigenBound vars Star = Star
+unEigenBound vars Sort = Sort
 unEigenBound vars a@(Var x) = a
 unEigenBound vars a@(GoalVar x) = a
 unEigenBound vars a@(EigenVar x) = if x `elem` vars then Var x else a

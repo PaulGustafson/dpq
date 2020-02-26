@@ -21,6 +21,8 @@ import Control.Monad.Except
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.List
+import Text.PrettyPrint
+import Debug.Trace
 
 -- | Global context.
 type Context = Map Id Info
@@ -905,7 +907,7 @@ putMode m =
      put ts{modeConstraints = m}
 
 
--- | update the current mode substitution.
+-- | Update the current mode substitution and current mode.
 updateModeSubst :: (ModeSubst, ModeSubst, ModeSubst) -> TCMonad ()
 updateModeSubst s@(s1, s2, s3) =
   do ts <- get
@@ -919,7 +921,8 @@ updateModeSubst s@(s1, s2, s3) =
 updateWithModeSubst :: Exp -> TCMonad Exp
 updateWithModeSubst e =
   do ts <- get
-     return $ bSubstitute (modeSubstitution ts) e
+     let s@(s1, s2, s3) = modeSubstitution ts
+     return $ bSubstitute s e
     
 
 

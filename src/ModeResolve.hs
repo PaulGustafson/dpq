@@ -7,6 +7,7 @@ import Substitution
 
 import Nominal
 import Text.PrettyPrint
+import Data.List
 import Prelude hiding((<>))
 
 modeResolution m1 DummyM = Just ([], [], [])
@@ -106,11 +107,11 @@ bSubstitute s (Tensor t t') =
 bSubstitute s (Circ t t' m) =
   let t1' = bSubstitute s t
       t2' = bSubstitute s t'
-      m' = modeSubst s m
+      m' = simplify $ modeSubst s m
   in Circ t1' t2' m'
 
 bSubstitute s (Bang t m) =
-  Bang (bSubstitute s t) (modeSubst s m)
+  Bang (bSubstitute s t) (simplify $ modeSubst s m)
 
 bSubstitute s (Pi bind t) =
   open bind $
@@ -174,3 +175,21 @@ bSubstitute s (Lift t) = Lift (bSubstitute s t)
 bSubstitute s (Pos p e) = Pos p (bSubstitute s e)
 bSubstitute s a = error ("from bSubstitute: " ++ show (disp a))  
 
+
+flattenB a@(BConst x) = [a]
+flattenB a@(BVar x) = [a]
+flattenB (BAnd x y) = flattenB x ++ flattenB y
+
+simplify DummyM = DummyM
+simplify (M e1 e2 e3) = M (simplifyB e1) (simplifyB e2) (simplifyB e3)
+
+simplifyB :: BExp -> BExp
+simplifyB e =
+  let bs = filter (\ x -> x /= BConst True) $ flattenB e
+  in if null bs then BConst True else
+       case find (\ x -> x == BConst False) bs of
+         Just _ -> BConst False
+         Nothing -> 
+           let bs' = nub bs
+               e' = foldr BAnd (head bs') (tail bs')
+           in e'
