@@ -184,7 +184,7 @@ dispAt b s =
 instance Disp Exp where
   display flag (Var x) = display flag x
   display flag (GoalVar x) = display flag x
-  display flag (EigenVar x) = display flag x
+  display flag (EigenVar x) = brackets (display flag x)
   display flag (Const id) = display flag id
   display flag (LBase id) = display flag id
   display flag (Base id) = display flag id

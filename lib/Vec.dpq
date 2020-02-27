@@ -73,7 +73,7 @@ append' n l1 l2 = case n of
 
 infixl 11 ++
 
-(++) : ! forall a (n m : Nat) -> Vec a n  -> Vec a m -> Vec a (add n m)
+-- (++) : ! forall a (n m : Nat) -> Vec a n  -> Vec a m -> Vec a (add n m)
 (++) = append 
 
 reverse_aux : ! {a : Type} -> {n m : Nat} -> Vec a n -> Vec a m -> Vec a (add n m)

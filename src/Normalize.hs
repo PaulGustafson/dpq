@@ -16,7 +16,7 @@ import Substitution
 
 import Nominal
 
-
+import Text.PrettyPrint
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Control.Monad.Except
@@ -438,18 +438,19 @@ normalize (LetPat m bd) =
      case flatten m' of
        Nothing -> return (LetPat m' bd)
        Just (Left id, args) ->
-         open bd $ \ p m ->
+         open bd $ \ p n ->
          case p of
            PApp kid vs
              | kid == id ->
-               let m' = helper args vs m in normalize m'
+               let m1 = helper args vs n in normalize m1
            p -> error "from normalize letpat"
-  where helper (a:args) ((Right x):vs) m =
+  where helper :: [Exp] -> [Either (NoBind Exp) Variable] -> Exp -> Exp
+        helper (a:args) ((Right x):vs) m =
           helper args vs (apply [(x, a)] m)
         helper (a:args) ((Left (NoBind t)):vs) m =
           helper args vs m
         helper [] [] m = m
-        
+        helper a b m = error $ "fromhelper:" ++ (show $ sep $ map disp a)
 normalize b@(Unit) = return b
 normalize b@(Set)  = return b
 normalize b@(Sort)  = return b

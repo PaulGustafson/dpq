@@ -13,9 +13,9 @@ import Prelude hiding((<>))
 modeResolution m1 DummyM = Just ([], [], [])
 modeResolution DummyM m2 = Just ([], [], [])
 modeResolution (M x1 x2 x3) (M y1 y2 y3) =
-  let s1 = modeResove x1 y1 
-      s2 = modeResove x2 y2
-      s3 = modeResove x3 y3
+  let s1 = modeResolve x1 y1 
+      s2 = modeResolve x2 y2
+      s3 = modeResolve x3 y3
   in if null s1 then Nothing
      else if null s2 then Nothing
           else if null s3 then Nothing
@@ -40,11 +40,11 @@ type ModeSubst = [(Variable, BExp)]
 instance Disp [(Variable, BExp)] where
   display flag l = vcat $ map (\ (x, b) -> (dispRaw x <> text "|->" <> dispRaw b)) l
 
-modeResove :: BExp -> BExp -> [ModeSubst]
-modeResove (BConst x) (BConst y) | x == y = [[]]
-modeResove (BConst x) (BConst y) | otherwise = []
-modeResove (BVar x) e = [[(x, e)]]
-modeResove e (BVar x) = [[(x, e)]]
+modeResolve :: BExp -> BExp -> [ModeSubst]
+modeResolve (BConst x) (BConst y) | x == y = [[]]
+modeResolve (BConst x) (BConst y) | otherwise = []
+modeResolve (BVar x) e = [[(x, e)]]
+modeResolve e (BVar x) = [[(x, e)]]
 modeResolve (BConst True) (BAnd e1 e2) =
   do s1 <- modeResolve (BConst True) e1
      s2 <- modeResolve (BConst True) e2
@@ -173,6 +173,7 @@ bSubstitute s (Force' t) = Force' (bSubstitute s t)
 bSubstitute s (Lift t) = Lift (bSubstitute s t) 
 
 bSubstitute s (Pos p e) = Pos p (bSubstitute s e)
+bSubstitute s a@(Case _ _) = a
 bSubstitute s a = error ("from bSubstitute: " ++ show (disp a))  
 
 
