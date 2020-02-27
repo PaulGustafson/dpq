@@ -246,7 +246,7 @@ betaNormalize a = error $ "from betaNormalize" ++ (show (disp a))
 -- function that produces a basic value, then we
 -- will one step normalize that function into the corresponding value expression.
 normalize :: Exp -> TCMonad Exp
-normalize a | trace (show $ disp a) $ False = undefined
+-- normalize a | trace (show $ disp a) $ False = undefined
 normalize a@(Var x) =
   do ts <- get
      let lc = localCxt $ lcontext ts

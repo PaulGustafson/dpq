@@ -459,6 +459,7 @@ elaborateInstance pos f' ty mths =
                let xs' = drop (length vs) xs
                    b'' = apply (zip vs xs) b'
                in instantiateWith b'' xs'
+             instantiateWith (Mod (Abst _ t)) xs = instantiateWith t xs
              instantiateWith t xs = t
              helper env instEnv (p, _, m) t =
                let env' = map (\ x -> case x of

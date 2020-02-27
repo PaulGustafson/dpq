@@ -349,6 +349,7 @@ unTensor _ _ = Nothing
 
 flattenArrows :: Exp -> ([(Maybe Variable, Exp)], Exp)
 flattenArrows (Pos p a) = flattenArrows a
+flattenArrows (Mod (Abst vs a)) = flattenArrows a
 flattenArrows (Arrow t1 t2) =
   let (res, h) = flattenArrows t2 in
   ((Nothing, t1):res, h)
