@@ -55,9 +55,9 @@ initialParserState = ParserState{
 -- | Initial operator table. The precedence is in descending order
 -- (See <https://hackage.haskell.org/package/parsec-3.1.14.0/docs/Text-Parsec-Expr.html Text.Parsec.Expr> for
 -- further information). Currently, we have the following build-in operators:
--- ! (precedence 5), * (precedence 7), -> (precedence 10), : (precedence 16).
+-- * (precedence 7), -> (precedence 10), : (precedence 16).
 initialOpTable :: [[Operator String ParserState (IndentT Identity) Exp]]
-initialOpTable = [[], [], [], [], [], [unaryOp "!" Bang], [], [binOp AssocLeft "*" Tensor] , [], [], [binOp AssocRight "->" Arrow], [], [], [], [], [], [binOp AssocLeft ":" WithAnn]]
+initialOpTable = [[], [], [], [], [], [], [], [binOp AssocLeft "*" Tensor] , [], [], [binOp AssocRight "->" Arrow], [], [], [], [], [], [binOp AssocLeft ":" WithAnn]]
   where binOp assoc op f = Infix (reservedOp op >> return f) assoc
         unaryOp op f = Prefix (reservedOp op >> return f) 
 
@@ -282,16 +282,24 @@ objectDecl =
 
 -- | Parse a mode declaration.
 parseMode =
-  do input <- braces ((reserved "Ctrl" >> return "Ctrl") <|> (reserved "Adj" >> return "Adj")) 
-     return $ Just input
-                    
-     
+  do input <- braces $ sepBy1 zeroOrOne comma 
+     when (length input /= 3) $ unexpected "expecting exactly 3 modalities."
+     let [a, b, c] = input
+     return (a, b, c)
+
+zeroOrOne :: Parser Bool
+zeroOrOne = 
+  do i <- integer
+     when ((i /= 0) && (i /= 1)) $ unexpected $ show i ++ ", expecting 0 or 1."
+     if i == 1 then return True
+       else return False
+       
 -- | Parse a gate declaration.
 gateDecl :: Parser Decl
 gateDecl =
   do reserved "gate"
      p <- getPosition
-     m <- option Nothing parseMode
+     m <- parseMode
      g <- const
      args <- many (const >>= \ a -> return $ Pos (P p) (Base a))
      reservedOp ":"
@@ -519,6 +527,13 @@ ifExp =
      t2 <- term
      return $ Case c [("True", [], t1), ("False", [], t2)]
 
+-- | Parse a bang type
+bangExp =
+  do reservedOp "!"
+     m <- option Nothing parseMode
+     ty <- typeExp
+     return $ Bang ty m
+
 -- | Parse a dependent pi-type.
 piType :: Parser Exp
 piType =
@@ -591,12 +606,13 @@ forallType =
 circType :: Parser Exp
 circType =
   do reserved "Circ"
+     m <- option Nothing parseMode
      (t, u) <- parens $ do
                 t <- typeExp
                 comma
                 u <- typeExp
                 return (t, u)
-     return $ Circ t u
+     return $ Circ t u m
 
 -- | Parse @Type@.
 set :: Parser Exp

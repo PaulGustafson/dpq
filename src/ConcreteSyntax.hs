@@ -22,8 +22,8 @@ data Exp =
   | Arrow Exp Exp -- ^ Linear arrow type: @T -> T@.
   | Imply [Exp] Exp -- ^ Constraint type: @(P) => T@.
   | Tensor Exp Exp -- ^ Tensor product: @T * T'@.
-  | Bang Exp -- ^ Bang type: @!A@.
-  | Circ Exp Exp -- ^ Circuit type: @Circ(S, S')@.
+  | Bang Exp (Bool, Bool, Bool) -- ^ Bang type: @!A@.
+  | Circ Exp Exp (Bool, Bool, Bool) -- ^ Circuit type: @Circ(S, S')@.
   | Pi [String] Exp Exp -- ^ Linear dependent type: @(x : T) -> T'@.
   | PiImp [String] Exp Exp -- ^ Implicit dependent type: @{x : T} -> T'@.
   | Exists String Exp Exp -- ^ Linear existential type: @(x : T) * T'@.
@@ -57,7 +57,7 @@ data Binding =
   deriving (Show, Eq)
 
 -- | Top-level declarations.
-data Decl = GateDecl Position String [Exp] Exp (Maybe String)
+data Decl = GateDecl Position String [Exp] Exp (Bool, Bool, Bool)
             -- ^ Gate declaration, ['Exp'] are the parameters for the gate, 'Exp' is
             -- a type expression specifying the input and output of the gate. 
           | ControlDecl Position String [Exp] Exp
