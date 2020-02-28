@@ -273,7 +273,19 @@ instance Disposable Qubit where
 -- ----------------------------------------------------------------------
 -- * Obtain reversible circuits from WithGarbage
 
-f1 (a b : Type) (f : !(a -> WithGarbage b)) = (λ (z : a) -> unGarbage (f z))
+
+f2 : ! (a b : Type) -> (Simple a) => !(a -> WithGarbage b) ->
+           (a -> ((n : Nat) * Vec Qubit n * b))
+f2 a b f =
+  (λ (z : a) -> unGarbage (f z))
+
+f1 : ! (a b : Type) -> (Simple a) => !(a -> WithGarbage b) ->
+           (n : Nat) * (Simple (Vec Qubit n * b)) => !(Vec Qubit n * b -> a)
+f1 a b f =
+  let (n, circ) = existsBox a (λx -> Vec Qubit x * b) (\ x -> f2 a b f x)
+  in (n, unbox (reverse circ))
+  -- (λ (z : a) -> unGarbage (f z))
+
 with_computed : ! forall d ->  (a b c : Type) ->
                     (Simple a, Simple b) =>
                     !(a -> WithGarbage b) ->

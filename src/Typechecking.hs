@@ -459,7 +459,9 @@ typeCheck flag a (Bang ty m) =
           updateModeSubst s'
           putMode DummyM              
           return (Bang t (simplify m'), Lift ann)
-       else equality flag a (Bang ty m)
+       else throwError $ BangValue a (Bang ty m)
+       
+       -- equality flag a (Bang ty m)
 
 
 typeCheck False c@(Lam bind) t =

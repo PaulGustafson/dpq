@@ -39,7 +39,7 @@ evaluate circ e =
   do st <- get
      let gl = globalCxt $ lcontext st
          (r, s) = runState (runExceptT $ eval e)
-                  ES{morph = circ, evalEnv = gl, localEvalEnv = Map.empty, gcSize = 10000}
+                  ES{morph = circ, evalEnv = gl, localEvalEnv = Map.empty}
      case r of
        Left e -> throwError $ EvalErr e
        Right r -> return (r, morph s)
@@ -49,9 +49,9 @@ evaluation :: EExp -> TCMonad Value
 evaluation e =
   do st <- get
      let gl = globalCxt $ lcontext st
-         (r, _) = runState (runExceptT $ eval e)
-                  ES{morph = Morphism VStar [] VStar, evalEnv = gl, localEvalEnv = Map.empty,
-                     gcSize = 10000}
+         (r, s) = runState (runExceptT $ eval e)
+                  ES{morph = Morphism VStar [] VStar, evalEnv = gl, localEvalEnv = Map.empty
+                     }
      case r of
        Left e -> throwError $ EvalErr e
        Right r -> return r
@@ -66,14 +66,11 @@ type Eval a = ExceptT EvalError (State EvalState) a
 data EvalState =
   ES { morph :: Morphism, -- ^ The underlying incomplete circuit.
        evalEnv :: Context,  -- ^ The global evaluation context.
-       localEvalEnv :: Map Variable (Value, Integer, Integer, [Variable]),
+       localEvalEnv :: Map Variable (Value, Integer, Integer, [Variable])
        -- ^ The heap for evaluation, represented by a map.
        -- The first 'Integer' represents the approximate number of occurrences,
        -- the second 'Integer' represents its accurate reference count,
        -- the ['Variable'] is the variables that it refers to.
-       
-       gcSize :: Integer
-       -- ^ The size of the heap. Currently it is not used for gc.
      }
 
 -- | Evaluate an expression to
@@ -215,7 +212,6 @@ lookupLEnv :: Variable -> Eval Value
 lookupLEnv x =
   do st <- get
      let lenv = localEvalEnv st
-         size = gcSize st
      case Map.lookup x lenv of
        Nothing -> error $ "from lookupLEnv:" ++ show x
        Just (v, n, ref, ps) ->
@@ -522,3 +518,6 @@ decrRef (v:vs) m =
         
                              
           
+
+
+

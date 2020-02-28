@@ -8,7 +8,7 @@ import Substitution
 import Utils
 import SyntacticOperations
 
-
+import Text.PrettyPrint
 import qualified Data.Set as S
 import qualified Data.Map as Map
 import Control.Monad.State
@@ -28,6 +28,7 @@ runUnify t1 t2 =
 -- the unification of a eigenvariable [x] with itself and its variable counterpart x.
 -- (the unification of x and [x] can happen due to dependent pattern matching).
 unify :: Exp -> Exp -> State Subst Bool
+-- unify a b | trace (show $ dispRaw a <+> text ":" <+> dispRaw b) $ False = undefined
 unify Unit Unit = return True
 unify Set Set = return True
 unify (Base x) (Base y) | x == y = return True
@@ -178,6 +179,12 @@ unify (AppTm t1 t2) (AppTm t3 t4) =
                unify (substitute sub t2) (substitute sub t4)
        else return False
 
+unify (Imply t1 t2) (Imply t3 t4) =
+  do a <- zipWithM unify t1 t3
+     if and a
+       then do sub <- get
+               unify (substitute sub t2) (substitute sub t4)
+       else return False
 
 unify t t' = return False
 
