@@ -441,7 +441,7 @@ typeCheck flag a@(Const x) (Bang ty m) =
             let s = modeResolution cMode m
             when (s == Nothing) $ throwError $ ModalityErr cMode m a
             let Just s'@(s1, s2, s3) = s
-                m' = modeSubst s' m
+                m' = modeSubst s' cMode
             updateModeSubst s'
             putMode DummyM              
             return (Bang t (simplify m'), Lift ann)
@@ -455,7 +455,7 @@ typeCheck flag a (Bang ty m) =
           let s = modeResolution cMode m
           when (s == Nothing) $ throwError $ ModalityErr cMode m a
           let Just s'@(s1, s2, s3) = s
-              m' = modeSubst s' m
+              m' = modeSubst s' cMode
           updateModeSubst s'
           putMode DummyM              
           return (Bang t (simplify m'), Lift ann)
@@ -1067,11 +1067,9 @@ addAnn flag e a (Bang t m) env =
   do let force = if flag then Force' else Force
      t' <- if flag then shape t else return t
      case m of
-       DummyM ->
-         do  s <- newNames ["mode1", "mode2", "mode3"]
-             let m' = freshMode s
-             addMode m' >> addAnn flag e (force a) t' env
-       _ -> addMode m >> addAnn flag e (force a) t' env
+       DummyM -> addAnn flag e (force a) t' env
+       _ | flag == True -> addAnn flag e (force a) t' env
+       _ | otherwise -> addMode m >> addAnn flag e (force a) t' env
 
 addAnn flag e a (Forall bd ty) env | isKind ty = open bd $ \ xs t ->
        let a' = foldl AppType a (map Var xs)
