@@ -273,6 +273,7 @@ instance Disposable Qubit where
 -- ----------------------------------------------------------------------
 -- * Obtain reversible circuits from WithGarbage
 
+f1 (a b : Type) (f : !(a -> WithGarbage b)) = (λ (z : a) -> unGarbage (f z))
 with_computed : ! forall d ->  (a b c : Type) ->
                     (Simple a, Simple b) =>
                     !(a -> WithGarbage b) ->

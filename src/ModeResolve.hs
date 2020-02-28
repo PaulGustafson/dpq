@@ -5,6 +5,7 @@ import Syntax
 import Utils
 import Substitution
 
+import Control.Monad
 import Nominal
 import Text.PrettyPrint
 import Data.List
@@ -41,33 +42,37 @@ instance Disp [(Variable, BExp)] where
   display flag l = vcat $ map (\ (x, b) -> (dispRaw x <> text "|->" <> dispRaw b)) l
 
 modeResolve :: BExp -> BExp -> [ModeSubst]
-modeResolve (BConst x) (BConst y) | x == y = [[]]
-modeResolve (BConst x) (BConst y) | otherwise = []
-modeResolve (BVar x) e = [[(x, e)]]
-modeResolve e (BVar x) = [[(x, e)]]
-modeResolve (BConst True) (BAnd e1 e2) =
-  do s1 <- modeResolve (BConst True) e1
-     s2 <- modeResolve (BConst True) e2
+modeResolve e1 e2 = modeResolve' (simplifyB e1) (simplifyB e2)
+
+modeResolve' :: BExp -> BExp -> [ModeSubst]
+modeResolve' (BConst x) (BConst y) | x == y = return []
+modeResolve' (BConst x) (BConst y) | otherwise = mzero
+modeResolve' (BVar x) e = return [(x, e)]
+modeResolve' e (BVar x) = return [(x, e)]
+modeResolve' (BConst True) (BAnd e1 e2) =
+  do s1 <- modeResolve' (BConst True) e1
+     s2 <- modeResolve' (BConst True) e2
      return $ mergeModeSubst s1 s2
-modeResolve (BAnd e1 e2) (BConst True) =
-  do s1 <- modeResolve (BConst True) e1
-     s2 <- modeResolve (BConst True) e2
+modeResolve' (BAnd e1 e2) (BConst True) =
+  do s1 <- modeResolve' (BConst True) e1
+     s2 <- modeResolve' (BConst True) e2
      return $ mergeModeSubst s1 s2
 
-modeResolve (BAnd e1 e2) (BConst False) =
-  do s1 <- modeResolve (BConst False) e1
-     s2 <- modeResolve (BConst False) e2
-     [s1, s2]
+modeResolve' (BAnd e1 e2) (BConst False) =
+  modeResolve' (BConst False) e1 `mplus` modeResolve' (BConst False) e2
 
-modeResolve (BConst False) (BAnd e1 e2) =
-  do s1 <- modeResolve (BConst False) e1
-     s2 <- modeResolve (BConst False) e2
-     [s1, s2]
 
-modeResolve (BAnd e1 e2) (BAnd e1' e2') =
-  do s1 <- modeResolve e1 e1'
-     s2 <- modeResolve e2 e2'
-     return $ mergeModeSubst s1 s2
+modeResolve' (BConst False) (BAnd e1 e2) =
+  modeResolve' (BConst False) e1 `mplus` modeResolve' (BConst False) e2
+
+-- This is 
+modeResolve' (BAnd e1 e2) (BAnd e1' e2') =
+  do{ s1 <- modeResolve' e1 e1';
+      s2 <- modeResolve' e2 e2';
+      return $ mergeModeSubst s1 s2} `mplus`
+  do{ s1 <- modeResolve' e1 e2';
+      s2 <- modeResolve' e2 e1';
+      return $ mergeModeSubst s1 s2}
 
 mergeModeSubst s1 s2 =
   s1 ++ [ (x, bSubst s1 t) | (x, t)<- s2]
