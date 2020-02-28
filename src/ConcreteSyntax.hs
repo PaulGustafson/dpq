@@ -22,8 +22,8 @@ data Exp =
   | Arrow Exp Exp -- ^ Linear arrow type: @T -> T@.
   | Imply [Exp] Exp -- ^ Constraint type: @(P) => T@.
   | Tensor Exp Exp -- ^ Tensor product: @T * T'@.
-  | Bang Exp (Bool, Bool, Bool) -- ^ Bang type: @!A@.
-  | Circ Exp Exp (Bool, Bool, Bool) -- ^ Circuit type: @Circ(S, S')@.
+  | Bang Exp (Maybe (Bool, Bool, Bool)) -- ^ Bang type: @!A@.
+  | Circ Exp Exp (Maybe (Bool, Bool, Bool)) -- ^ Circuit type: @Circ(S, S')@.
   | Pi [String] Exp Exp -- ^ Linear dependent type: @(x : T) -> T'@.
   | PiImp [String] Exp Exp -- ^ Implicit dependent type: @{x : T} -> T'@.
   | Exists String Exp Exp -- ^ Linear existential type: @(x : T) * T'@.
@@ -112,7 +112,7 @@ data Decl = GateDecl Position String [Exp] Exp (Bool, Bool, Bool)
             -- operator, e.g. infixr 30 $ . This means the infix operator $ is right associative
             -- and it has the lowest priority, which is 30. The lower the number is, the higher
             -- is the priority.
-          | Class Position String [([String], Exp)] [(Position, String, Exp)]
+          | Class Position String [([String], Exp)] [(Position, String, Exp, (Bool, Bool, Bool))]
             -- ^ Class declaration. [(['String'], 'Exp')] is a list of annotated arguments.
             -- [('Position', 'String', 'Exp')] is a list of methods and their types.
           | Instance Position

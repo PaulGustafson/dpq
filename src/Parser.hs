@@ -249,9 +249,10 @@ classDecl =
        where method =
                do pos <- getPosition
                   n <- parens operator <|> var
+                  m <- parseMode
                   reservedOp ":"
                   t <- typeExp
-                  return (P pos, n, t)
+                  return (P pos, n, t, m)
 
 -- | Parse an instance declaration. For the instance of the phantom class,
 -- one should not use the keyword "where".
@@ -439,6 +440,7 @@ atomExp = wrapPos (
        <|> forallType
        <|> ifExp
        <|> caseExp
+       <|> bangExp
        <|> letExp
        <|> doExp
        <|> lamAnn
@@ -530,7 +532,7 @@ ifExp =
 -- | Parse a bang type
 bangExp =
   do reservedOp "!"
-     m <- option Nothing parseMode
+     m <- option Nothing (parseMode >>= \ x -> return (Just x))
      ty <- typeExp
      return $ Bang ty m
 
@@ -606,7 +608,7 @@ forallType =
 circType :: Parser Exp
 circType =
   do reserved "Circ"
-     m <- option Nothing parseMode
+     m <- option Nothing (parseMode >>= \ x -> return (Just x))
      (t, u) <- parens $ do
                 t <- typeExp
                 comma

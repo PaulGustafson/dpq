@@ -294,19 +294,30 @@ resolve d (C.Tensor t u) =
      
 resolve d (C.Unit) = return Unit
 
-resolve d (C.Bang t) = 
+resolve d (C.Bang t Nothing) = 
   do t' <- resolve d t
      ns <- refresh ["#x", "#y", "#z"]
      let m = freshMode ns
      return (Bang t' m)
 
-resolve d (C.Circ t u) = 
+resolve d (C.Bang t (Just (a, b,c))) = 
+  do t' <- resolve d t
+     let m = M (BConst a) (BConst b) (BConst c)
+     return (Bang t' m)
+
+resolve d (C.Circ t u Nothing) = 
   do t' <- resolve d t
      u' <- resolve d u
      ns <- refresh ["#x", "#y", "#z"]
      let m = freshMode ns
      return (Circ t' u' m)
-     
+
+resolve d (C.Circ t u (Just (a, b, c))) = 
+  do t' <- resolve d t
+     u' <- resolve d u
+     let m = M (BConst a) (BConst b) (BConst c)
+     return (Circ t' u' m)
+
 resolve d (C.Pi vs t1 t2) =
   lscopeVars d vs $ \d' xs -> 
   do t1' <- resolve d t1
@@ -389,7 +400,7 @@ resolveDecl scope (C.Defn p f qs args def) | not $ null args =
                                   Left _ -> []
                                   Right (vs, _) -> vs
                                   ) args
-         ty = C.Forall [(["#r"], C.Set)] $ C.Bang $ toForall qs pi 
+         ty = C.Forall [(["#r"], C.Set)] $ C.Bang (toForall qs pi) Nothing
      ty' <- resolve lscope' ty
      lscopeVars lscope' args' $ \ d xs ->
        do def' <- resolve d def
@@ -454,8 +465,8 @@ resolveDecl scope (C.Class pos c vs mths) =
        (dict, scope') <- addConst pos (c++"Dict") Const scope1
        let tyArgs = map C.Var $ concat $ map (\ x -> (fst x)) vs
            head = foldl C.App (C.Base c) tyArgs
-           tys = map (\ (_, _, t) -> t) mths
-           dictTy = C.Forall vs (foldr (\ x y -> C.Arrow (C.Bang x) y) head tys)
+           tys = map (\ (_, _, t, m) -> (t, m)) mths
+           dictTy = C.Forall vs (foldr (\ (x, m) y -> C.Arrow (C.Bang x (Just m)) y) head tys)
            kd1 = foldr (\ (x, ty) y -> C.Pi x ty y) C.Set vs
            lscope = toLScope scope'
        dictType <- resolve lscope dictTy    
@@ -465,10 +476,10 @@ resolveDecl scope (C.Class pos c vs mths) =
        return (Class pos d kd dict (abstractMode dictType) mths', scope'')
          where makeMethods scope' head vs [] =
                  return ([], scope')
-               makeMethods scope' head vs ((p, mname, mty):cs) =
+               makeMethods scope' head vs ((p, mname, mty, mode):cs) =
                  do (d, scope'') <- addConst p mname Const scope'
                     let lscope' = toLScope scope''
-                        ty = C.Bang $ C.Forall vs (C.Imply [head] mty)
+                        ty = C.Bang (C.Forall vs (C.Imply [head] mty)) (Just mode)
                     ty' <- resolve lscope' ty
                     (res, scope''') <- makeMethods scope'' head vs cs
                     return ((p, d, abstractMode ty'):res, scope''')
