@@ -57,9 +57,13 @@ initialParserState = ParserState{
 -- further information). Currently, we have the following build-in operators:
 -- * (precedence 7), -> (precedence 10), : (precedence 16).
 initialOpTable :: [[Operator String ParserState (IndentT Identity) Exp]]
-initialOpTable = [[], [], [], [], [], [], [], [binOp AssocLeft "*" Tensor] , [], [], [binOp AssocRight "->" Arrow], [], [], [], [], [], [binOp AssocLeft ":" WithAnn]]
+initialOpTable = [[], [], [], [], [], [unaryBang "!" Bang], [], [binOp AssocLeft "*" Tensor] , [], [], [binOp AssocRight "->" Arrow], [], [], [], [], [], [binOp AssocLeft ":" WithAnn]]
   where binOp assoc op f = Infix (reservedOp op >> return f) assoc
-        unaryOp op f = Prefix (reservedOp op >> return f) 
+        unaryBang op f =
+          Prefix $ do
+          reservedOp op
+          m <- option Nothing (try parseMode >>= \ x -> return (Just x))
+          return (\ x -> f x m) 
 
         
 -- | Parse a Proto-Quipper-D module from a file name /srcName/ and file
@@ -440,7 +444,6 @@ atomExp = wrapPos (
        <|> forallType
        <|> ifExp
        <|> caseExp
-       <|> bangExp
        <|> letExp
        <|> doExp
        <|> lamAnn
@@ -529,12 +532,6 @@ ifExp =
      t2 <- term
      return $ Case c [("True", [], t1), ("False", [], t2)]
 
--- | Parse a bang type
-bangExp =
-  do reservedOp "!"
-     m <- option Nothing (parseMode >>= \ x -> return (Just x))
-     ty <- typeExp
-     return $ Bang ty m
 
 -- | Parse a dependent pi-type.
 piType :: Parser Exp

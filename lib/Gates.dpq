@@ -4,73 +4,72 @@ import "lib/Basics.dpq"
 import "lib/Nat.dpq"
 
 
--- All gates must have at least one input->
-{-# Mode bx, ctrl, adj  #-}
-gate {Adj} Init0 : Unit -> Qubit
+-- All gates must have at least one input.
 
-{-# Mode bx, ctrl, adj  #-}
-gate {Adj} Init1 : Unit -> Qubit
+gate {1,0,1} Init0 : Unit -> Qubit
 
-gate {Adj} Term0 : Qubit -> Unit
-gate {Adj} Term1 : Qubit -> Unit
+gate {1,0,1} Init1 : Unit -> Qubit
 
-gate {Ctrl} WGate : Qubit -> Qubit -> Qubit * Qubit
+gate {1,0,1} Term0 : Qubit -> Unit
+gate {1,0,1} Term1 : Qubit -> Unit
 
-gate {Ctrl} WGateInverse : Qubit -> Qubit -> Qubit * Qubit
+gate {1,1,1} WGate : Qubit -> Qubit -> Qubit * Qubit
 
-gate {Ctrl} H : Qubit -> Qubit
+gate {1,1,1} WGateInverse : Qubit -> Qubit -> Qubit * Qubit
 
-gate {Ctrl} TGate : Qubit -> Qubit
+gate {1,1,1} H : Qubit -> Qubit
 
-gate {Ctrl} C_H : Qubit -> Qubit -> Qubit * Qubit
+gate {1,1,1} TGate : Qubit -> Qubit
+
+gate {1,1,1} C_H : Qubit -> Qubit -> Qubit * Qubit
 
 
 -- The second qubit is the control bit
-gate {Ctrl} CNot : Qubit -> Qubit -> Qubit * Qubit
+gate {1,1,1} CNot : Qubit -> Qubit -> Qubit * Qubit
 
 -- convention: to support circuit printing,
 -- any nontrivial binary control gate have to be prefixed with `C_`, e->g->
 -- the following C_X, C_Z->
-gate {Adj} C_X : Qubit -> Bit -> Qubit * Bit
+gate {1,0,1} C_X : Qubit -> Bit -> Qubit * Bit
 
-gate {Adj} C_Z : Qubit -> Bit -> Qubit * Bit
+gate {1,0,1} C_Z : Qubit -> Bit -> Qubit * Bit
 
 -- Rotatation gate, its parameter must be a monomoprhic type
-gate {Ctrl} R Nat : Qubit -> Qubit -> Qubit * Qubit
+gate {1,1,1} R Nat : Qubit -> Qubit -> Qubit * Qubit
 
-gate Discard : Bit -> Unit
+gate {1,0,0} Discard : Bit -> Unit
 
 -- Measurement gate
-gate Mea : Qubit -> Bit
+gate {1,0,0} Mea : Qubit -> Bit
 
 
 
 -- A Toffoli gate specialized to one positive and one negative
 -- control-> The second argument is the positive control and the third
 -- argument is the negative one->
-gate {Ctrl} ToffoliGate_10 : Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit
+gate {1,1,1} ToffoliGate_10 : Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit
 
 -- A Toffoli gate specialized to one positive and one negative
 -- control-> The second argument is the negative control and the third
 -- argument is the positive one->
-gate {Ctrl} ToffoliGate_01 : Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit
+gate {1,1,1} ToffoliGate_01 : Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit
 
 -- A Toffoli gate with signed controls-> A sign of 'True' means the
 -- control fires when the qubit is 1; a sign of 'False' means the
 -- control fires when the qubit is 0->
 -- The first parameter controls the second qubit, the second parameter
 -- controls the third qubit
-gate {Ctrl} ToffoliGate Bool Bool : Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit
+gate {1,1,1} ToffoliGate Bool Bool : Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit
 
 
 -- A controlled-not gate with a signed control, the second qubit is the controlling qubit
-gate {Ctrl} CNotGate Bool : Qubit -> Qubit -> Qubit * Qubit
+gate {1,1,1} CNotGate Bool : Qubit -> Qubit -> Qubit * Qubit
 
 -- A not gate
-gate {Ctrl} QNot : Qubit -> Qubit
+gate {1,1,1} QNot : Qubit -> Qubit
 
 
-gate {Ctrl} ControlledExpGate Bool : Qubit -> Qubit -> Qubit * Qubit
+gate {1,1,1} ControlledExpGate Bool : Qubit -> Qubit -> Qubit * Qubit
 
 -- A wrapper on ControlledExpGate
 controlledExpGate : ! (Qubit -> Qubit * Bool -> Qubit * Qubit)

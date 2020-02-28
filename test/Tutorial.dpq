@@ -17,40 +17,40 @@ object Bit
 -- * Gates
 
 -- Qubit initialization.
-gate Init0 : Unit -> Qubit
-gate Init1 : Unit -> Qubit
+gate {1,0,1} Init0 : Unit -> Qubit
+gate {1,0,1} Init1 : Unit -> Qubit
 
 -- Qubit termination. 
-gate Term0 : Qubit -> Unit
-gate Term1 : Qubit -> Unit
+gate {1,0,1} Term0 : Qubit -> Unit
+gate {1,0,1} Term1 : Qubit -> Unit
 
 -- Hadamard gate. 
-gate H : Qubit -> Qubit  
+gate {1,1,1} H : Qubit -> Qubit  
 
 -- CNot gate, the second qubit is the control bit. 
-gate CNot : Qubit -> Qubit -> Qubit * Qubit
+gate {1,1,1} CNot : Qubit -> Qubit -> Qubit * Qubit
 
 -- Controlled R gate, the second qubit is the control bit. 
-gate R Nat : Qubit -> Qubit -> Qubit * Qubit
+gate {1,1,1} R Nat : Qubit -> Qubit -> Qubit * Qubit
 
 -- Toffoli gate with signed controls. The first qubit is the target.
 -- The second qubit is a control with sign indicated
 -- by the first boolean parameter (positive or negative).
 -- Similarly, the third qubit is also a control with
 -- sign indicated by the second boolean parameter.
-gate ToffoliGate Bool Bool : Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit
+gate {1,1,1} ToffoliGate Bool Bool : Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit
 
 -- Bit discard gate.
-gate Discard : Bit -> Unit
+gate {1,0,0} Discard : Bit -> Unit
 
 -- Classical controlled X gate.
-gate C_X : Qubit -> Bit -> Qubit * Bit
+gate {1,0,1} C_X : Qubit -> Bit -> Qubit * Bit
 
 -- Classical controlled Z gate.
-gate C_Z : Qubit -> Bit -> Qubit * Bit
+gate {1,0,1} C_Z : Qubit -> Bit -> Qubit * Bit
 
 -- Measurement gate.
-gate Meas : Qubit -> Bit
+gate {1,0,0} Meas : Qubit -> Bit
 
 -- ----------------------------------------------------------------------
 -- * Addition function
@@ -224,11 +224,11 @@ test1 x = kill x
 -- * The monad type class
 
 class Monad (m : Type -> Type) where
-  return : forall a -> a -> m a
-  bind : forall a b -> m a -> (a -> m b) -> m b
+  return {1,1,1} : forall a -> a -> m a
+  bind {1,1,1} : forall a b -> m a -> (a -> m b) -> m b
 
-pure : ! forall (m : Type -> Type) ->
-           (Monad m) => forall a -> a -> m a
+-- pure : ! forall (m : Type -> Type) ->
+--            (Monad m) => forall a -> a -> m a
 pure = return
 
 seq : ! forall (m : Type -> Type) ->
@@ -265,7 +265,7 @@ unGarbage : ! forall a -> WithGarbage a -> (n : Nat) * Vec Qubit n * a
 unGarbage z = let WG ex a = z in let (n, v) = ex in (n, (v, a))
 
 class Disposable a where
-  dispose : a -> WithGarbage Unit
+  dispose {1,1,1} : a -> WithGarbage Unit
 
 instance Disposable Qubit where
   dispose q = WG (1, VCons q VNil) ()
