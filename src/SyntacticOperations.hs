@@ -296,10 +296,10 @@ modalAnd DummyM m = m
 modalAnd m DummyM = m
 modalAnd (M e1 e2 e3) (M e1' e2' e3') =
   M (helper e1 e1') (helper e2 e2') (helper e3 e3')
-    where helper (BConst True) e = e
-          helper (BConst False) e = BConst False
-          helper e (BConst True) = e
-          helper e (BConst False) = BConst False
+    where -- helper (BConst True) e = e
+          -- helper (BConst False) e = BConst False
+          -- helper e (BConst True) = e
+          -- helper e (BConst False) = BConst False
           helper e1 e2 = BAnd e1 e2
 
 -- | Get a variable according to 'VarSwitch'.

@@ -108,8 +108,11 @@ process (Def pos f' ty' def') =
      (ty1', ann) <- typeChecking False (Pos pos def') ty1
      -- note: need to do an erasure check before proof checking
      a <- erasure ann
+     st <- get
+     
 --     proofChecking False ann ty1'
      v <- evaluation a
+       -- trace (show $ dispRaw f' <+> dispRaw ty1' <+> dispRaw (modeSubstitution st) ) $ 
      b <- isBasicValue v
      v' <- if b then typeChecking False (toExp v) ty1' >>= \ x -> return $ Just (snd x)
            else if isCirc v then return $ Just (Const f') else return Nothing

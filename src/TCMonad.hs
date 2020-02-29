@@ -125,7 +125,6 @@ data TypeState = TS {
                                               -- is well-quantified. It is unchecked when the
                                               -- type is intended to be used as an instance type.
                      infer :: Bool, -- ^ If it is in infer mode.
-                     modeConstraints :: Modality,
                      modeSubstitution :: (ModeSubst, ModeSubst, ModeSubst)
                     }
 
@@ -888,26 +887,8 @@ collapsePos :: Position -> TypeError -> TypeError
 collapsePos p a@(ErrPos _ _) = a
 collapsePos p a = ErrPos p a
 
-addMode :: Modality -> TCMonad ()
-addMode m =
-  do ts <- get
-     let m' = modeConstraints ts
-         m'' = modalAnd m m'
-     put ts{modeConstraints = m''}
 
-getMode :: TCMonad Modality
-getMode =
-  do ts <- get
-     let m' = modeConstraints ts
-     return m'
-
-putMode :: Modality -> TCMonad ()
-putMode m =
-  do ts <- get
-     put ts{modeConstraints = m}
-
-
--- | Update the current mode substitution and current mode.
+-- | Update the current mode substitution.
 updateModeSubst :: (ModeSubst, ModeSubst, ModeSubst) -> TCMonad ()
 updateModeSubst s@(s1, s2, s3) =
   do ts <- get
@@ -915,9 +896,9 @@ updateModeSubst s@(s1, s2, s3) =
          s1'' = mergeModeSubst s1 s1'
          s2'' = mergeModeSubst s2 s2'
          s3'' = mergeModeSubst s3 s3'
-         m = modeConstraints ts
-     put ts{modeConstraints = modeSubst s m, modeSubstitution = (s1'', s2'', s3'')}
+     put ts{ modeSubstitution = (s1'', s2'', s3'')}
 
+-- | 
 updateWithModeSubst :: Exp -> TCMonad Exp
 updateWithModeSubst e =
   do ts <- get

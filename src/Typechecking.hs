@@ -37,55 +37,55 @@ import Prelude hiding((<>))
 -- of lambda, box, unbox, reverse, runCirc, existsBox in types (these will give rise to
 -- type errors saying no typing rule for inference). 
 
-typeCheck :: Bool -> Exp -> Exp -> TCMonad (Exp, Exp)
+typeCheck :: Bool -> Modality -> Exp -> Exp -> TCMonad (Exp, Exp, Modality)
 
 -- | Infer a type for a term, also return elaborated term.
-typeInfer :: Bool -> Exp -> TCMonad (Exp, Exp)
+typeInfer :: Bool -> Modality -> Exp -> TCMonad (Exp, Exp, Modality)
 
-typeInfer flag (Pos p e) =
-  do (ty, ann) <- typeInfer flag e `catchError` \ e -> throwError $ addErrPos p e
-     return (ty, (Pos p ann))
+typeInfer flag m (Pos p e) =
+  do (ty, ann, m') <- typeInfer flag m e `catchError` \ e -> throwError $ addErrPos p e
+     return (ty, (Pos p ann), m')
 
-typeInfer True Set = return (Sort, Set)
+typeInfer True m Set = return (Sort, Set, m)
 
-typeInfer True a@(Base kid) =
-  lookupId kid >>= \ x -> return (classifier x, a)
+typeInfer True m a@(Base kid) =
+  lookupId kid >>= \ x -> return (classifier x, a, m)
 
-typeInfer True a@(LBase kid) =
-  lookupId kid >>= \ x -> return (classifier x, a)
+typeInfer True m a@(LBase kid) =
+  lookupId kid >>= \ x -> return (classifier x, a, m)
 
-typeInfer flag a@(Var x) =
+typeInfer flag m a@(Var x) =
   do (t, _) <- lookupVar x
      if flag then
        do t' <- shape t 
-          return (t', a)
+          return (t', a, m)
        else
        do updateCount x
-          return (t, a)
+          return (t, a, m)
 
-typeInfer flag a@(EigenVar x) =
+typeInfer flag m a@(EigenVar x) =
   do (t, _) <- lookupVar x
      if flag then
        do t' <- shape t 
-          return (t', a)
+          return (t', a, m)
        else
        do updateCount x
-          return (t, a)
+          return (t, a, m)
      
-typeInfer flag a@(Const kid) =
+typeInfer flag m a@(Const kid) =
   do funPac <- lookupId kid
      let cl = classifier funPac
      case cl of
        Mod (Abst _ cl') -> 
-         return (cl', a)
-       _ -> return (cl, a)
+         return (cl', a, m)
+       _ -> return (cl, a, m)
          
 
-typeInfer flag a@(App t1 t2) =
-  do (t', ann) <- typeInfer flag t1
+typeInfer flag m a@(App t1 t2) =
+  do (t', ann, m') <- typeInfer flag m t1
      if isKind t'
        then handleTypeApp ann t' t1 t2 
-       else handleTermApp flag ann t1 t' t1 t2
+       else handleTermApp flag ann t1 t' t1 t2 m m'
 
 typeInfer False a@(UnBox) =
   freshNames ["a", "b", "alpha", "beta"] $ \ [a, b, alpha, beta] ->
@@ -446,19 +446,17 @@ typeCheck flag a@(Const x) (Bang ty m) =
             putMode DummyM              
             return (Bang t (simplify m'), Lift ann)
   
-typeCheck flag a (Bang ty m) =
+typeCheck flag cMode a (Bang ty m) =
   do r <- isValue a
      if r then
        do checkParamCxt a
-          (t, ann) <- typeCheck flag a ty
-          cMode <- getMode
+          (t, ann) <- typeCheck flag m a ty
           let s = modeResolution cMode m
           when (s == Nothing) $ throwError $ ModalityErr cMode m a
           let Just s'@(s1, s2, s3) = s
               m' = modeSubst s' cMode
           updateModeSubst s'
-          putMode DummyM              
-          return (Bang t (simplify m'), Lift ann)
+          return (Bang t (simplify m'), Lift ann, DummyM)
        else throwError $ BangValue a (Bang ty m)
        
        -- equality flag a (Bang ty m)
@@ -1006,9 +1004,10 @@ handleTypeApp ann t' t1 t2 =
     a -> throwError $ KAppErr t1 (App t1 t2) a  
 
 -- | Infer a type for a term application.
-handleTermApp :: Bool -> Exp -> Exp -> Exp -> Exp -> Exp -> TCMonad (Exp, Exp)
-handleTermApp flag ann pos t' t1 t2 = 
-  do (a1', rt, anEnv) <- addAnn flag pos ann t' []
+handleTermApp :: Bool -> Exp -> Exp -> Exp -> Exp -> Exp -> Modality -> Modality
+                 -> TCMonad (Exp, Exp, Modality)
+handleTermApp flag ann pos t' t1 t2 m m' = 
+  do (a1', rt, anEnv, m'') <- addAnn flag m' pos ann t' []
      mapM (\ (x, t) -> addVar x t) anEnv
      rt' <- updateWithSubst rt
      case rt' of
@@ -1017,10 +1016,10 @@ handleTermApp flag ann pos t' t1 t2 =
             let res = AppDepTy a1' ann2
             return (ty2, res)
        Arrow ty1 ty2 ->
-         do (_, ann2) <- typeCheck flag t2 ty1
+         do (_, ann2, m2) <- typeCheck flag m t2 ty1
             let res = if flag then App' a1' ann2 else App a1' ann2
             ty2' <- updateWithModeSubst ty2
-            return (ty2', res)
+            return (ty2', res, modalAnd m'' m2)
        Arrow' ty1 ty2 ->
          do (_, ann2) <- typeCheck True t2 ty1
             let res = App' a1' ann2

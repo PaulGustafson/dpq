@@ -188,6 +188,9 @@ instance Disp a => Disp (Maybe a) where
   display _ Nothing = text ""
   display b (Just x) = display b x
 
+instance (Disp a, Disp b, Disp c ) => Disp (a, b, c) where
+  display flag (a, b, c) = parens (display flag a <> comma <> display flag b <> comma <> display flag c)
+
 
 -- * The zipper for counting
 

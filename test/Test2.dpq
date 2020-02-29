@@ -67,3 +67,8 @@ boxCp = box Qubit cp
 rev (x : Qubit) = (unbox (reverse boxCp)) (cp x)
 
 boxRev = box Qubit rev
+
+-- The following is an example of mode should not be shared as a global. 
+-- g1 : ! (Qubit -> Bit)
+-- g1 x = let (a, b) = (Meas x, (\ x -> x) : ! (Bool -> Bool)) in a
+
