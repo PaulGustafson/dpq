@@ -279,11 +279,11 @@ f2 : ! (a b : Type) -> (Simple a) => !(a -> WithGarbage b) ->
 f2 a b f =
   (λ (z : a) -> unGarbage (f z))
 
--- f1 : ! (a b : Type) -> (Simple a) => !(a -> WithGarbage b) ->
---            (n : Nat) * (Simple (Vec Qubit n * b)) => !(Vec Qubit n * b -> a)
--- f1 a b f =
---   let (n, circ) = existsBox a (λx -> Vec Qubit x * b) (\ x -> f2 a b f x)
---   in (n, unbox (reverse circ))
+f1 : ! (a b : Type) -> (Simple a) => !(a -> WithGarbage b) ->
+           (n : Nat) * (Simple (Vec Qubit n * b)) => !(Vec Qubit n * b -> a)
+f1 a b f =
+  let (n, circ) = existsBox a (λx -> Vec Qubit x * b) (\ x -> f2 a b f x)
+  in (n, \ x -> unbox (reverse circ) x)
   -- (λ (z : a) -> unGarbage (f z))
 
 with_computed : ! forall d ->  (a b c : Type) ->
@@ -367,6 +367,6 @@ copy p =
 
 -- Box adder' into a reversible circuit.
 adderRev : Circ(Qubit * Qubit * (Qubit * Qubit * Qubit),
-                  Qubit * Qubit * (Qubit * Qubit * Qubit))
+                           Qubit * Qubit * (Qubit * Qubit * Qubit))
 adderRev = 
    boxGarbage (Qubit * Qubit * Qubit) (Qubit * Qubit) (Qubit * Qubit) adder' copy

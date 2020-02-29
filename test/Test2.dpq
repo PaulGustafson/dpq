@@ -1,0 +1,69 @@
+module Test2 where
+
+data Bool = True | False
+object Qubit
+object Bit
+
+gate{1,1,1} H : Qubit -> Qubit
+gate{1,1,1} CNot : Qubit -> Qubit -> Qubit * Qubit
+gate{1,0,1} Init0 : Unit -> Qubit
+gate{1,0,1} Term0 : Qubit -> Unit
+gate{1,0,0} Meas : Qubit -> Bit
+
+app : ! forall a b -> !(a -> b) -> !(a -> b)
+app f = f 
+
+
+h : !(Qubit -> Qubit)
+h x = app H x
+
+m : !(Qubit -> Bit)
+m x = app Meas x
+
+circ1 : Circ(Qubit, Bit)
+circ1 = box Qubit (\ x -> Meas (h x))
+
+
+circ2 : Circ(Qubit, Unit)
+circ2 = box Qubit (\ x -> Term0 (h x))
+
+ -- test1 = reverse circ1
+test2 : Circ(Unit, Qubit)
+test2 = reverse circ2
+
+
+
+
+h' (x : Qubit) = app Meas x
+
+-- The following show the problem due to the interaction of labeling system
+-- and type classes. If we don't require annotation for type class.  
+-- class Bogus a where
+--   haha : a -> Bit
+
+-- instance Bogus Qubit where
+--   haha x = Meas x
+
+-- circ3 : Circ(Qubit, Bit)
+-- circ3 = box Qubit (\ x -> haha (h x))
+
+class Bogus a where
+  haha {1,0,0} : a -> Bit
+
+instance Bogus Qubit where
+  haha x = Meas x
+
+circ3 : Circ(Qubit, Bit)
+circ3 = box Qubit (\ x -> haha (h x))
+
+-- test3 = reverse circ3
+
+cp (x : Qubit) =
+  let y = Init0 ()
+  in CNot y x
+
+boxCp = box Qubit cp
+
+rev (x : Qubit) = (unbox (reverse boxCp)) (cp x)
+
+boxRev = box Qubit rev
