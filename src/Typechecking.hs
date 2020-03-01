@@ -434,19 +434,18 @@ typeCheck flag mode a@(EigenVar x) (Bang ty m) =
   equality flag mode a (Bang ty m)
 
 typeCheck flag mode a@(Const x) (Bang ty m) =
-  equality flag mode a (Bang ty m)
-  -- do (ty1, _, mode') <- typeInfer flag mode a
-  --    case ty1 of
-  --      Bang _ _ -> 
-  --        equality flag mode' a (Bang ty m)
-  --      _ ->  
-  --        do (t, ann, cMode) <- typeCheck flag mode' a ty
-  --           let s = modeResolution cMode m
-  --           when (s == Nothing) $ throwError $ ModalityErr cMode m a
-  --           let Just s'@(s1, s2, s3) = s
-  --               m' = modeSubst s' cMode
-  --           updateModeSubst s'
-  --           return (Bang t (simplify m'), Lift ann, DummyM)
+  do (ty1, _, mode') <- typeInfer flag mode a
+     case ty1 of
+       Bang _ _ -> 
+         equality flag mode' a (Bang ty m)
+       _ ->  
+         do (t, ann, cMode) <- typeCheck flag mode' a ty
+            let s = modeResolution cMode m
+            when (s == Nothing) $ throwError $ ModalityErr cMode m a
+            let Just s'@(s1, s2, s3) = s
+                m' = modeSubst s' cMode
+            updateModeSubst s'
+            return (Bang t (simplify m'), Lift ann, DummyM)
   
 typeCheck flag cMode a (Bang ty m) =
   do r <- isValue a
@@ -837,8 +836,8 @@ equality flag mode tm ty =
                      m1' = modeSubst s' m1
                      mode2 = modeSubst s' mode'
                  updateModeSubst s'
-                 (ty1, a2) <- handleEquality tm ann tym1' ty1' 
-                 return (Bang ty1 (simplify m1'), a2, mode2)
+                 (ty1, a2, mode2') <- handleEquality tm ann tym1' ty1' mode2
+                 return (Bang ty1 (simplify m1'), a2, mode2')
             (tym1, Bang ty1 m) -> 
               throwError $ BangValue tm (Bang ty1 m)
             (Circ a1 a2 m1, Circ b1 b2 m2) ->
@@ -849,14 +848,13 @@ equality flag mode tm ty =
                  let m2' = modeSubst s' m2
                  let mode' = modeSubst s' mode
                  updateModeSubst s'
-                 handleEquality tm ann (Circ a1 a2 m1') (Circ b1 b2 m2')
-                   >>= \ (t, a) -> return (t, a, mode')
+                 handleEquality tm ann (Circ a1 a2 m1') (Circ b1 b2 m2') mode'
             (tym1, ty1) ->
-              handleEquality tm ann tym1 ty1 >>= \ (t, a) -> return (t, a, mode')
-  where handleEquality tm ann tym1 ty1 = 
-          do -- (a2, tym', anEnv, mode') <- addAnn flag mode tm ann tym1 []
-             -- mapM (\ (x, t) -> addVar x t) anEnv
-             unifRes <- normalizeUnif tym1 ty1
+              handleEquality tm ann tym1 ty1 mode'
+  where handleEquality tm ann tym1 ty1 mode = 
+          do (a2, tym', anEnv, mode') <- addAnn flag mode tm ann tym1 []
+             mapM (\ (x, t) -> addVar x t) anEnv
+             unifRes <- normalizeUnif tym' ty1
              case unifRes of
                Nothing -> 
                  throwError $ NotEq tm ty1 tym1
@@ -864,7 +862,7 @@ equality flag mode tm ty =
                  do ss <- getSubst
                     let sub' = s `mergeSub` ss
                     updateSubst sub'
-                    return (ty1, ann)
+                    return (ty1, a2, mode')
 
 
 -- | Normalize and unify two expressions (/head/ and /t/), taking

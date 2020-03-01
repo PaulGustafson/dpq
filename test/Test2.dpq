@@ -11,7 +11,7 @@ gate{1,0,1} Term0 : Qubit -> Unit
 gate{1,0,0} Meas : Qubit -> Bit
 
 app : ! forall a b -> !(a -> b) -> !(a -> b)
-app f = f 
+app f x = f x
 
 h : !(Qubit -> Qubit)
 h x = app H x
@@ -32,7 +32,6 @@ circ2 = box Qubit (\ x -> Term0 (h x))
 -- test1 = reverse circ1
 test2 : Circ(Unit, Qubit)
 test2 = reverse circ2
-
 h' (x : Qubit) = app Meas x
 
 -- The following show the problem due to the interaction of labeling system
@@ -49,7 +48,7 @@ h' (x : Qubit) = app Meas x
 
 class Bogus a where
   haha {1,0,0} : a -> Bit
-{-
+
 instance Bogus Qubit where
   haha x = Meas x
 
@@ -61,8 +60,8 @@ circ3 = box Qubit (\ x -> haha (h x))
 cp (x : Qubit) =
   let y = Init0 ()
   in CNot y x
--}
-{-
+
+
 boxCp = box Qubit cp
 
 rev (x : Qubit) = (unbox (reverse boxCp)) (cp x)
@@ -73,4 +72,10 @@ boxRev = box Qubit rev
 -- g1 : ! (Qubit -> Bit)
 -- g1 x = let (a, b) = (Meas x, (\ x -> x) : ! (Bool -> Bool)) in a
 
--}
+g1 : ! (Qubit -> Bit)
+g1 x = let (a, b) = (Meas x, (\ x -> x) : ! (Bool -> Bool)) in a
+
+boxG1 = box Qubit g1
+
+
+-- testG1 = reverse boxG1
