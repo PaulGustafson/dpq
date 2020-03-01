@@ -172,7 +172,7 @@ tcTop m =
 -- | Infer a type at top-level. It is a wrapper for 'typeInfer'.    
 topTypeInfer :: A.Exp -> Top (A.Exp, A.Exp)
 topTypeInfer def = tcTop $
-  do (ty, tm) <- typeInfer (isKind def) def
+  do (ty, tm, _) <- typeInfer (isKind def) DummyM def
      ty' <- updateWithSubst ty
      tm' <- updateWithSubst tm
      (ann1, rt) <- elimConstraint def tm' ty'
