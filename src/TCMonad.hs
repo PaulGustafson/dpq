@@ -132,7 +132,7 @@ data TypeState = TS {
 -- global type class instance context.
 initTS :: Map Id Info -> GlobalInstanceCxt -> TypeState
 initTS gl inst =
-  TS (fromGlobal gl) Map.empty 0 (makeInstanceCxt inst) True False DummyM ([], [], [])
+  TS (fromGlobal gl) Map.empty 0 (makeInstanceCxt inst) True False ([], [], [])
 
 -- | A run function for 'TCMonadT'.
 runTCMonadT :: Context -> GlobalInstanceCxt -> 
