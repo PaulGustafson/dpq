@@ -443,8 +443,9 @@ typeCheck flag mode a@(Const x) (Bang ty m) =
             let s = modeResolution cMode m
             when (s == Nothing) $ throwError $ ModalityErr cMode m a
             let Just s'@(s1, s2, s3) = s
-                m' = modeSubst s' cMode
+                -- m' = modeSubst s' cMode
             updateModeSubst s'
+            m' <- updateModality cMode
             return (Bang t (simplify m'), Lift ann, DummyM)
   
 typeCheck flag cMode a (Bang ty m) =
@@ -455,8 +456,9 @@ typeCheck flag cMode a (Bang ty m) =
           let s = modeResolution cMode' m
           when (s == Nothing) $ throwError $ ModalityErr cMode' m a
           let Just s'@(s1, s2, s3) = s
-              m'' = modeSubst s' cMode'
           updateModeSubst s'
+          m'' <- updateModality cMode'
+          -- m''' <- updateModality m
           return (Bang t (simplify m''), Lift ann, DummyM)
        else throwError $ BangValue a (Bang ty m)
 
@@ -833,21 +835,23 @@ equality flag mode tm ty =
                  let s = modeResolution m1 m2
                  when (s == Nothing) $ throwError $ ModalityErr m1 m2 tm
                  let Just s' = s
-                     m1' = modeSubst s' m1
-                     mode2 = modeSubst s' mode'
+                     -- m1' = modeSubst s' m1
+                     -- mode2 = modeSubst s' mode'
                  updateModeSubst s'
-                 (ty1, a2, mode2') <- handleEquality tm ann tym1' ty1' mode2
-                 return (Bang ty1 (simplify m1'), a2, mode2')
+                 m1' <- updateModality m1
+                 mode2 <- updateModality mode'
+                 (tym1'', a2, mode2') <- handleEquality tm ann tym1' ty1' mode2
+                 return (Bang tym1'' (simplify m1'), a2, mode2')
             (tym1, Bang ty1 m) -> 
               throwError $ BangValue tm (Bang ty1 m)
             (Circ a1 a2 m1, Circ b1 b2 m2) ->
               do let s = modeResolution m1 m2
                  when (s == Nothing) $ throwError $ ModalityErr m1 m2 tm
                  let Just s' = s
-                 let m1' = modeSubst s' m1
-                 let m2' = modeSubst s' m2
-                 let mode' = modeSubst s' mode
                  updateModeSubst s'
+                 m1' <- updateModality m1
+                 m2' <- updateModality m2
+                 mode' <- updateModality mode
                  handleEquality tm ann (Circ a1 a2 m1') (Circ b1 b2 m2') mode'
             (tym1, ty1) ->
               handleEquality tm ann tym1 ty1 mode'
@@ -862,7 +866,7 @@ equality flag mode tm ty =
                  do ss <- getSubst
                     let sub' = s `mergeSub` ss
                     updateSubst sub'
-                    return (ty1, a2, mode')
+                    return (tym', a2, mode')
 
 
 -- | Normalize and unify two expressions (/head/ and /t/), taking

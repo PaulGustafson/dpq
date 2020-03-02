@@ -898,12 +898,18 @@ updateModeSubst s@(s1, s2, s3) =
          s3'' = mergeModeSubst s3 s3'
      put ts{ modeSubstitution = (s1'', s2'', s3'')}
 
--- | 
+
 updateWithModeSubst :: Exp -> TCMonad Exp
 updateWithModeSubst e =
   do ts <- get
      let s@(s1, s2, s3) = modeSubstitution ts
      return $ bSubstitute s e
+
+updateModality :: Modality -> TCMonad Modality
+updateModality m =
+  do ts <- get
+     let s@(s1, s2, s3) = modeSubstitution ts
+     return $ modeSubst s m
     
 
 

@@ -16,7 +16,7 @@ import Debug.Trace
 
 
 -- | Unify two expressions, if success, return the substitution, otherwise return 'Nothing'. 
-runUnify :: Exp -> Exp -> Maybe Subst
+runUnify :: Exp -> Exp -> Maybe Subst 
 runUnify t1 t2 =
   let t1' = erasePos t1
       t2' = erasePos t2

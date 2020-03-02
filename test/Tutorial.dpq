@@ -279,12 +279,16 @@ f2 : ! (a b : Type) -> (Simple a) => !(a -> WithGarbage b) ->
 f2 a b f =
   (λ (z : a) -> unGarbage (f z))
 
-f1 : ! (a b : Type) -> (Simple a) => !(a -> WithGarbage b) ->
-           (n : Nat) * (Simple (Vec Qubit n * b)) => !(Vec Qubit n * b -> a)
-f1 a b f =
-  let (n, circ) = existsBox a (λx -> Vec Qubit x * b) (\ x -> f2 a b f x)
-  in (n, \ x -> unbox (reverse circ) x)
-  -- (λ (z : a) -> unGarbage (f z))
+f1 : ! (a b : Type) -> (Simple a, Simple b) => !(a -> WithGarbage b) ->
+           (n : Nat) * Circ(a, Vec Qubit n * b)
+f1 a b f = -- existsBox a (λx -> Vec Qubit x * b) (λz -> unGarbage (f z))
+  let (n, circ) = existsBox a (λx -> Vec Qubit x * b) (λz -> unGarbage (f z))
+  in circ
+  -- (n, circ)
+-- f3 (a b : Type) (Simple a) (Simple b) (f : !(a -> WithGarbage b)) =
+--   let (n, circ) = existsBox a (λx -> Vec Qubit x * b) (λ (z : a) -> unGarbage (f z))
+--   in (n, circ)
+
 
 with_computed : ! forall d ->  (a b c : Type) ->
                     (Simple a, Simple b) =>
@@ -370,3 +374,17 @@ adderRev : Circ(Qubit * Qubit * (Qubit * Qubit * Qubit),
                            Qubit * Qubit * (Qubit * Qubit * Qubit))
 adderRev = 
    boxGarbage (Qubit * Qubit * Qubit) (Qubit * Qubit) (Qubit * Qubit) adder' copy
+
+
+b : ! (a : Type) ->
+        forall (b : Type) ->
+       (Simple a, Simple b) => !(a -> b) -> Circ(a, b)
+b a f = box a f       
+
+e : ! (a : Type) ->
+      forall (b : Type) ->
+       (Simple a, Parameter b) =>
+         (p : b -> Type) ->
+           !(a -> ((n : b) * p n)) ->
+           ((n : b) * (Simple (p n)) => Circ(a, p n))
+e a p f = existsBox a p f           
