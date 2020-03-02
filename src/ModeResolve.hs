@@ -51,12 +51,12 @@ modeResolve' (BVar x) e = return [(x, e)]
 modeResolve' e (BVar x) = return [(x, e)]
 modeResolve' (BConst True) (BAnd e1 e2) =
   do s1 <- modeResolve' (BConst True) e1
-     s2 <- modeResolve' (BConst True) e2
-     return $ mergeModeSubst s1 s2
+     s2 <- modeResolve' (BConst True) (bSubst s1 e2)
+     return $ mergeModeSubst s2 s1
 modeResolve' (BAnd e1 e2) (BConst True) =
   do s1 <- modeResolve' (BConst True) e1
-     s2 <- modeResolve' (BConst True) e2
-     return $ mergeModeSubst s1 s2
+     s2 <- modeResolve' (BConst True) (bSubst s1 e2)
+     return $ mergeModeSubst s2 s1
 
 modeResolve' (BAnd e1 e2) (BConst False) =
   modeResolve' (BConst False) e1 `mplus` modeResolve' (BConst False) e2
@@ -65,14 +65,14 @@ modeResolve' (BAnd e1 e2) (BConst False) =
 modeResolve' (BConst False) (BAnd e1 e2) =
   modeResolve' (BConst False) e1 `mplus` modeResolve' (BConst False) e2
 
--- This is 
+
 modeResolve' (BAnd e1 e2) (BAnd e1' e2') =
   do{ s1 <- modeResolve' e1 e1';
-      s2 <- modeResolve' e2 e2';
-      return $ mergeModeSubst s1 s2} `mplus`
+      s2 <- modeResolve' (bSubst s1 e2) (bSubst s1 e2');
+      return $ mergeModeSubst s2 s1} `mplus`
   do{ s1 <- modeResolve' e1 e2';
-      s2 <- modeResolve' e2 e1';
-      return $ mergeModeSubst s1 s2}
+      s2 <- modeResolve' (bSubst s1 e2) (bSubst s1 e1');
+      return $ mergeModeSubst s2 s1}
 
 mergeModeSubst s1 s2 =
   s1 ++ [ (x, bSubst s1 t) | (x, t)<- s2]

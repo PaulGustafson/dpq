@@ -188,8 +188,8 @@ typeInfer False mode a@(LamAnn ty (Abst xs m)) =
 typeInfer flag mode (WithType a t) =
   do (_, tAnn1, _) <- typeCheck True mode t Set
      let tAnn' = erasePos (unEigen tAnn1)
-     (_, ann, mode') <- typeCheck False mode a tAnn' 
-     let tAnn'' = toEigen tAnn'
+     (tAnn2, ann, mode') <- typeCheck False mode a tAnn' 
+     let tAnn'' = toEigen tAnn2
      return (tAnn'', WithType ann tAnn'', mode')
 
 
@@ -835,8 +835,6 @@ equality flag mode tm ty =
                  let s = modeResolution m1 m2
                  when (s == Nothing) $ throwError $ ModalityErr m1 m2 tm
                  let Just s' = s
-                     -- m1' = modeSubst s' m1
-                     -- mode2 = modeSubst s' mode'
                  updateModeSubst s'
                  m1' <- updateModality m1
                  mode2 <- updateModality mode'
@@ -1027,7 +1025,9 @@ handleTermApp flag ann pos t' t1 t2 cMode mode1 =
          do (_, ann2, cMode') <- typeCheck flag cMode t2 ty1
             let res = if flag then App' a1' ann2 else App a1' ann2
             ty2' <- updateWithModeSubst ty2
-            let newMode = modalAnd mode2 cMode'
+            mode2' <- updateModality mode2
+            cMode'' <- updateModality cMode'
+            let newMode = modalAnd mode2' cMode''
             return (ty2', res, newMode)
                     
        Arrow' ty1 ty2 ->
@@ -1055,12 +1055,16 @@ handleTermApp flag ann pos t' t1 t2 cMode mode1 =
                   then
                   do m'' <- updateWithSubst m'
                      res' <- updateWithSubst res
-                     return (m'', res', modalAnd mode2 cMode')
+                     mode2' <- updateModality mode2
+                     cMode'' <- updateModality cMode'
+                     return (m'', res', modalAnd mode2' cMode'')
                   else
                   do m'' <- updateWithSubst m'
                      ty' <- updateWithSubst ty
                      res' <- updateWithSubst res
-                     return (Pi (abst (tail xs) m'') ty', res', modalAnd mode2 cMode')
+                     mode2' <- updateModality mode2
+                     cMode'' <- updateModality cMode'
+                     return (Pi (abst (tail xs) m'') ty', res', modalAnd mode2' cMode'')
                      
        b -> throwError $ ArrowErr t1 b
 
@@ -1076,7 +1080,9 @@ addAnn flag mode e a (Bang t m) env =
   do let force = if flag then Force' else Force
      t' <- if flag then shape t else return t
      if flag then addAnn flag mode e (force a) t' env
-       else addAnn flag (modalAnd mode m) e (force a) t' env
+       else do m' <- updateModality m
+               mode' <- updateModality mode
+               addAnn flag (modalAnd mode' m') e (force a) t' env
 
 addAnn flag mode e a (Forall bd ty) env | isKind ty = open bd $ \ xs t ->
        let a' = foldl AppType a (map Var xs)

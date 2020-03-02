@@ -337,7 +337,8 @@ instance Disp Exp where
     nest 2 (vcat $ map helper brs)
     where helper bd =
             open bd $ \ p b -> fsep [display flag p, text "->" , nest 2 (display flag b)]
-
+  display flag (WithType e ty) =
+    display flag e <+> text ":" <+> display flag ty
   display flag e = error $ "from display: " ++ show e
 
   precedence (Var _ ) = 12
