@@ -626,7 +626,9 @@ typeCheck flag mode (Let m bd) goal =
               ann2' <- (resolveGoals ann2 >>= updateWithSubst) `catchError`
                           \ e -> return ann2
               removeVar x
-              let res = Let ann (abst x ann2') 
+              let res = Let ann (abst x ann2')
+              t'' <- updateWithModeSubst t'
+              --trace (show $ text "get:" <> dispRaw t'') $
               return (goal', res, modalAnd mode' mode'')
 
 
@@ -648,7 +650,9 @@ typeCheck flag mode (LetPair m (Abst xs n)) goal =
             checkUsage x b
             removeVar x
             removeVar y
-            let res = LetPair ann (abst [x, y] ann3) 
+            let res = LetPair ann (abst [x, y] ann3)
+            at' <- updateWithModeSubst at
+            -- trace (show $ text "get:" <> dispRaw at') $
             return (goal', res, modalAnd mode1 mode2)
 
        _ -> case unTensor (length xs) at of
@@ -833,6 +837,8 @@ equality flag mode tm ty =
             (Bang tym1' m1, Bang ty1' m2) ->
               do 
                  let s = modeResolution m1 m2
+                       -- trace (show $ text "unifying:" <> dispRaw (Bang tym1' m1) $$
+                       --          dispRaw (Bang ty1' m2)) $ modeResolution m1 m2
                  when (s == Nothing) $ throwError $ ModalityErr m1 m2 tm
                  let Just s' = s
                  updateModeSubst s'
@@ -844,23 +850,38 @@ equality flag mode tm ty =
               throwError $ BangValue tm (Bang ty1 m)
             (Circ a1 a2 m1, Circ b1 b2 m2) ->
               do let s = modeResolution m1 m2
+                       -- trace (show $ text "unifying:" <> dispRaw (Circ a1 a2 m1) $$
+                         --        dispRaw (Circ b1 b2 m2)) $ modeResolution m1 m2
                  when (s == Nothing) $ throwError $ ModalityErr m1 m2 tm
                  let Just s' = s
                  updateModeSubst s'
                  m1' <- updateModality m1
                  m2' <- updateModality m2
-                 mode' <- updateModality mode
-                 handleEquality tm ann (Circ a1 a2 m1') (Circ b1 b2 m2') mode'
+                 mode2 <- updateModality mode'
+                 handleEquality tm ann (Circ a1 a2 m1') (Circ b1 b2 m2') mode2
             (tym1, ty1) ->
               handleEquality tm ann tym1 ty1 mode'
-  where handleEquality tm ann tym1 ty1 mode = 
+  where -- handleEquality tm ann tym1 ty1 mode | trace (show $ text "handling:" <> dispRaw tym1 $$ dispRaw ty1) $ False= undefined
+        handleEquality tm ann tym1 ty1 mode = 
           do (a2, tym', anEnv, mode') <- addAnn flag mode tm ann tym1 []
              mapM (\ (x, t) -> addVar x t) anEnv
              unifRes <- normalizeUnif tym' ty1
              case unifRes of
                Nothing -> 
                  throwError $ NotEq tm ty1 tym1
-               Just s ->
+               Just s | (Circ _ _ m1, Circ _ _ m2) <- (tym', ty1) ->
+                 do ss <- getSubst
+                    let sub' = s `mergeSub` ss
+                    updateSubst sub'
+                    let s = modeResolution m1 m2
+                    when (s == Nothing) $ throwError $ ModalityErr m1 m2 tm
+                    let Just s' = s
+                    updateModeSubst s'
+                    mode2 <- updateModality mode'
+                    tym'' <- updateWithModeSubst tym'
+                    return (tym'', a2, mode2)
+                 
+               Just s | otherwise ->
                  do ss <- getSubst
                     let sub' = s `mergeSub` ss
                     updateSubst sub'
@@ -1082,7 +1103,14 @@ addAnn flag mode e a (Bang t m) env =
      if flag then addAnn flag mode e (force a) t' env
        else do m' <- updateModality m
                mode' <- updateModality mode
-               addAnn flag (modalAnd mode' m') e (force a) t' env
+               let newMode = modalAnd mode' m'
+               -- ts <- get
+               -- let sub = modeSubstitution ts
+               -- trace (show $ 
+               --         text "bang:" <> disp m' $$
+               --         text "newmode:" <> disp newMode
+               --         $$ dispRaw sub)
+               addAnn flag newMode e (force a) t' env
 
 addAnn flag mode e a (Forall bd ty) env | isKind ty = open bd $ \ xs t ->
        let a' = foldl AppType a (map Var xs)
