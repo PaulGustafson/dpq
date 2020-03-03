@@ -848,17 +848,17 @@ equality flag mode tm ty =
                  return (Bang tym1'' (simplify m1'), a2, mode2')
             (tym1, Bang ty1 m) -> 
               throwError $ BangValue tm (Bang ty1 m)
-            (Circ a1 a2 m1, Circ b1 b2 m2) ->
-              do let s = modeResolution m1 m2
-                       -- trace (show $ text "unifying:" <> dispRaw (Circ a1 a2 m1) $$
-                         --        dispRaw (Circ b1 b2 m2)) $ modeResolution m1 m2
-                 when (s == Nothing) $ throwError $ ModalityErr m1 m2 tm
-                 let Just s' = s
-                 updateModeSubst s'
-                 m1' <- updateModality m1
-                 m2' <- updateModality m2
-                 mode2 <- updateModality mode'
-                 handleEquality tm ann (Circ a1 a2 m1') (Circ b1 b2 m2') mode2
+            -- (Circ a1 a2 m1, Circ b1 b2 m2) ->
+            --   do let s = modeResolution m1 m2
+            --            -- trace (show $ text "unifying:" <> dispRaw (Circ a1 a2 m1) $$
+            --              --        dispRaw (Circ b1 b2 m2)) $ modeResolution m1 m2
+            --      when (s == Nothing) $ throwError $ ModalityErr m1 m2 tm
+            --      let Just s' = s
+            --      updateModeSubst s'
+            --      m1' <- updateModality m1
+            --      m2' <- updateModality m2
+            --      mode2 <- updateModality mode'
+            --      handleEquality tm ann (Circ a1 a2 m1') (Circ b1 b2 m2') mode2
             (tym1, ty1) ->
               handleEquality tm ann tym1 ty1 mode'
   where -- handleEquality tm ann tym1 ty1 mode | trace (show $ text "handling:" <> dispRaw tym1 $$ dispRaw ty1) $ False= undefined
