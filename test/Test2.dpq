@@ -9,12 +9,13 @@ gate{1,1,1} CNot : Qubit -> Qubit -> Qubit * Qubit
 gate{1,0,1} Init0 : Unit -> Qubit
 gate{1,0,1} Term0 : Qubit -> Unit
 gate{1,0,0} Meas : Qubit -> Bit
+gate{1,0,0} Discard : Bit -> Unit
 
 app : ! forall a b -> !(a -> b) -> !(a -> b)
 app f x = f x
 
 h : !(Qubit -> Qubit)
-h x = app H x
+h x = let y = Meas in app H x
 
 h'' : !(Qubit -> Qubit)
 h''  = H
@@ -74,6 +75,15 @@ boxRev = box Qubit rev
 
 g1 : ! (Qubit -> Bit)
 g1 x = let (a, b) = (Meas x, (\ x -> x) : ! (Bool -> Bool)) in a
+
+g2 : ! (Qubit -> (Bool -> Bool))
+g2 x = let (a, b) = (Discard (Meas x), (\ x -> x) : ! (Bool -> Bool)) in b
+
+g3 : !(Bool -> Bool)
+g3 x = g2 (Init0 ()) x
+
+g1' : ! (Unit -> Bool -> Bool)
+g1' z = let (a, b) = ((\ (x : Qubit) -> Discard (Meas x)) : !(Qubit -> Unit) , \ (x : Bool) -> x) in b
 
 boxG1 = box Qubit g1
 

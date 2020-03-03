@@ -334,9 +334,14 @@ with_computed' a b c f g input =
   in (d, circ_rev (v, r'))
 
 boxGarbage : ! forall c -> (a b d : Type) -> (Simple a , Simple b, Simple c, Simple d) =>
-                     !{1,0,1}(a -> WithGarbage b) -> !{1,1,1}(d * b -> c * b) -> Circ(d * a, c * a)
+                     !(a -> WithGarbage b) -> !(d * b -> c * b) -> Circ(d * a, c * a)
 boxGarbage a b d f g =
-   box (d * a) (λ x -> with_computed a b d f g x)
+   box (d * a) (λ x -> with_computed a b d f g x) 
+
+-- boxGarbage' : ! forall c -> (a b d : Type) -> (Simple a , Simple b, Simple c, Simple d) =>
+--                      !(a -> WithGarbage b) -> !(d * b -> c * b) -> !(d * a -> c * a)
+boxGarbage' (c : Type) . (a b d : Type) (Simple a) (Simple b) (Simple c) (Simple d) (f : !(a -> WithGarbage b)) (g : !(d * b -> c * b)) =
+    box (d * a) (λ x -> with_computed a b d f g x)
 
 -- ----------------------------------------------------------------------
 -- * Reversible adder oracle
@@ -402,7 +407,7 @@ copy p =
 adderRev : Circ(Qubit * Qubit * (Qubit * Qubit * Qubit),
                            Qubit * Qubit * (Qubit * Qubit * Qubit))
 adderRev = 
-   boxGarbage (Qubit * Qubit * Qubit) (Qubit * Qubit) (Qubit * Qubit) adder' copy
+   boxGarbage' (Qubit * Qubit * Qubit) (Qubit * Qubit) (Qubit * Qubit) adder' copy
 
 
 b : ! (a : Type) ->
