@@ -282,7 +282,7 @@ getVars b (Pos p e) = getVars b e
 getVars b a = error $ "from getVars  " ++ show (disp a)
 
 -- | Get the modality variables.
-getBVars DummyM = S.empty
+
 getBVars (M e1 e2 e3) =
   getBVars' e1 `S.union` getBVars' e2 `S.union` getBVars' e3
   where getBVars' (BVar x) = S.insert x S.empty
@@ -291,8 +291,6 @@ getBVars (M e1 e2 e3) =
 
 -- | Take a bitwise conjunction on the modality.
 modalAnd :: Modality -> Modality -> Modality
-modalAnd DummyM m = m
-modalAnd m DummyM = m
 modalAnd (M e1 e2 e3) (M e1' e2' e3') =
   M (helper e1 e1') (helper e2 e2') (helper e3 e3')
     where helper (BConst True) e = e

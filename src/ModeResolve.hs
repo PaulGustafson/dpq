@@ -11,19 +11,18 @@ import Text.PrettyPrint
 import Data.List
 import Prelude hiding((<>))
 
-modeResolution m1 DummyM = Just ([], [], [])
-modeResolution DummyM m2 = Just ([], [], [])
-modeResolution (M x1 x2 x3) (M y1 y2 y3) =
-  let s1 = modeResolve x1 y1 
-      s2 = modeResolve x2 y2
-      s3 = modeResolve x3 y3
+
+modeResolution b (M x1 x2 x3) (M y1 y2 y3) =
+  let s1 = modeResolve b x1 y1 
+      s2 = modeResolve b x2 y2
+      s3 = modeResolve b x3 y3
   in if null s1 then Nothing
      else if null s2 then Nothing
           else if null s3 then Nothing
                else Just (head s1, head s2, head s3)
   
   
-modeSubst s DummyM = DummyM
+
 modeSubst (s1, s2, s3) (M e1 e2 e3) = M e1' e2' e3'
   where e1' = bSubst s1 e1
         e2' = bSubst s2 e2
@@ -41,38 +40,70 @@ type ModeSubst = [(Variable, BExp)]
 instance Disp [(Variable, BExp)] where
   display flag l = vcat $ map (\ (x, b) -> (dispRaw x <> text "|->" <> dispRaw b)) l
 
-modeResolve :: BExp -> BExp -> [ModeSubst]
-modeResolve e1 e2 = modeResolve' (simplifyB e1) (simplifyB e2)
+-- | Resolve two simplified boolean expressions. 
+modeResolve :: InEquality -> BExp -> BExp -> [ModeSubst]
+modeResolve b e1 e2 = modeResolve' b (simplifyB e1) (simplifyB e2)
 
-modeResolve' :: BExp -> BExp -> [ModeSubst]
-modeResolve' (BConst x) (BConst y) | x == y = return []
-modeResolve' (BConst x) (BConst y) | otherwise = mzero
-modeResolve' (BVar x) e = return [(x, e)]
-modeResolve' e (BVar x) = return [(x, e)]
-modeResolve' (BConst True) (BAnd e1 e2) =
-  do s1 <- modeResolve' (BConst True) e1
-     s2 <- modeResolve' (BConst True) (bSubst s1 e2)
+data InEquality = Equal | GEq | LEq deriving (Show, Eq)
+
+-- | Reverse the direction of the inequality.
+flipSide :: InEquality -> InEquality 
+flipSide Equal = Equal
+flipSide GEq = LEq
+flipSide LEq = GEq
+
+-- | Resolve two boolean expressions. The first boolean argument is a flag
+-- indicating if it is an inequality >=. 
+modeResolve' :: InEquality -> BExp -> BExp -> [ModeSubst]
+modeResolve' Equal (BConst x) (BConst y) | x == y = return []
+modeResolve' Equal (BConst x) (BConst y) | otherwise = mzero
+modeResolve' GEq (BConst x) (BConst y)  =
+  if x then return [] else if y then mzero else return []
+
+modeResolve' Equal (BVar x) e = return [(x, e)]
+modeResolve' GEq (BVar x) e =
+  return [(x, BConst True)] `mplus` return [(x, e)]
+modeResolve' Equal e (BVar x) = return [(x, e)]
+modeResolve' GEq e (BVar x) =
+  return [(x, BConst False)] `mplus` return [(x, e)]
+
+modeResolve' Equal (BConst True) (BAnd e1 e2) =
+  do s1 <- modeResolve' Equal (BConst True) e1
+     s2 <- modeResolve' Equal (BConst True) (bSubst s1 e2)
      return $ mergeModeSubst s2 s1
-modeResolve' (BAnd e1 e2) (BConst True) =
-  do s1 <- modeResolve' (BConst True) e1
-     s2 <- modeResolve' (BConst True) (bSubst s1 e2)
+
+modeResolve' GEq (BConst True) (BAnd e1 e2) = return []
+
+modeResolve' b (BAnd e1 e2) (BConst True) =
+  do s1 <- modeResolve' Equal (BConst True) e1
+     s2 <- modeResolve' Equal (BConst True) (bSubst s1 e2)
      return $ mergeModeSubst s2 s1
 
-modeResolve' (BAnd e1 e2) (BConst False) =
-  modeResolve' (BConst False) e1 `mplus` modeResolve' (BConst False) e2
+
+modeResolve' Equal (BAnd e1 e2) (BConst False) =
+  modeResolve' Equal (BConst False) e1 `mplus` modeResolve' Equal (BConst False) e2
+
+modeResolve' GEq (BAnd e1 e2) (BConst False) = return []
 
 
-modeResolve' (BConst False) (BAnd e1 e2) =
-  modeResolve' (BConst False) e1 `mplus` modeResolve' (BConst False) e2
+modeResolve' Equal (BConst False) (BAnd e1 e2) =
+  modeResolve' Equal (BConst False) e1 `mplus` modeResolve' Equal (BConst False) e2
+
+modeResolve' GEq (BConst False) (BAnd e1 e2) =
+  do s1 <- modeResolve' Equal (BConst False) e1
+     s2 <- modeResolve' Equal (BConst False) (bSubst s1 e2)
+     return $ mergeModeSubst s2 s1
 
 
-modeResolve' (BAnd e1 e2) (BAnd e1' e2') =
-  do{ s1 <- modeResolve' e1 e1';
-      s2 <- modeResolve' (bSubst s1 e2) (bSubst s1 e2');
+modeResolve' b (BAnd e1 e2) (BAnd e1' e2') =
+  do{ s1 <- modeResolve' b e1 e1';
+      s2 <- modeResolve' b (bSubst s1 e2) (bSubst s1 e2');
       return $ mergeModeSubst s2 s1} `mplus`
-  do{ s1 <- modeResolve' e1 e2';
-      s2 <- modeResolve' (bSubst s1 e2) (bSubst s1 e1');
+  do{ s1 <- modeResolve' b e1 e2';
+      s2 <- modeResolve' b (bSubst s1 e2) (bSubst s1 e1');
       return $ mergeModeSubst s2 s1}
+
+modeResolve' LEq e1 e2 = modeResolve' GEq e2 e1
 
 mergeModeSubst s1 s2 =
   s1 ++ [ (x, bSubst s1 t) | (x, t)<- s2]
@@ -186,7 +217,7 @@ flattenB a@(BConst x) = [a]
 flattenB a@(BVar x) = [a]
 flattenB (BAnd x y) = flattenB x ++ flattenB y
 
-simplify DummyM = DummyM
+
 simplify (M e1 e2 e3) = M (simplifyB e1) (simplifyB e2) (simplifyB e3)
 
 simplifyB :: BExp -> BExp

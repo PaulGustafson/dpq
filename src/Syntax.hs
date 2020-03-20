@@ -32,6 +32,7 @@ module Syntax
          toExp,
          BExp(..),
          Modality(..),
+         identityMod
        )
        where
 
@@ -161,11 +162,12 @@ data BExp = BConst Bool
   deriving (Show, NominalShow, NominalSupport, Generic, Nominal, Eq)
 
 -- | A data type for modality: bx, ctrl, adj
-data Modality = M BExp BExp BExp | DummyM
+data Modality = M BExp BExp BExp 
   deriving (Show, NominalShow, NominalSupport, Generic, Nominal, Eq)
 
 
-
+identityMod :: Modality
+identityMod = M (BConst True) (BConst True) (BConst True)
 
 
 instance Disp Pattern where
@@ -695,7 +697,6 @@ instance Disp BExp where
   display flag (BAnd e1 e2) = display flag e1 <> text "&" <> display flag e2
   
 instance Disp Modality where
-  display flag (DummyM) = text ""
   display flag (M x y z) =
     braces $ display flag x <> comma
     <> display flag y <> comma <> display flag z 
