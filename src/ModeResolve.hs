@@ -37,6 +37,8 @@ bSubst s (BAnd e1 e2) = BAnd (bSubst s e1) (bSubst s e2)
 
 type ModeSubst = [(Variable, BExp)]
 
+type BSubst = (ModeSubst, ModeSubst, ModeSubst)
+
 instance Disp [(Variable, BExp)] where
   display flag l = vcat $ map (\ (x, b) -> (dispRaw x <> text "|->" <> dispRaw b)) l
 
@@ -44,11 +46,12 @@ instance Disp [(Variable, BExp)] where
 modeResolve :: InEquality -> BExp -> BExp -> [ModeSubst]
 modeResolve b e1 e2 = modeResolve' b (simplifyB e1) (simplifyB e2)
 
-data InEquality = Equal | GEq | LEq deriving (Show, Eq)
+data InEquality = Equal | GEq | LEq | Null deriving (Show, Eq)
 
 -- | Reverse the direction of the inequality.
 flipSide :: InEquality -> InEquality 
 flipSide Equal = Equal
+flipSide Null = Null
 flipSide GEq = LEq
 flipSide LEq = GEq
 

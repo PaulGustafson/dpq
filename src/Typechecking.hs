@@ -425,35 +425,13 @@ typeCheck flag a (Imply bds ty) =
           let res = LamDict (abst ns ann') 
           return (Imply bds t, res, mode)
 
-
-typeCheck flag a@(Var x) (Bang ty m) =
-  equality flag a (Bang ty m)
-
-typeCheck flag a@(EigenVar x) (Bang ty m) =
-  equality flag a (Bang ty m)
-
-typeCheck flag a@(Const x) (Bang ty m) =
-  do (ty1, _, mode') <- typeInfer flag a
-     case ty1 of
-       Bang _ _ -> 
-         equality flag a (Bang ty m)
-       _ ->  
-         do (t, ann, cMode) <- typeCheck flag a ty
-            let s = modeResolution cMode m
-            when (s == Nothing) $ throwError $ ModalityErr cMode m a
-            let Just s'@(s1, s2, s3) = s
-            updateModeSubst s'
-            m' <- updateModality cMode
-            t' <- updateWithModeSubst t
-            return (Bang t' (simplify m'), Lift ann, identityMod)
-  
 typeCheck flag a (Bang ty m) =
   do r <- isValue a
      if r then
        do checkParamCxt a
           (t, ann, cMode) <- typeCheck flag a ty
           let s = modeResolution Equal cMode m
-          when (s == Nothing) $ throwError $ ModalityErr cMode m a
+          when (s == Nothing) $ throwError $ ModalityEqErr cMode m a
           let Just s'@(s1, s2, s3) = s
           updateModeSubst s'
           cMode' <- updateModality cMode
@@ -465,7 +443,7 @@ typeCheck flag a (Bang ty m) =
 typeCheck False c@(Lam bind) t =
   do at <- updateWithSubst t
      if not (at == t) then
-       typeCheck False mode c at
+       typeCheck False c at
        else
        case at of
          Arrow t1 t2 -> 
@@ -598,19 +576,20 @@ typeCheck flag a@(Pair t1 t2) d =
             return (Tensor ty1' ty2', Pair t1' t2', modalAnd mode1 mode2)
        b -> freshNames ns $
             \ (x1:x2:[]) ->
-              do let res = runUnify sd (Tensor (Var x1) (Var x2))
+              do let (res, (s, bs)) = runUnify Equal sd (Tensor (Var x1) (Var x2))
                  case res of
-                   Just s ->
+                   Success ->
                      do ss <- getSubst
                         let sub' = s `mergeSub` ss
                         updateSubst sub'
+                        updateModeSubst bs
                         let x1' = substitute sub' (Var x1)
                             x2' = substitute sub' (Var x2)
                         (x1'', t1', mode1) <- typeCheck flag t1 x1'
                         (x2'', t2', mode2) <- typeCheck flag t2 x2'
                         let res = Pair t1' t2'
                         return (Tensor x1'' x2'', res, modalAnd mode1 mode2)
-                   Nothing -> throwError (TensorExpErr a b)
+                   UnifError -> throwError (TensorExpErr a b)
 
 typeCheck flag (Let m bd) goal =
   do (t', ann, mode) <- typeInfer flag m
@@ -665,25 +644,28 @@ typeCheck flag (LetPair m (Abst xs n)) goal =
               freshNames nss $ \ (h:ns) ->
                   do let newTensor = foldl Tensor (Var h) (map Var ns)
                          vars = map Var (h:ns)
-                     res <- normalizeUnif at newTensor
+                         (res, (s, bs)) = runUnify Equal at newTensor
                      case res of
-                       Nothing -> throwError $ TensorErr (length xs) m at
-                       Just s ->
+                       UnifError -> throwError $ TensorErr (length xs) m at
+                       Success ->
                          do ss <- getSubst
                             let sub' = s `mergeSub` ss
                             updateSubst sub'
+                            updateModeSubst bs
                             let ts' = map (substitute sub') vars
                                 env' = zip xs ts'
                             mapM (\ (x, t) -> addVar x t) env'
-                            (goal', ann2, mode2) <- typeCheck flag n (substitute sub' goal)
+                            (goal', ann2, mode2) <-
+                              typeCheck flag n (bSubstitute bs $ substitute sub' goal)
                             mapM (\ x -> checkUsage x n) xs
                             mapM removeVar xs
                             ann2' <- updateWithSubst ann2
+                            mode1' <- updateModality mode1
                             let res = LetPair ann (abst xs ann2') 
-                            return (goal', res, modalAnd mode1 mode2)
+                            return (goal', res, modalAnd mode1' mode2)
 
 typeCheck flag (LetPat m bd) goal =
-  do (tt, ann, mode1) <- typeInfer flag mode m
+  do (tt, ann, mode1) <- typeInfer flag m
      ss <- getSubst
      let t' = substitute ss tt
      open bd $ \ (PApp kid vs) n ->
@@ -695,18 +677,19 @@ typeCheck flag (LetPat m bd) goal =
           let matchEigen = isEigenVar m
               isDpm = (isSemi || matchEigen) && not inf
               eSub = map (\ x -> (x, EigenVar x)) eigen
-          unifRes <- patternUnif m isDpm index head t'
+          (unifRes, (sub', bs)) <- patternUnif m isDpm index head t'
           case unifRes of
-            Nothing ->
+            UnifError ->
               throwError $ withPosition m (UnifErr head t') 
-            Just sub' -> do
+            Success -> do
                  sub1 <- if matchEigen && not inf
                          then makeSub m sub' $
                               foldl (\ x (Right y) -> App x (EigenVar y)) kid' vs
                          else return sub'
                  let sub'' = sub1 `mergeSub` ss
                  updateSubst sub''
-                 let goal' = substitute sub'' goal
+                 updateModeSubst bs
+                 let goal' = bSubstitute bs (substitute sub'' goal)
                      n' = apply eSub n
                  (goal'', ann2, mode2) <- typeCheck flag n' goal'
                  subb <- getSubst
@@ -779,18 +762,19 @@ typeCheck flag a@(Case tm (B brs)) goal =
                       -- infer mode over-write dependent pattern matching
                       isDpm = (isSemi || matchEigen) && not inf
                   ss <- getSubst
-                  unifRes <- patternUnif tm isDpm index head t
+                  (unifRes, (sub', bs)) <- patternUnif tm isDpm index head t
                   case unifRes of
-                    Nothing -> throwError $ withPosition tm (UnifErr head t) 
-                    Just sub' -> do
+                    UnifError -> throwError $ withPosition tm (UnifErr head t)
+                    Success -> do
                          sub1 <- if matchEigen && not inf then
                                       makeSub tm sub' $
                                       foldl (\ x (Right y) -> App x (EigenVar y)) kid' vs
                                  else return sub'
                          let sub'' = sub1 `mergeSub` ss
                          updateSubst sub''
+                         updateModeSubst bs
                          -- We use special substitution for goal
-                         let goal' = substitute sub'' goal
+                         let goal' = bSubstitute bs (substitute sub'' goal)
                              m' = apply eSub m
                          (goal'', ann2, mode') <- typeCheck flag m' goal'
                          subb <- getSubst 
@@ -822,75 +806,40 @@ typeCheck flag tm ty = equality flag tm ty
 equality :: Bool -> Exp -> Exp -> TCMonad (Exp, Exp, Modality)
 equality flag tm ty =
   do ty' <- updateWithSubst ty
-     if not (ty == ty') then typeCheck flag mode tm ty'
+     if not (ty == ty') then typeCheck flag tm ty'
        else
-       do (tym, ann, mode') <- typeInfer flag mode tm
+       do (tym, ann, mode) <- typeInfer flag tm
           tym1 <- updateWithSubst tym
           ty1 <- updateWithSubst ty'
           -- Here we are assuming there is no types like !!A
           case (erasePos tym1, erasePos ty1) of
-            (Bang tym1' m1, Bang ty1' m2) ->
-              do 
-                 let s = modeResolution m1 m2
-                       -- trace (show $ text "unifying:" <> dispRaw (Bang tym1' m1) $$
-                       --          dispRaw (Bang ty1' m2)) $ modeResolution m1 m2
-                 when (s == Nothing) $ throwError $ ModalityErr m1 m2 tm
-                 let Just s' = s
-                 updateModeSubst s'
-                 m1' <- updateModality m1
-                 mode2 <- updateModality mode'
-                 (tym1'', a2, mode2') <- handleEquality tm ann tym1' ty1' mode2
-                 return (Bang tym1'' (simplify m1'), a2, mode2')
-            (tym1, Bang ty1 m) -> 
-              throwError $ BangValue tm (Bang ty1 m)
-            -- (Circ a1 a2 m1, Circ b1 b2 m2) ->
-            --   do let s = modeResolution m1 m2
-            --            -- trace (show $ text "unifying:" <> dispRaw (Circ a1 a2 m1) $$
-            --              --        dispRaw (Circ b1 b2 m2)) $ modeResolution m1 m2
-            --      when (s == Nothing) $ throwError $ ModalityErr m1 m2 tm
-            --      let Just s' = s
-            --      updateModeSubst s'
-            --      m1' <- updateModality m1
-            --      m2' <- updateModality m2
-            --      mode2 <- updateModality mode'
-            --      handleEquality tm ann (Circ a1 a2 m1') (Circ b1 b2 m2') mode2
             (tym1, ty1) ->
-              handleEquality tm ann tym1 ty1 mode'
-  where -- handleEquality tm ann tym1 ty1 mode | trace (show $ text "handling:" <> dispRaw tym1 $$ dispRaw ty1) $ False= undefined
-        handleEquality tm ann tym1 ty1 mode = 
-          do (a2, tym', anEnv, mode') <- addAnn flag mode tm ann tym1 []
-             mapM (\ (x, t) -> addVar x t) anEnv
-             unifRes <- normalizeUnif tym' ty1
+              handleEquality tm ann tym1 ty1 mode
+  where handleEquality tm ann tym1 ty1 mode = 
+          do (unifRes, (s, bs)) <- normalizeUnif GEq tym1 ty1
              case unifRes of
-               Nothing -> 
+               UnifError -> 
                  throwError $ NotEq tm ty1 tym1
-               Just s | (Circ _ _ m1, Circ _ _ m2) <- (tym', ty1) ->
+               ModeError p1 p2 -> 
+                 throwError $ ModalityGEqErr tm ty1 tym1 p1 p2
+               Success ->
                  do ss <- getSubst
                     let sub' = s `mergeSub` ss
                     updateSubst sub'
-                    let s = modeResolution m1 m2
-                    when (s == Nothing) $ throwError $ ModalityErr m1 m2 tm
-                    let Just s' = s
-                    updateModeSubst s'
-                    mode2 <- updateModality mode'
-                    tym'' <- updateWithModeSubst tym'
-                    return (tym'', a2, mode2)
-                 
-               Just s | otherwise ->
-                 do ss <- getSubst
-                    let sub' = s `mergeSub` ss
-                    updateSubst sub'
-                    return (tym', a2, mode')
+                    updateModeSubst bs
+                    tym' <- updateWithModeSubst tym1
+                    mode' <- updateModality mode
+                    return (tym', ann, mode')
 
 
 -- | Normalize and unify two expressions (/head/ and /t/), taking
 -- dependent pattern matching into account. Dependent pattern matching
 -- has the effect of converting eigenvariables into variables.
-patternUnif :: Exp -> Bool -> Maybe Int -> Exp -> Exp -> TCMonad (Maybe (Map Variable Exp))
+patternUnif :: Exp -> Bool -> Maybe Int -> Exp -> Exp -> TCMonad (UnifResult, (Subst, BSubst))
 patternUnif m isDpm index head t =
   if isDpm then
     case index of
-        Nothing -> normalizeUnif head t
+        Nothing -> normalizeUnif Equal head t
         Just i ->
           case flatten t of
             Just (Right h, args) -> 
@@ -899,50 +848,36 @@ patternUnif m isDpm index head t =
                   eSub = zip vars (map EigenVar vars)
                   a' = unEigenBound vars a
                   t' = foldl App' (LBase h) (bs++(a':as))
-              in do r <- normalizeUnif head t'
+              in do res@(r, (subst, bs)) <- normalizeUnif Equal head t'
                     case r of
-                      Nothing -> return Nothing
-                      Just subst ->
-                        helper subst vars eSub
+                      Success ->
+                        let subst' = helper subst vars eSub
+                        in return (r, (subst', bs))
+                      _ -> return res
             _ -> throwError $ withPosition m (UnifErr head t)
-  else normalizeUnif head t
+  else normalizeUnif Equal head t
   where -- change relavent variables back into eigenvariables after dependent pattern-matching. 
         helper subst (v:vars) eSub =
           let subst' = Map.mapWithKey (\ k val -> if k == v then toEigen val else val) subst
               subst'' = Map.map (\ val -> apply eSub val) subst'
           in helper subst'' vars eSub
-        helper subst [] eSub = return $ Just subst
+        helper subst [] eSub = subst
           
       
 -- | Normalize two expressions and then unify them.  
 -- There is a degree of freedom in implementing normalizeUnif function. It could be
 -- further improved.
-normalizeUnif :: Exp -> Exp -> TCMonad (Maybe (Map Variable Exp))
-normalizeUnif t1 t2 =
+normalizeUnif :: InEquality -> Exp -> Exp -> TCMonad (UnifResult, (Subst, BSubst))
+normalizeUnif b t1 t2 =
  do t1' <- resolveGoals t1
     t2' <- resolveGoals t2
-    case runUnify t1' t2' of
-      Just s -> return $ Just s
-      Nothing -> 
-        case (flatten t1', flatten t2') of
-          (Just (Right f1, args1), Just (Right f2, args2)) 
-            | (f1 == f2) && (length args1 == length args2) ->
-              foldM (\ s (x, y) ->
-                case s of
-                  Nothing -> return Nothing
-                  Just s1 ->
-                    let x' = substitute s1 x
-                        y' = substitute s1 y in
-                    do r <- normalizeUnif x' y'
-                       case r of
-                         Nothing -> return Nothing
-                         Just s2 -> return $ Just (mergeSub s2 s1)
-                ) (Just Map.empty) (zip args1 args2)
-            | otherwise -> return Nothing
-          (_, _) -> 
-            do t1'' <- normalize t1'
-               t2'' <- normalize t2'
-               return $ runUnify t1'' t2''
+    let a@(res, (s, bs)) = runUnify b t1' t2'
+    case res of
+      Success -> return a
+      _ -> 
+        do t1'' <- normalize t1'
+           t2'' <- normalize t2'
+           return $ runUnify b t1'' t2''
 
 
 -- | Extend the typing environment with

@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.31.2.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 704bb514a440a0f9de9d35933edf60dfff00fa269c4d0c995223c39272e32c43
+-- hash: a765b067b59e1d10e43128b11e3436fa9e4af62e1010d6bead2ca286d3cb66ca
 
 name:           dpq
 version:        0.0.1.0
@@ -38,7 +38,6 @@ library
       Parser
       Printcircuits
       ProcessDecls
-      Proofchecking
       ReadEvalPrint
       Resolve
       Simplecheck

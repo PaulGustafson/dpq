@@ -140,7 +140,7 @@ process (Defn pos f Nothing def) =
                    }
      addNewId f fp
   where typeInfering b exp =
-          do (ty', exp', _) <- typeInfer b DummyM exp
+          do (ty', exp', _) <- typeInfer b exp
              exp'' <- resolveGoals exp'
              r <- updateWithSubst exp''
              ty'' <- resolveGoals ty' >>= updateWithSubst
@@ -183,7 +183,7 @@ process (Defn pos f (Just tt) def) =
      addNewId f fp
   where typeChecking''' b exp ty =
           do setInfer True
-             (ty', exp', _) <- typeCheck b DummyM exp ty
+             (ty', exp', _) <- typeCheck b exp ty
              setInfer False
              exp'' <- updateWithSubst exp'
              r <- resolveGoals exp''
@@ -483,14 +483,14 @@ elaborateInstance pos f' ty mths =
              -- A version of type checking that avoids checking forall param. 
              typeChecking' b exp ty =
                do setCheckBound False
-                  (ty', exp', _) <- typeCheck b DummyM exp ty
+                  (ty', exp', _) <- typeCheck b exp ty
                   setCheckBound True
                   exp'' <- updateWithSubst exp'
                   r <- resolveGoals exp''
                   return (unEigen r)
              -- a version of typeChecking that uses unEigenBound instead of unEigen
              typeChecking'' vars b exp ty =
-               do (ty', exp', _) <- typeCheck b DummyM exp ty
+               do (ty', exp', _) <- typeCheck b exp ty
                   exp'' <- resolveGoals exp'
                   r <- updateWithSubst exp''
                   ty'' <- resolveGoals ty' >>= updateWithSubst
@@ -666,7 +666,7 @@ makeTypeFun n k0 xs@((_, (Just i, _)):_) =
 -- | Check an expression against a type. It is a wrapper on the 'typeCheck' function.
 typeChecking :: Bool -> Exp -> Exp -> TCMonad (Exp, Exp)
 typeChecking b exp ty =
-  do (ty', exp', _) <- typeCheck b DummyM exp ty
+  do (ty', exp', _) <- typeCheck b exp ty
      exp'' <- resolveGoals exp'
      r <- updateWithSubst exp''
      ty'' <- resolveGoals ty' >>= updateWithSubst

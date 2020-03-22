@@ -1,7 +1,7 @@
 -- | This module implements a version of first-order unification. We support
 -- a restricted version of unification for case expression and existential types.
 
-module Unification (runUnify) where
+module Unification (runUnify, UnifResult(..)) where
 
 import Syntax
 import Substitution
@@ -15,7 +15,7 @@ import qualified Data.Map as Map
 import Control.Monad.State
 import Debug.Trace
 
-type BSubst = (ModeSubst, ModeSubst, ModeSubst)
+
 
 -- | Unify two expressions. 
 runUnify :: InEquality -> Exp -> Exp -> (UnifResult, (Subst, BSubst))

@@ -14,12 +14,13 @@ gate{1,0,0} Discard : Bit -> Unit
 app : ! forall a b -> !(a -> b) -> !(a -> b)
 app f x = f x
 
+h'' : !(Qubit -> Qubit)
+h'' = H 
+
+
+{-
 h : !(Qubit -> Qubit)
 h x = let y = Meas in app H x
-
-h'' : !(Qubit -> Qubit)
-h''  = H
-
 m : !(Qubit -> Bit)
 m x = app Meas x
 
@@ -87,5 +88,5 @@ g1' z = let (a, b) = ((\ (x : Qubit) -> Discard (Meas x)) : !(Qubit -> Unit) , \
 
 boxG1 = box Qubit g1
 
-
+-}
 -- testG1 = reverse boxG1

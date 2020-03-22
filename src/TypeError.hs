@@ -67,7 +67,8 @@ data TypeError = Unhandle Exp
                | ImplicitVarErr Variable Exp
                | LamInferErr Exp
                | ArityExistsErr Exp [Variable]
-               | ModalityErr Modality Modality Exp
+               | ModalityEqErr Modality Modality Exp
+               | ModalityGEqErr Exp Exp Exp (Modality, Exp) (Modality, Exp)
                deriving Show
 
 -- | A data type for evaluation errors.
@@ -411,10 +412,19 @@ instance Disp TypeError where
     text "when checking:" <+> hsep (map (display flag) xs) $$
     text "against:" <+> display flag at
 
-  display flag (ModalityErr cm m a) =
+  display flag (ModalityEqErr cm m a) =
     text "modality mismatch." $$
     nest 2 (text "current mode:") <+> display flag cm $$
     nest 2 (text "expected mode:") <+> display flag m $$
     text "when checking" $$ nest 2 (display flag a)
 
+  display flag (ModalityGEqErr tm ty1 tym1 (m1, t1) (m2, t2)) =
+    text "can solve modality inequality." $$
+    nest 2 (text "current mode:") <+> display flag m1 $$
+    nest 2 (text "in") <+> display flag t1 $$
+    nest 2 (text "expected mode:") <+> display flag m2 $$
+    nest 2 (text "in") <+> display flag t2 $$
+    text "when checking" $$ nest 2 (display flag tm) $$
+    text "expected type:" <+> display flag ty1 $$
+    text "actual type:" <+> display flag tym1
   display flag a = error $ "from display TypeError:" ++ show a 
