@@ -2,6 +2,7 @@
 module ModeResolve where
 
 import Syntax
+import SyntacticOperations
 import Utils
 import Substitution
 
@@ -10,7 +11,7 @@ import Nominal
 import Text.PrettyPrint
 import Data.List
 import Prelude hiding((<>))
-
+import qualified Data.MultiSet as S
 
 modeResolution b (M x1 x2 x3) (M y1 y2 y3) =
   let s1 = modeResolve b x1 y1 
@@ -234,3 +235,64 @@ simplifyB e =
            let bs' = nub bs
                e' = foldr BAnd (head bs') (tail bs')
            in e'
+
+booleanVarElim :: Exp -> Exp
+booleanVarElim e =
+  let s = getVars GetModVar e
+      s1 = S.filter (\ x -> S.occur x s == 1) s
+  in helper True s1 e
+  where elim b s e =
+          let evars = flattenB e
+              evars' = filter (\ x ->
+                                case x of
+                                  BVar y -> not (y `S.member` s)
+                                  BConst _ -> True
+                              ) evars
+          in if null evars' then
+               BConst b
+             else foldr BAnd (head evars') (tail evars')
+
+        helper b s1 (Bang ty (M e1 e2 e3)) =
+          let e1' = elim b s1 e1
+              e2' = elim b s1 e2
+              e3' = elim b s1 e3
+              ty' = helper b s1 ty
+          in Bang ty' (M e1' e2' e3')
+        helper b s1 (Circ s u (M e1 e2 e3)) =
+          let e1' = elim b s1 e1
+              e2' = elim b s1 e2
+              e3' = elim b s1 e3
+          in Circ s u (M e1' e2' e3')
+        helper b s1 (Arrow t1 t2) =
+          let t1' = helper (not b) s1 t1
+              t2' = helper b s1 t2
+          in Arrow t1' t2'
+        helper b s1 (Pos e t) =
+          let t' = helper b s1 t
+          in Pos e t'
+        helper b s1 (Tensor t1 t2) =
+          let t1' = helper b s1 t1
+              t2' = helper b s1 t2
+          in Tensor t1' t2'
+        helper b s1 (Exists (Abst xs t1) t2) =
+          let t1' = helper b s1 t1
+              t2' = helper b s1 t2
+          in Exists (abst xs t1') t2'
+        helper b s1 (Pi (Abst xs t1) t2) =
+          let t1' = helper b s1 t1
+              t2' = helper (not b) s1 t2
+          in Pi (abst xs t1') t2'
+        helper b s1 (PiImp (Abst xs t1) t2) =
+          let t1' = helper b s1 t1
+              t2' = helper (not b) s1 t2
+          in PiImp (abst xs t1') t2'
+        helper b s1 (Forall (Abst xs t1) t2) =
+          let t1' = helper b s1 t1
+              t2' = helper (not b) s1 t2
+          in Forall (abst xs t1') t2'
+             
+        helper b s1 t = t
+        
+            
+                
+

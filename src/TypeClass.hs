@@ -14,7 +14,7 @@ import SyntacticOperations
 
 import Control.Monad.Except
 import Control.Monad.State
-import qualified Data.Set as S
+import qualified Data.MultiSet as S
 
 -- | Resolve all the goals in an expression, this will substitute
 -- all the goal variables in an expression with the corresponding

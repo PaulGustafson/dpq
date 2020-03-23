@@ -28,7 +28,7 @@ import System.Info
 import System.IO
 import System.Process
 
-import qualified Data.Set as S
+import qualified Data.MultiSet as S
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Control.Monad.Except
@@ -88,7 +88,8 @@ dispatch (Type e) =
   do e' <- topResolve e
      (t', e'') <- topTypeInfer e'
      let fvs = getVars AllowEigen t'
-     when (not $ S.null fvs) $ throwError $ CompileErr $ TyAmbiguous Nothing t'
+     when (not $ S.null fvs) $ 
+       throwError $ CompileErr $ TyAmbiguous Nothing t'
      liftIO $ putStrLn ("it has classifier \n" ++ (show $ disp t'))
      return True
 

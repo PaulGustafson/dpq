@@ -20,6 +20,7 @@ import Syntax
 import SyntacticOperations
 import Utils
 import TypeError
+import ModeResolve
 import Typechecking
 -- import Proofchecking
 import Evaluation hiding (genNames)
@@ -37,7 +38,7 @@ import Control.Monad.Identity
 import Control.Monad.Except
 import Text.PrettyPrint
 import Debug.Trace
-import qualified Data.Set as S
+import qualified Data.MultiSet as S
 
 -- | Process a top-level declaration, modifying the state in the TCMonad. 
 process :: Decl -> TCMonad ()
@@ -146,7 +147,7 @@ process (Defn pos f Nothing def) =
              ty'' <- resolveGoals ty' >>= updateWithSubst
              let ty''' = unEigen ty''
              ty2 <- updateWithModeSubst ty'''
-             return (abstractMode ty2, unEigen r)
+             return (abstractMode $ booleanVarElim ty2, unEigen r)
 
 process (Defn pos f (Just tt) def) =
   do (_, tt') <- typeChecking True tt Set 
@@ -201,7 +202,7 @@ process (Data pos d kd cons) =
      addNewId d tp
      res <- mapM (\ t -> typeChecking True (Pos pos t) Set) types
      let types' = map snd res
-     let funcs = map (\ t -> Info{ classifier = abstractMode $ erasePos $ removeVacuousPi t,
+     let funcs = map (\ t -> Info{ classifier = erasePos $ removeVacuousPi t,
                                    identification = DataConstr d
                                 }) types'
      zipWithM_ addNewId constructors funcs
@@ -672,7 +673,7 @@ typeChecking b exp ty =
      ty'' <- resolveGoals ty' >>= updateWithSubst
      let ty''' = unEigen ty''
      ty2 <- updateWithModeSubst ty'''
-     return (abstractMode ty2, unEigen r)
+     return (abstractMode $ booleanVarElim ty2, unEigen r)
 
 
 -- | Check an annotated expression against a type. It is a wrapper on 'proofCheck' function.

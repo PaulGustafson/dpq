@@ -47,10 +47,21 @@ import Substitution
 
 import Nominal
 import Data.List
-import qualified Data.Set as S
+
+import qualified Data.MultiSet as S
+import Data.MultiSet (MultiSet)
+
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 
+
+difference' s1 s2 =
+  let s2' = S.distinctElems s2
+  in helper s1 s2'
+   where helper s1 [] = s1
+         helper s1 (x:xs) =
+           helper (S.deleteAll x s1) xs
+                    
 -- | Remove all the vacuous pi quantifiers.
 
 removeVacuousPi :: Exp -> Exp
@@ -111,7 +122,7 @@ vacuousForall (PiImp bds ty) =
         case vacuousForall ty of
           Nothing -> vacuousForall m
           Just p -> Just p
-      else let diff = S.toList $ S.difference vs' fvs in
+      else let diff = S.distinctElems $ difference' vs' fvs in
              Just (Nothing, diff, ty, m)
 
 vacuousForall (Imply ts t2) = vacuousForall t2
@@ -125,7 +136,7 @@ vacuousForall (Forall bds ty) =
         case vacuousForall ty of
           Nothing -> vacuousForall m
           Just p -> Just p
-      else let diff = S.toList $ S.difference vs' fvs in
+      else let diff = S.distinctElems $ difference' vs' fvs in
              Just (Nothing, diff, ty, m)
 
 vacuousForall (Pos p e) =
@@ -143,7 +154,7 @@ data VarSwitch = GetGoal -- ^ Get goal variables only.
   | NoImply -- ^ Does not include the variables that occur in the type class constraints. 
   | GetModVar -- ^ Get modality variables.
 -- | Get a set of variables from an expression according to the flag.
-getVars :: VarSwitch -> Exp -> S.Set Variable
+getVars :: VarSwitch -> Exp -> MultiSet Variable
 getVars b a@(EigenVar x) = varSwitch b a
 getVars b a@(Var x) = varSwitch b a
 getVars b a@(GoalVar x) = varSwitch b a
@@ -190,48 +201,48 @@ getVars GetModVar (Bang t m) = getBVars m `S.union` getVars GetModVar t
 getVars b (Bang t m) = getVars b t
 getVars b (Pi bind t) =
   getVars b t `S.union`
-  (open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs)
+  (open bind $ \ xs m -> getVars b m `difference'` S.fromList xs)
 
 getVars b (PiImp bind t) =
   getVars b t `S.union`
-  (open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs)
+  (open bind $ \ xs m -> getVars b m `difference'` S.fromList xs)
   
 getVars b (Pi' bind t) =
   getVars b t `S.union`
-  (open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs)  
+  (open bind $ \ xs m -> getVars b m `difference'` S.fromList xs)  
 getVars b (Exists bind t) =
   getVars b t `S.union`
-  (open bind $ \ xs m -> getVars b m `S.difference` S.fromList [xs])
+  (open bind $ \ xs m -> getVars b m `difference'` S.fromList [xs])
 
 getVars b (Lam bind) =
-  open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs
+  open bind $ \ xs m -> getVars b m `difference'` S.fromList xs
 getVars b (LamAnn ty bind) =
-  open bind $ \ xs m -> (getVars b m `S.difference` S.fromList xs) `S.union`
+  open bind $ \ xs m -> (getVars b m `difference'` S.fromList xs) `S.union`
                         getVars b ty
 getVars b (LamAnn' ty bind) =
-  open bind $ \ xs m -> (getVars b m `S.difference` S.fromList xs) `S.union`
+  open bind $ \ xs m -> (getVars b m `difference'` S.fromList xs) `S.union`
                         getVars b ty                        
 getVars b (Lam' bind) =
-  open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs  
+  open bind $ \ xs m -> getVars b m `difference'` S.fromList xs  
 
 getVars b (LamType bind) =
-  open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs
+  open bind $ \ xs m -> getVars b m `difference'` S.fromList xs
 getVars b (LamDep bind) =
-  open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs
+  open bind $ \ xs m -> getVars b m `difference'` S.fromList xs
 getVars b (LamDepTy bind) =
-  open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs                        
+  open bind $ \ xs m -> getVars b m `difference'` S.fromList xs                        
 getVars b (LamDep' bind) =
-  open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs                          
+  open bind $ \ xs m -> getVars b m `difference'` S.fromList xs                          
 getVars b (LamTm bind) =
-  open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs
+  open bind $ \ xs m -> getVars b m `difference'` S.fromList xs
 getVars b (LamDict bind) =
-  open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs                        
+  open bind $ \ xs m -> getVars b m `difference'` S.fromList xs                        
                         
 getVars b (Forall bind ty) =
-  open bind $ \ xs m -> S.union (getVars b m `S.difference` S.fromList xs) (getVars b ty)
+  open bind $ \ xs m -> S.union (getVars b m `difference'` S.fromList xs) (getVars b ty)
 
 getVars b (Mod bind) =
-  open bind $ \ xs m -> getVars b m `S.difference` S.fromList xs
+  open bind $ \ xs m -> getVars b m `difference'` S.fromList xs
 
 getVars GetModVar (Circ t u m) = getBVars m
 getVars b (Circ t u m) = S.union (getVars b t) (getVars b u)
@@ -240,17 +251,17 @@ getVars b (Pair ty tm) =
 
 getVars b (Let t bind) =
   getVars b t `S.union`
-  (open bind $ \ x m -> S.delete x (getVars b m))
+  (open bind $ \ x m -> S.deleteAll x (getVars b m))
 
 getVars b (LetPair t bind) =
   getVars b t `S.union`
-  (open bind $ \ xs m -> (S.difference (getVars b m) (S.fromList xs)))
+  (open bind $ \ xs m -> (difference' (getVars b m) (S.fromList xs)))
 
 
 getVars b (LetPat t (Abst ps m)) =
   let (bvs, fvs) = pvar ps in
   (getVars b t `S.union` fvs `S.union` getVars b m)
-  `S.difference` bvs
+  `difference'` bvs
   where pvar (PApp _ []) = (S.empty, S.empty)
         pvar (PApp k ((Right x):xs)) =
           let (bv, fv) = pvar (PApp k xs) in
@@ -269,7 +280,7 @@ getVars b (Case t (B brs)) =
   getVars b t `S.union` S.unions (map helper brs)
   where helper bind = open bind $ \ ps m ->
           let (bvs, fvs) = pvar ps in
-          (fvs `S.union` getVars b m) `S.difference` bvs
+          (fvs `S.union` getVars b m) `difference'` bvs
         pvar (PApp _ []) = (S.empty, S.empty)
         pvar (PApp k ((Right x):xs)) =
           let (bv, fv) = pvar (PApp k xs) in
@@ -285,9 +296,10 @@ getVars b a = error $ "from getVars  " ++ show (disp a)
 
 getBVars (M e1 e2 e3) =
   getBVars' e1 `S.union` getBVars' e2 `S.union` getBVars' e3
-  where getBVars' (BVar x) = S.insert x S.empty
-        getBVars' (BConst _) = S.empty
-        getBVars' (BAnd e1 e2) = S.union (getBVars' e1) (getBVars' e2)
+
+getBVars' (BVar x) = S.insert x S.empty
+getBVars' (BConst _) = S.empty
+getBVars' (BAnd e1 e2) = S.union (getBVars' e1) (getBVars' e2)
 
 -- | Take a bitwise conjunction on the modality.
 modalAnd :: Modality -> Modality -> Modality
@@ -300,7 +312,7 @@ modalAnd (M e1 e2 e3) (M e1' e2' e3') =
           helper e1 e2 = BAnd e1 e2
 
 -- | Get a variable according to 'VarSwitch'.
-varSwitch :: VarSwitch -> Exp -> S.Set Variable
+varSwitch :: VarSwitch -> Exp -> S.MultiSet Variable
 varSwitch AllowEigen (EigenVar x) = S.insert x S.empty
 varSwitch OnlyEigen (EigenVar x) = S.insert x S.empty
 varSwitch NoImply (EigenVar x) = S.insert x S.empty
@@ -940,7 +952,7 @@ isExplicit s a = error $ "from isExplicit:" ++ (show $ disp a)
 -- | Convert all the free variables in an expression into eigenvariables.
 toEigen :: Exp -> Exp
 toEigen t =
-  let fvs = S.toList $ getVars NoEigen t
+  let fvs = S.distinctElems $ getVars NoEigen t
       sub = zip fvs (map EigenVar fvs)
   in apply sub t
 
@@ -1056,7 +1068,7 @@ renameGs gs m = map helper gs
           Gate id params (renameTemp ins m) (renameTemp outs m) (renameTemp ctrls m)
 
 -- | Get the set of free variables from a 'EExp'.
-evarsHelper :: EExp -> S.Set Variable
+evarsHelper :: EExp -> S.MultiSet Variable
 evarsHelper a@(EVar y) = S.insert y S.empty
 evarsHelper (EApp t tm) =
    (evarsHelper t) `S.union` (evarsHelper tm)
@@ -1068,17 +1080,17 @@ evarsHelper (EForce t) = (evarsHelper t)
 evarsHelper (ELift vs t) = S.fromList vs
 evarsHelper (ELet m bd) =
   let m' = evarsHelper m in
-    open bd $ \ (y, _) b -> S.union m'(S.difference (evarsHelper b) (S.fromList [y])) 
+    open bd $ \ (y, _) b -> S.union m'(difference' (evarsHelper b) (S.fromList [y])) 
 
 evarsHelper (ELetPair m bd) =
   let m' = evarsHelper m in
-    open bd $ \ y b -> S.union m'(S.difference (evarsHelper b) (S.fromList $ map fst y)) 
+    open bd $ \ y b -> S.union m'(difference' (evarsHelper b) (S.fromList $ map fst y)) 
 
 
 evarsHelper (ELetPat m bd) =
   let m' = evarsHelper m in
    open bd $ \ (EPApp id ps) b ->
-    S.union m' (S.difference (evarsHelper b) (S.fromList $ map fst ps)) 
+    S.union m' (difference' (evarsHelper b) (S.fromList $ map fst ps)) 
 
         
 evarsHelper (ECase tm (EB br)) =
@@ -1086,13 +1098,13 @@ evarsHelper (ECase tm (EB br)) =
   where helper' br =
           S.unions $ map (\ b -> open b $
                                  \ (EPApp id ps) m ->
-                                 S.difference (evarsHelper m) $ S.fromList $ map fst ps)
+                                 difference' (evarsHelper m) $ S.fromList $ map fst ps)
                         br
 evarsHelper _ = S.empty
 
 -- | Get the list of free variables in an 'EExp'.
 evars :: EExp -> [Variable]
-evars e = S.toList $ evarsHelper e
+evars e = S.distinctElems $ evarsHelper e
 
 -- | Retrieve the variables that a closure refers to. This
 -- must be done efficiently since it is used for evaluation.
@@ -1111,7 +1123,7 @@ freshMode s =
 
 abstractMode :: Exp -> Exp
 abstractMode e =
-  let s = S.toList $ getVars GetModVar e
+  let s = S.distinctElems $ getVars GetModVar e
   in if null s then e else Mod (abst s e)
 
 isBuildIn Reverse = True

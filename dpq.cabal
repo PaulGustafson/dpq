@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a765b067b59e1d10e43128b11e3436fa9e4af62e1010d6bead2ca286d3cb66ca
+-- hash: 68e936f41361ed64a22735e48127211b7456cacbb3d6c2ed5f1c1676c6a8403f
 
 name:           dpq
 version:        0.0.1.0
@@ -65,6 +65,7 @@ library
     , haskeline
     , indents
     , mtl
+    , multiset
     , nominal
     , parsec
     , pretty
@@ -89,6 +90,7 @@ executable dpq
     , haskeline
     , indents
     , mtl
+    , multiset
     , nominal
     , parsec
     , pretty
@@ -113,6 +115,7 @@ executable dpqi
     , haskeline
     , indents
     , mtl
+    , multiset
     , nominal
     , parsec
     , pretty
@@ -138,6 +141,7 @@ test-suite dpq-test
     , haskeline
     , indents
     , mtl
+    , multiset
     , nominal
     , parsec
     , pretty

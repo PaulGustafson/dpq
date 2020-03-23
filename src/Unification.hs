@@ -10,7 +10,7 @@ import SyntacticOperations
 import ModeResolve
 
 import Text.PrettyPrint
-import qualified Data.Set as S
+import qualified Data.MultiSet as S
 import qualified Data.Map as Map
 import Control.Monad.State
 import Debug.Trace

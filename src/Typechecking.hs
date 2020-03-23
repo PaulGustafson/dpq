@@ -21,7 +21,7 @@ import Unification
 import ModeResolve
 
 import Nominal
-import qualified Data.Set as S
+import qualified Data.MultiSet as S
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Debug.Trace
@@ -551,7 +551,7 @@ typeCheck False c@(Lam bind) t =
 typeCheck flag a@(Pair t1 t2) (Exists p ty) =
   do (ty', ann1, mode1) <- typeCheck flag t1 ty
      open p $ \ x t ->
-       do let vars = S.toList $ getVars NoEigen t1
+       do let vars = S.distinctElems $ getVars NoEigen t1
               sub1 = zip vars (map EigenVar vars)
           t1Eigen <- shape $ apply sub1 ann1
           let t' = apply [(x, t1Eigen)] t
@@ -590,7 +590,7 @@ typeCheck flag a@(Pair t1 t2) d =
 typeCheck flag (Let m bd) goal =
   do (t', ann, mode) <- typeInfer flag m
      open bd $ \ x t ->
-           do let vs = S.toList $ getVars NoEigen ann
+           do let vs = S.distinctElems $ getVars NoEigen ann
                   su = zip vs (map EigenVar vs)
               m'' <- shape $ apply su ann
               addVarDef x t' m'' 
@@ -848,7 +848,7 @@ patternUnif m isDpm index head t =
           case flatten t of
             Just (Right h, args) -> 
               let (bs, a:as) = splitAt i args
-                  vars = S.toList $ getVars OnlyEigen a
+                  vars = S.distinctElems $ getVars OnlyEigen a
                   eSub = zip vars (map EigenVar vars)
                   a' = unEigenBound vars a
                   t' = foldl App' (LBase h) (bs++(a':as))
