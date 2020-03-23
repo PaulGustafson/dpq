@@ -1114,3 +1114,11 @@ abstractMode e =
   let s = S.toList $ getVars GetModVar e
   in if null s then e else Mod (abst s e)
 
+isBuildIn Reverse = True
+isBuildIn Box = True
+isBuildIn UnBox = True
+isBuildIn ExBox = True
+isBuildIn RunCirc = True
+isBuildIn (Pos _ e) = isBuildIn e
+isBuildIn a | (App Box _) <- erasePos a = True
+isBuildIn _ = False

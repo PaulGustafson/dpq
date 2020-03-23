@@ -425,20 +425,16 @@ typeCheck flag a (Imply bds ty) =
           let res = LamDict (abst ns ann') 
           return (Imply bds t, res, mode)
 
+typeCheck flag a@(Const _) (Bang ty m) =
+  handleBangConstVar flag a (Bang ty m)
+typeCheck flag a@(Var _) (Bang ty m) =
+  handleBangConstVar flag a (Bang ty m)
+typeCheck flag a@(EigenVar _) (Bang ty m) =
+  handleBangConstVar flag a (Bang ty m)
+  
+-- Inserting lift on Bang.
 typeCheck flag a (Bang ty m) =
-  do r <- isValue a
-     if r then
-       do checkParamCxt a
-          (t, ann, cMode) <- typeCheck flag a ty
-          let s = modeResolution Equal cMode m
-          when (s == Nothing) $ throwError $ ModalityEqErr cMode m a
-          let Just s'@(s1, s2, s3) = s
-          updateModeSubst s'
-          cMode' <- updateModality cMode
-          t' <- updateWithModeSubst t
-          return (Bang t' (simplify cMode'), Lift ann, identityMod)
-       else throwError $ BangValue a (Bang ty m)
-
+  handleBangValue flag a (Bang ty m)
 
 typeCheck False c@(Lam bind) t =
   do at <- updateWithSubst t
@@ -799,6 +795,15 @@ typeCheck flag a@(Case tm (B brs)) goal =
                          mapM removeLocalInst ins
                          return (goal''', abst (PApp kid axs') ann2', mode')
 
+typeCheck flag a@(Const x) ty =
+  nonBangConstVar flag a ty
+typeCheck flag a@(Var x) ty =
+  nonBangConstVar flag a ty
+typeCheck flag a@(EigenVar x) ty =
+  nonBangConstVar flag a ty  
+typeCheck flag a ty | isBuildIn a =
+  nonBangConstVar flag a ty
+  
 typeCheck flag tm ty = equality flag tm ty
 
 
@@ -818,8 +823,7 @@ equality flag tm ty =
   where handleEquality tm ann tym1 ty1 mode = 
           do (unifRes, (s, bs)) <- normalizeUnif GEq tym1 ty1
              case unifRes of
-               UnifError -> 
-                 throwError $ NotEq tm ty1 tym1
+               UnifError -> throwError $ NotEq tm ty1 tym1
                ModeError p1 p2 -> 
                  throwError $ ModalityGEqErr tm ty1 tym1 p1 p2
                Success ->
@@ -827,9 +831,9 @@ equality flag tm ty =
                     let sub' = s `mergeSub` ss
                     updateSubst sub'
                     updateModeSubst bs
-                    tym' <- updateWithModeSubst tym1
+                    tym1' <- updateWithModeSubst tym1
                     mode' <- updateModality mode
-                    return (tym', ann, mode')
+                    return (tym1', ann, mode')
 
 
 -- | Normalize and unify two expressions (/head/ and /t/), taking
@@ -1066,3 +1070,42 @@ addAnn flag mode e a (Imply bds ty) env =
     
 addAnn flag mode e a t env = return (a, t, env, mode)  
 
+handleBangConstVar flag a (Bang ty2 m2) =
+  do (ty', _, _) <- typeInfer flag a
+     case ty' of
+       Bang ty1 m1 ->
+         equality flag a (Bang ty2 m2)
+       _ -> handleBangValue flag a (Bang ty2 m2)
+
+handleBangValue flag a (Bang ty m) =
+  do r <- isValue a
+     if r then
+       do checkParamCxt a
+          (t, ann, cMode) <- typeCheck flag a ty
+          let s = modeResolution Equal cMode m
+          when (s == Nothing) $ throwError $ ModalityEqErr cMode m a
+          let Just s'@(s1, s2, s3) = s
+          updateModeSubst s'
+          cMode' <- updateModality cMode
+          t' <- updateWithModeSubst t
+          return (Bang t' (simplify cMode'), Lift ann, identityMod)
+       else throwError $ BangValue a (Bang ty m)
+
+-- note that ty1 is prefix free.
+nonBangConstVar flag a ty1 =
+  do (tym1, ann, mode) <- typeInfer flag a
+     (a2, tym1', anEnv, mode') <- addAnn flag mode a ann tym1 []
+     mapM (\ (x, t) -> addVar x t) anEnv
+     (unifRes, (s, bs)) <- normalizeUnif GEq tym1' ty1
+     case unifRes of
+       UnifError -> throwError $ NotEq a ty1 tym1'
+       ModeError p1 p2 -> 
+         throwError $ ModalityGEqErr a ty1 tym1' p1 p2
+       Success ->
+         do ss <- getSubst
+            let sub' = s `mergeSub` ss
+            updateSubst sub'
+            updateModeSubst bs
+            tym1'' <- updateWithModeSubst tym1'
+            mode'' <- updateModality mode'
+            return (tym1'', a2, mode'')

@@ -65,10 +65,11 @@ modeResolve' GEq (BConst x) (BConst y)  =
 
 modeResolve' Equal (BVar x) e = return [(x, e)]
 modeResolve' GEq (BVar x) e =
-  return [(x, BConst True)] `mplus` return [(x, e)]
+   return [(x, e)] `mplus` return [(x, BConst True)]
+
 modeResolve' Equal e (BVar x) = return [(x, e)]
 modeResolve' GEq e (BVar x) =
-  return [(x, BConst False)] `mplus` return [(x, e)]
+  return [(x, e)] `mplus` return [(x, BConst False)]
 
 modeResolve' Equal (BConst True) (BAnd e1 e2) =
   do s1 <- modeResolve' Equal (BConst True) e1

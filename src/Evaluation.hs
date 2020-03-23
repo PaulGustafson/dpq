@@ -95,6 +95,7 @@ eval a@(EConst k) =
            DataConstr _ -> return (VConst k)
            DefinedGate v -> return v
            DefinedFunction (Just (_, v, _)) -> return v
+           DefinedFunction Nothing -> throwError $ UndefinedId k
            DefinedMethod _ v -> return v
            DefinedInstFunction _ v -> return v
 

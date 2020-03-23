@@ -500,7 +500,7 @@ normalize b@(Case m (B bd)) =
         helper [] [] m = m
 
 normalize a@(Lift _) = return a
-
+normalize a@(Mod _) = return a
 normalize a@(Lam' _) = return a
 normalize a@(Lam _) = return a
 normalize a@(LamDep' _) = return a

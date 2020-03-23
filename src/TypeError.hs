@@ -73,7 +73,8 @@ data TypeError = Unhandle Exp
 
 -- | A data type for evaluation errors.
 data EvalError = MissBranch Id EExp
-               | UndefinedId Id 
+               | UndefinedId Id
+               | Loop Id 
                | PatternMismatch Pattern Value
                | TupleMismatch [Variable] Value
                | ErrWrapper TypeError
@@ -419,7 +420,7 @@ instance Disp TypeError where
     text "when checking" $$ nest 2 (display flag a)
 
   display flag (ModalityGEqErr tm ty1 tym1 (m1, t1) (m2, t2)) =
-    text "can solve modality inequality." $$
+    text "can't resolve modality inequality." $$
     nest 2 (text "current mode:") <+> display flag m1 $$
     nest 2 (text "in") <+> display flag t1 $$
     nest 2 (text "expected mode:") <+> display flag m2 $$
