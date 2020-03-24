@@ -173,7 +173,7 @@ box_flood_fill (m x_max : Nat) (pf : Eq Bool (x_max > Z) True) =
   boxGarbage
   -- ((Vec Qubit (S m)) * (Vec Qubit (S m)))
   --             (TripleVec (S m))
-              $ uncurry (\ x -> flood_fill m x_max pf x)
+              $ \ x -> (uncurry (flood_fill m x_max pf)) x
 		   
 
 checkwin_red' : ! (n : Nat) -> (Vec Qubit n) -> WithGarbage Qubit
@@ -181,7 +181,7 @@ checkwin_red' n v =
   case v of
     VNil -> return $ initQubit True 
     VCons x xs -> do
-      r <- foldM bor x xs
+      r <- foldM (\ x -> bor x) x xs
       bnot r
 
 checkwin_red (m x_max : Nat) (pf1 : Eq Bool (x_max > Z) True)
@@ -195,7 +195,7 @@ checkwin_red (m x_max : Nat) (pf1 : Eq Bool (x_max > Z) True)
       VZ vnr x' xs' = moveForward Qubit Z m x_max pf2 (VZ begin1 q res)
       VNil = vnr
       red = VCons x' xs'
-  begin_blue <- mapM bnot begin2
+  begin_blue <- mapM (\ x -> bnot x) begin2
   let VZ vnb y ys = moveForward Qubit Z m x_max pf2 (VZ begin_blue q' tail_blue)
       VNil = vnb
       blue = VCons y ys 
@@ -215,7 +215,7 @@ real_checkwin_red (m x_max : Nat) (pf1 : Eq Bool (x_max > Z) True)
         (CNot r)
 
 box_checkwin_red (m x_max : Nat) (pf1 : Eq Bool (x_max > Z) True)
-  (pf2 : Eq Bool (x_max <= m) True) = box (Qubit * Vec Qubit (S m)) $ uncurry (\ x -> real_checkwin_red m x_max pf1 pf2 x)
+  (pf2 : Eq Bool (x_max <= m) True) = box (Qubit * Vec Qubit (S m)) $ \ x -> (uncurry (real_checkwin_red m x_max pf1 pf2)) x
 
 -- A thunk of small_board to prevent immediate evaluation->
 small_board (x : Unit) = box_checkwin_red (mul 2 7) 5 refl refl
@@ -236,7 +236,7 @@ a_small_board_red =
   $ VCons True $ VCons True $ VCons True $ VCons True $ VCons True VNil
 
 
-main = box_checkwin_red (3 @ 7 - 1) 7 refl refl
+-- main = box_checkwin_red (3 @ 7 - 1) 7 refl refl
 
 -- box_checkwin_red (9 @ 7 - 1) 7 refl refl
 

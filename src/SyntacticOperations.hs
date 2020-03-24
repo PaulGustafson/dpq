@@ -1132,5 +1132,4 @@ isBuildIn UnBox = True
 isBuildIn ExBox = True
 isBuildIn RunCirc = True
 isBuildIn (Pos _ e) = isBuildIn e
-isBuildIn a | (App Box _) <- erasePos a = True
 isBuildIn _ = False

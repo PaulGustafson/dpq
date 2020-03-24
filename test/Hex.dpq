@@ -79,7 +79,7 @@ box_testpos pos m xy_max  =
   box_garbage
     (Vec Qubit (S (add pos m)) * Vec Qubit (S (add pos m)) * Vec Qubit (S (add pos m)))
      (Vec Qubit (S (add pos m))) 
-         $ uncurry $ uncurry (\ x -> testpos pos m xy_max x)
+         $ \ x -> (uncurry $ uncurry (testpos pos m xy_max)) x
 
 box_testpos_t1 : (n : Nat) *
                    Circ(Vec  Qubit (S (add 9 8)) *

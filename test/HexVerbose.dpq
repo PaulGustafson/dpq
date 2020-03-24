@@ -47,7 +47,7 @@ box_test_focus n m =
               (VecZipper Qubit n m *
                VecZipper Qubit n m *
  	       VecZipper Qubit n m) $  
- 		   uncurry $ uncurry test_focus
+ 		   \ x -> (uncurry $ uncurry test_focus) x
 
 box_test_focus_t1 : (y : Nat) *
                         Circ(VecZipper Qubit 9 9 * VecZipper Qubit 9 9 *

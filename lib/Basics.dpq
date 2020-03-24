@@ -15,10 +15,10 @@ id x = x
 swap : ! forall a b -> a * b -> b * a
 swap u = let (x, y) = u in (y, x)
 
-uncurry' : ! forall a b c -> (a -> b -> c) -> (a * b -> c)
-uncurry' f = \ x -> let (a, b) = x in f a b
+-- uncurry' : ! forall a b c -> (a -> b -> c) -> (a * b -> c)
+-- uncurry' f = \ x -> let (a, b) = x in f a b
 
-uncurry : ! forall a b c -> !(a -> b -> c) -> !(a * b -> c)
+uncurry : ! forall a b c -> (a -> b -> c) -> (a * b -> c)
 uncurry f x = let (a, b) = x in f a b
 
 curry : ! forall a b c -> (a * b -> c) -> (a -> b -> c)

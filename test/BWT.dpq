@@ -536,5 +536,5 @@ main = -- box Unit $ \ u -> orthodoxy 1 4 (VCons True $ VCons False $ VCons True
        g = VCons False $ VCons True $ VCons False $ VCons True VNil
        s = 1
        n = 4
-   in box Unit $ \ u -> orthodoxy s n f g
+   in box Unit (\ u -> orthodoxy s n f g)
 

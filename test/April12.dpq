@@ -16,16 +16,16 @@ cS : ! (Qubit -> Qubit -> Qubit * Qubit)
 cS x y = SGate x y
 
 box_cZ : Circ(Qubit * Qubit, Qubit * Qubit)
-box_cZ = box (Qubit * Qubit) $ uncurry cZ
+box_cZ = box (Qubit * Qubit) $ \ x -> uncurry cZ x
 
 box_cS : Circ(Qubit * Qubit, Qubit * Qubit)
-box_cS = box (Qubit * Qubit) $ uncurry cS
+box_cS = box (Qubit * Qubit) $ \ x -> uncurry cS x
 
 mapH : ! forall (n : Nat) -> Vec Qubit n -> Vec Qubit n
 mapH l = map H l
 
 box_mapH : ! (n : Nat) -> Circ(Vec Qubit n, Vec Qubit n)
-box_mapH n = box (Vec Qubit n) mapH
+box_mapH n = box (Vec Qubit n) $ \ x -> mapH x
 
 -- sum (n : Nat) =
 --   case n of
@@ -63,7 +63,7 @@ controls v2 v1 q =
 
 
 box_ctr : !(n : Nat) -> Circ(Vec Qubit n * Vec Qubit n * Qubit, Qubit * Vec Qubit n * Vec Qubit n)
-box_ctr n = box (Vec Qubit n * Vec Qubit n * Qubit) $ uncurry $ uncurry controls
+box_ctr n = box (Vec Qubit n * Vec Qubit n * Qubit) $ \ x -> (uncurry $ uncurry controls) x
 
 additiveCtrl : ! forall (n : Nat) -> Vec Qubit n -> DVec Qubit n -> DVec Qubit n * Vec Qubit n
 additiveCtrl v dv =
@@ -76,7 +76,7 @@ additiveCtrl v dv =
       in (DCons v dv'', VCons x xs')
 
 cool : !(n : Nat) -> Circ(Vec Qubit n * DVec Qubit n, DVec Qubit n * Vec Qubit n)
-cool n = box (Vec Qubit n * DVec Qubit n) $ uncurry additiveCtrl
+cool n = box (Vec Qubit n * DVec Qubit n) $ \ x -> uncurry additiveCtrl x
 
 
 f : ! forall a -> List a -> List a

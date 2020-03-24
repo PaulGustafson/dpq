@@ -7,7 +7,7 @@ toffoli x c =
   let (c1, c2) = c in ToffoliGate True True x c1 c2
 
 tgate_inv : ! (Qubit -> Qubit)
-tgate_inv = unbox $ reverse $ box Qubit TGate
+tgate_inv x = (unbox $ reverse $ box Qubit TGate) x
 controlled SGate : Qubit -> Qubit
 
 sgate : ! (Qubit -> Qubit)
@@ -34,7 +34,7 @@ makeToffoli a b c =
   in (a, b, c)
 
 boxT : Circ(Qubit * Qubit * Qubit, Qubit * Qubit * Qubit)
-boxT = box (Qubit * Qubit * Qubit) $ uncurry $ uncurry makeToffoli
+boxT = box (Qubit * Qubit * Qubit) $ \ x -> (uncurry $ uncurry makeToffoli) x
 
 
 -- ideally, if_then_else : !(Qubit -> Qubit -> Qubit -> M Qubit)
@@ -47,7 +47,7 @@ if_then_else a x y =
   in (QNot a, x , y , z)
 
 box_if : Circ(Qubit * Qubit * Qubit, Qubit * Qubit * Qubit * Qubit)
-box_if = box (Qubit * Qubit * Qubit) $ uncurry $ uncurry if_then_else
+box_if = box (Qubit * Qubit * Qubit) $ \ x -> (uncurry $ uncurry if_then_else) x
 
 
 -- mistake : !(Qubit -> Qubit -> Qubit * Qubit * Qubit * Qubit)
@@ -61,13 +61,13 @@ negateOn a x =
 negateOn' : !(Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit)
 negateOn' a x r = 
   let (a, x1, x2, z) = negateOn a x
-      negateOn_rev = reverse $ box (Qubit * Qubit) $ uncurry negateOn 
+      negateOn_rev = reverse $ box (Qubit * Qubit) $ \ x ->  uncurry negateOn x
       (r, z) = CNot r z
       (a, x) = unbox negateOn_rev (a, x1, x2, z)
   in (a, x, r)
 
 box_negateOn' : Circ(Qubit * Qubit * Qubit, Qubit * Qubit * Qubit)
-box_negateOn' = box (Qubit * Qubit * Qubit) $ uncurry $ uncurry negateOn'
+box_negateOn' = box (Qubit * Qubit * Qubit) $ \ x -> (uncurry $ uncurry negateOn') x
 
 negateAnd : ! (Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit * Qubit * Qubit * Qubit)
 negateAnd a x y =
@@ -76,7 +76,7 @@ negateAnd a x y =
   in (a, x1, x2, r, y, z)
 
 box_negateAnd : Circ(Qubit * Qubit * Qubit, Qubit * Qubit * Qubit * Qubit * Qubit * Qubit)
-box_negateAnd = box (Qubit * Qubit * Qubit) $ uncurry $ uncurry negateAnd
+box_negateAnd = box (Qubit * Qubit * Qubit) $ \ x ->  (uncurry $ uncurry negateAnd) x
 
 -- negateOn2 : ! (Qubit -> Qubit -> WithGarbage Qubit)
 negateOn2 (a x : Qubit) =
@@ -100,7 +100,7 @@ negateAnd2 a x y =
      return r
 
 box_negateAnd2 : (n : Nat) * Circ(Qubit * Qubit * Qubit, Vec Qubit n * Qubit)
-box_negateAnd2 = box_garbage (Qubit * Qubit * Qubit) Qubit $ uncurry $ uncurry negateAnd2
+box_negateAnd2 = box_garbage (Qubit * Qubit * Qubit) Qubit $ \ x ->  (uncurry $ uncurry negateAnd2) x
 
                             
 rotate : ! (Qubit -> State (Qubit * Nat) Qubit)
@@ -134,4 +134,4 @@ tower' v = depFold (\ x -> Vec Qubit x)
 box_negateAndRev : Circ(Qubit * Qubit * Qubit * Qubit, Qubit * Qubit * Qubit * Qubit)
 box_negateAndRev = box (Qubit * Qubit * Qubit * Qubit) $
    \ x -> without_garbage2 (Qubit * Qubit * Qubit) Qubit
-                                (uncurry $ uncurry negateAnd2) (switch $ uncurry CNot) x
+                                (\ x -> (uncurry $ uncurry negateAnd2) x) (switch $ uncurry CNot) x

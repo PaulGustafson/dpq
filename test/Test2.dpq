@@ -79,7 +79,7 @@ boxCp = box Qubit cp
 
 rev (x : Qubit) = (unbox (reverse boxCp)) (cp x)
 
-boxRev = box Qubit rev
+-- boxRev = box Qubit rev
 
 -- The following is an example of mode should not be shared as a global.
 -- i.e., the lifting of \ x -> x should not affect the global mode.
