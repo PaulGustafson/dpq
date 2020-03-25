@@ -22,7 +22,7 @@ import Utils
 import TypeError
 import ModeResolve
 import Typechecking
--- import Proofchecking
+import Proofchecking
 import Evaluation hiding (genNames)
 import Erasure
 import Substitution
@@ -68,7 +68,7 @@ process (Class pos d kd dict dictType mths) =
                   (tyy'', a) <- typeChecking False (Pos pos mth) tyy'
                   a' <- erasure a
                   v <- evaluation a'
---                  proofChecking False a tyy''
+                  proofChecking False a tyy''
                   let fp = Info{ classifier = abstractMode tyy',
                                  identification = DefinedMethod a v
                                }
@@ -111,7 +111,7 @@ process (Def pos f' ty' def') =
      a <- erasure ann
      st <- get
      
---     proofChecking False ann ty1'
+     proofChecking False ann ty1'
      v <- evaluation a
        -- trace (show $ dispRaw f' <+> dispRaw ty1' <+> dispRaw (modeSubstitution st) ) $ 
      b <- isBasicValue v
@@ -131,7 +131,7 @@ process (Defn pos f Nothing def) =
      when (not p && not (isConst def)) $
        throwError (ErrPos pos $ NotParam (Const f) ty)
      a' <- erasure a
---     proofChecking False a ty
+     proofChecking False a ty
      v <- evaluation a'
      b <- isBasicValue v
      v' <- if b then typeChecking False (toExp v) ty >>= \ x -> return $ Just (snd x)
@@ -173,7 +173,7 @@ process (Defn pos f (Just tt) def) =
      -- the second check
      (tk', def') <- typeChecking False (Pos pos def) tk1
      a' <- erasure def'
---     proofChecking False def' tk'
+     proofChecking False def' tk'
      v <- evaluation a'
      b <- isBasicValue v
      v' <- if b then typeChecking False (toExp v) tk1 >>= \ x -> return $ Just (snd x)
@@ -456,7 +456,7 @@ elaborateInstance pos f' ty mths =
                                  identification = DefinedInstFunction def' v
                               }
                  addNewId f' fp
---                 proofChecking False def' annTy'
+                 proofChecking False def' annTy'
                  
        _ -> throwError $ ErrPos pos $ TypeClassNotValid h                 
        where instantiateWith (Forall (Abst vs b') t) xs =
@@ -678,8 +678,8 @@ typeChecking b exp ty =
 
 -- | Check an annotated expression against a type. It is a wrapper on 'proofCheck' function.
 
--- proofChecking :: Bool -> Exp -> Exp -> TCMonad ()
--- proofChecking b exp ty =
---   proofCheck b exp ty `catchError` \ e -> throwError $ PfErrWrapper exp e ty
+proofChecking :: Bool -> Exp -> Exp -> TCMonad ()
+proofChecking b exp ty =
+  proofCheck b exp ty `catchError` \ e -> throwError $ PfErrWrapper exp e ty
 
 

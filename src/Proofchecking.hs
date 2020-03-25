@@ -13,6 +13,7 @@ import TCMonad
 import Normalize
 import TypeError
 import Unification
+import ModeResolve
 import Substitution
 import Utils
 
@@ -52,12 +53,13 @@ proofInfer True ty@(Arrow t1 t2) =
        (Set, Sort) -> return Sort
        (Sort, Sort) -> return Sort
        (b1, b2) -> throwError (NotEq ty Set (Arrow b1 b2))
-proofInfer True ty@(Circ t1 t2) =
+
+proofInfer True ty@(Circ t1 t2 m) =
   do a1 <- proofInfer True t1
      a2 <- proofInfer True t2
      case (a1, a2) of
        (Set, Set) -> return Set
-       (b1, b2) -> throwError (NotEq ty Set (Circ b1 b2))
+       (b1, b2) -> throwError (NotEq ty Set (Circ b1 b2 m))
 
 proofInfer True a@(Imply [] t) =
   do ty <- proofInfer True t
@@ -156,7 +158,10 @@ proofInfer flag a@(EigenVar x) =
 proofInfer flag a@(Const kid) =
   do funPac <- lookupId kid
      let cl = classifier funPac
-     if flag then shape cl else return cl
+     case cl of
+       (Mod (Abst _ cl')) -> 
+         if flag then shape cl' else return cl'
+       _ -> if flag then shape cl else return cl
 
 
 proofInfer False a@(AppDep t1 t2) =
@@ -279,7 +284,7 @@ proofInfer flag Reverse =
   let va = Var a
       vb = Var b
       simpClass = Id "Simple"
-      t1 = Arrow (Circ va vb) (Circ vb va)
+      t1 = Arrow (Circ va vb identityMod) (Circ vb va identityMod)
       t1' = Imply [App' (Base simpClass) va , App' (Base simpClass) vb] t1
       ty = Forall (abst [a, b] t1') Set
   in return ty
@@ -289,7 +294,7 @@ proofInfer flag UnBox =
   let va = Var a
       vb = Var b
       simpClass = Id "Simple"
-      t1 = Arrow (Circ va vb) (Bang (Arrow va vb))
+      t1 = Arrow (Circ va vb identityMod) (Bang (Arrow va vb) identityMod)
       t1' = Imply [App' (Base simpClass) va , App' (Base simpClass) vb] t1
       ty = Forall (abst [a, b] t1') Set
   in return ty
@@ -298,7 +303,7 @@ proofInfer flag t@(Box) = freshNames ["a", "b"] $ \ [a, b] ->
   do let va = Var a
          vb = Var b
          simpClass = Id "Simple"
-         t1 = Arrow (Bang (Arrow va vb)) (Circ va vb)
+         t1 = Arrow (Bang (Arrow va vb) identityMod) (Circ va vb identityMod)
          t1' = Imply [(App' (Base simpClass) va), (App' (Base simpClass) vb)] t1
          boxType = Pi (abst [a] (Forall (abst [b] t1') Set)) Set
      return boxType
@@ -309,7 +314,7 @@ proofInfer flag t@(RunCirc) = freshNames ["a", "b", "c", "d"] $ \ [a, b, c, d] -
          vc = Var c
          vd = Var d
          simpParam = Id "SimpParam"
-         t1 = Arrow (Circ va vb) (Arrow vc vd)
+         t1 = Arrow (Circ va vb identityMod) (Arrow vc vd)
          t1' = Imply [App' (App' (Base simpParam) va) vc , App' (App' (Base simpParam) vb) vd] t1
          res = Forall (abst [a, b, c, d] t1') Set
      return res
@@ -327,8 +332,8 @@ proofInfer flag t@(ExBox) =
          paramB = App' (Base paramClass) vb
          simpP = App' (Base simpClass) (App' vp vn)
          t1Output = Exists (abst n (App' vp vn)) (vb)
-         t1 = Bang (Arrow va t1Output)
-         output = Exists (abst n $ Imply [simpP] (Circ va (App' vp vn))) (vb)
+         t1 = Bang (Arrow va t1Output) identityMod
+         output = Exists (abst n $ Imply [simpP] (Circ va (App' vp vn) identityMod)) (vb)
          beforePi = Arrow t1 output
          r = Pi (abst [a] $
                  Forall (abst [b] (Imply [simpA, paramB] $ Pi (abst [p] $ beforePi) kp)) Set) Set
@@ -339,13 +344,13 @@ proofInfer flag (Star) = return Unit
 proofInfer False a@(Force t) =
   do ty <- proofInfer False t
      case ty of
-       Bang ty' -> return ty'
+       Bang ty' _ -> return ty'
        b -> throwError $ BangErr t b 
 
 proofInfer flag a@(Force' t) =
   do ty <- proofInfer True t
      case ty of
-       Bang ty' -> shape ty'
+       Bang ty' _ -> shape ty'
        b -> throwError $ BangErr t b 
 
 proofInfer flag a@(Pair t1 t2) =
@@ -384,6 +389,9 @@ proofInfer flag e = throwError $ Unhandle e
 
 proofCheck flag (Pos p e) t = 
   proofCheck flag e t `catchError` \ e -> throwError $ collapsePos p e
+
+proofCheck flag e (Mod (Abst _ t)) = 
+  proofCheck flag e t
 
 proofCheck False a@(Lam bd) (Arrow t1 t2) = open bd $ \ xs m ->
   do addVar (head xs) t1
@@ -433,7 +441,7 @@ proofCheck flag (LamTm bd1) exp@(Forall bd2 ty) =
 proofCheck flag (LamType bd1) exp@(Forall bd2 ty) =
   handleAbs flag LamType Forall bd1 bd2 ty False
 
-proofCheck flag (Lift m) (Bang t) =
+proofCheck flag (Lift m) (Bang t _) =
   do checkParamCxt m
      proofCheck flag m t
 
@@ -491,11 +499,11 @@ proofCheck flag (LetPat m bd) goal  = open bd $ \ (PApp kid args) n ->
      let matchEigen = isEigenVar m
          eSub = map (\ x -> (x, EigenVar x)) eigen
          isDpm = isSemi || matchEigen
-     unifRes <- dependentUnif index isDpm head tt
+     (unifRes, (sub', _)) <- dependentUnif index isDpm head tt
      ss <- getSubst
      case unifRes of
-       Nothing -> throwError $ (UnifErr head tt)
-       Just sub' -> do
+       UnifError -> throwError $ (UnifErr head tt)
+       Success -> do
             sub1 <- if matchEigen then
                       makeSub m sub' $ foldl (\ x y ->
                                            case y of
@@ -551,10 +559,10 @@ proofCheck flag a@(Case tm (B brs)) goal =
                  eSub = map (\ x -> (x, EigenVar x)) eigen
                  isDpm = isSemi || matchEigen
              ss <- getSubst
-             unifRes <- dependentUnif index isDpm head t
+             (unifRes, (sub', _)) <- dependentUnif index isDpm head t
              case unifRes of
-               Nothing -> throwError $ (UnifErr head t)
-               Just sub' -> do
+               UnifError -> throwError $ (UnifErr head t)
+               Success -> do
                  sub1 <-
                    if matchEigen then
                      makeSub tm sub' $ foldl (\ x y ->
@@ -584,14 +592,14 @@ proofCheck flag a goal =
      goal1 <- updateWithSubst goal
      goal' <- normalize goal1
      t' <- normalize t1
-     when ((erasePos goal') /= (erasePos t')) $ throwError (NotEq a goal' t')
+     when (not (noModEq (erasePos goal') (erasePos t'))) $ throwError (NotEq a goal' t')
 
 -- | Unification for dependent pattern pattern matching.
 
 -- Technical: in the following, "return $ runUnify head t" can be replaced by
 -- "if head == t then return $ Just Map.empty else return Nothing", as
 -- these two cases are not dependent pattern matching.
-dependentUnif :: Maybe Int -> Bool -> Exp -> Exp -> TCMonad (Maybe Subst)
+dependentUnif :: Maybe Int -> Bool -> Exp -> Exp -> TCMonad (UnifResult, (Subst, BSubst))
 dependentUnif index isDpm head t =
   if not isDpm then return $ runUnify Equal head t
   else case index of
@@ -604,17 +612,18 @@ dependentUnif index isDpm head t =
                   eSub = zip vars (map EigenVar vars)
                   a' = unEigenBound vars a
                   t' = foldl App' (LBase h) (bs++(a':as))
-              in case runUnify Equal head t' of
-                   Nothing -> return Nothing
-                   Just subst -> 
-                     helper subst vars eSub
+                  u@(res, (subst, bss)) =  runUnify Equal head t'
+              in case res of
+                   UnifError -> return u
+                   Success -> 
+                     helper subst vars eSub bss
             _ -> throwError $ UnifErr head t
   where -- change relavent variables back into eigenvariables after dependent pattern-matching. 
-        helper subst (v:vars) eSub =
+        helper subst (v:vars) eSub bs =
           let subst' = Map.mapWithKey (\ k val -> if k == v then toEigen val else val) subst
               subst'' = Map.map (\ val -> apply eSub val) subst'
-          in helper subst'' vars eSub
-        helper subst [] eSub = return $ Just subst
+          in helper subst'' vars eSub bs
+        helper subst [] eSub bs = return (Success, (subst, bs)) 
 
 -- | Check lambda abstractions against a type. The argument /fl/ is to indicate
 -- whether or not to check usage. 
@@ -650,6 +659,7 @@ handleAbs flag lam prefix bd1 bd2 ty fl =
 -- in the pattern expression.
 inst ::  Exp -> [Either (NoBind Exp) Variable] ->
          TCMonad (Exp, [Either (NoBind Exp) Variable], [Variable])
+inst (Mod (Abst _ t)) xs = inst t xs         
 inst (Arrow t1 t2) (Right x : xs) =
   do addVar x t1
      (h, vs, eigen) <- inst t2 xs 

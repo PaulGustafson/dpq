@@ -50,7 +50,8 @@ import Data.List
 
 import qualified Data.MultiSet as S
 import Data.MultiSet (MultiSet)
-
+import Text.PrettyPrint
+import Prelude hiding((<>))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 
@@ -1133,3 +1134,139 @@ isBuildIn ExBox = True
 isBuildIn RunCirc = True
 isBuildIn (Pos _ e) = isBuildIn e
 isBuildIn _ = False
+
+
+-- | Compare equality for types, ignore modality. 
+noModEq :: Exp -> Exp -> Bool
+noModEq (Var x) (Var y) = x == y
+noModEq (GoalVar x) (GoalVar y) = x == y
+noModEq (EigenVar x) (EigenVar y) = x == y
+noModEq (Const x) (Const y) = x == y
+noModEq (LBase x) (LBase y) = x == y
+noModEq (Base x) (Base y) = x == y
+noModEq (Arrow x1 x2) (Arrow y1 y2) =
+  (noModEq x1 y1) && (noModEq x2 y2)
+noModEq (Arrow' x1 x2) (Arrow' y1 y2) =
+  (noModEq x1 y1) && (noModEq x2 y2)
+noModEq (App x1 x2) (App y1 y2) =
+  (noModEq x1 y1) && (noModEq x2 y2)
+noModEq (AppType x1 x2) (AppType y1 y2) =
+  (noModEq x1 y1) && (noModEq x2 y2)
+noModEq (AppTm x1 x2) (AppTm y1 y2) =
+  (noModEq x1 y1) && (noModEq x2 y2)
+  
+noModEq (App' x1 x2) (App' y1 y2) =
+  (noModEq x1 y1) && (noModEq x2 y2)
+noModEq (AppDict x1 x2) (AppDict y1 y2) =
+  (noModEq x1 y1) && (noModEq x2 y2)
+noModEq (AppDep x1 x2) (AppDep y1 y2) =
+  (noModEq x1 y1) && (noModEq x2 y2)
+noModEq (AppDep' x1 x2) (AppDep' y1 y2) =
+  (noModEq x1 y1) && (noModEq x2 y2)
+noModEq (AppDepTy x1 x2) (AppDepTy y1 y2) =
+  (noModEq x1 y1) && (noModEq x2 y2)
+  
+noModEq (Tensor x1 x2) (Tensor y1 y2) =
+  (noModEq x1 y1) && (noModEq x2 y2)
+noModEq (Exists (Abst a x1) x2) (Exists (Abst b y1) y2) =
+  (noModEq (apply [(a, Var b)] x1) y1) && (noModEq x2 y2)  
+noModEq (Pair x1 x2) (Pair y1 y2) =
+  (noModEq x1 y1) && (noModEq x2 y2)
+
+noModEq (Imply x1 x2) (Imply y1 y2) =
+  (and $ zipWith noModEq x1 y1) && (noModEq x2 y2)
+noModEq (Bang x1 x2) (Bang y1 y2) =
+  noModEq x1 y1
+
+noModEq (Force' x1) (Force' y1) =
+  noModEq x1 y1
+
+noModEq (Force x1) (Force y1) =
+  noModEq x1 y1
+noModEq (Lift x1) (Lift y1) =
+  noModEq x1 y1
+
+noModEq (Circ x1 x2 _) (Circ y1 y2 _) =
+  (noModEq x1 y1) && (noModEq x2 y2)
+noModEq (Exists (Abst a x1) x2) (Exists (Abst b y1) y2) =
+  (noModEq (apply [(a, Var b)] x1) y1) && (noModEq x2 y2)  
+
+noModEq (Pi (Abst as x1) x2) (Pi (Abst bs y1) y2) =
+  let sub = zip as (map Var bs) 
+  in (noModEq (apply sub x1) y1) && (noModEq x2 y2)  
+noModEq (Pi' (Abst as x1) x2) (Pi' (Abst bs y1) y2) =
+  let sub = zip as (map Var bs) 
+  in (noModEq (apply sub x1) y1) && (noModEq x2 y2)  
+noModEq (PiImp (Abst as x1) x2) (PiImp (Abst bs y1) y2) =
+  let sub = zip as (map Var bs) 
+  in (noModEq (apply sub x1) y1) && (noModEq x2 y2)  
+
+noModEq (Forall (Abst as x1) x2) (Forall (Abst bs y1) y2) =
+  let sub = zip as (map Var bs) 
+  in (noModEq (apply sub x1) y1) && (noModEq x2 y2)  
+noModEq Set Set = True
+noModEq Unit Unit = True
+noModEq Star Star = True
+noModEq (Lam (Abst xs e1)) (Lam (Abst ys e2)) =
+  let sub = zip xs (map Var ys) 
+  in noModEq (apply sub e1) e2
+noModEq (Lam' (Abst xs e1)) (Lam' (Abst ys e2)) =
+  let sub = zip xs (map Var ys) 
+  in noModEq (apply sub e1) e2
+noModEq (LamDict (Abst xs e1)) (LamDict (Abst ys e2)) =
+  let sub = zip xs (map Var ys) 
+  in noModEq (apply sub e1) e2
+
+noModEq (LamDep (Abst xs e1)) (LamDep (Abst ys e2)) =
+  let sub = zip xs (map Var ys) 
+  in noModEq (apply sub e1) e2
+
+noModEq (LamDep' (Abst xs e1)) (LamDep' (Abst ys e2)) =
+  let sub = zip xs (map Var ys) 
+  in noModEq (apply sub e1) e2
+noModEq (LamDepTy (Abst xs e1)) (LamDepTy (Abst ys e2)) =
+  let sub = zip xs (map Var ys) 
+  in noModEq (apply sub e1) e2
+
+noModEq (LamType (Abst xs e1)) (LamType (Abst ys e2)) =
+  let sub = zip xs (map Var ys) 
+  in noModEq (apply sub e1) e2
+
+noModEq (LamTm (Abst xs e1)) (LamTm (Abst ys e2)) =
+  let sub = zip xs (map Var ys) 
+  in noModEq (apply sub e1) e2
+
+
+noModEq (Case e (B br)) (Case e' (B br')) =
+  let r1 = noModEq e e'
+      r2 = and $ zipWith helper br br'
+  in r1 && r2
+  where helper (Abst (PApp id1 ps1) e1) (Abst (PApp id2 ps2) e2) =
+          (id1 == id2) && helper2 ps1 e1 ps2 e2
+        helper2 ((Left (NoBind a1)):ps1) e1 ((Left (NoBind a2)):ps2) e2 =
+          if noModEq a1 a2 then
+            helper2 ps1 e1 ps2 e2
+            else False
+        helper2 ((Right a1):ps1) e1 ((Right a2):ps2) e2 =
+          helper2 ps1 (apply [(a1, Var a2)] e1) ps2 e2
+        helper2 [] e1 [] e2 = noModEq e1 e2
+
+noModEq (Let e1 (Abst a1 b1)) (Let e2 (Abst a2 b2)) =
+  noModEq e1 e2 && noModEq (apply [(a1, Var a2)] b1) b2
+
+noModEq (LetPair e1 (Abst a1 b1)) (LetPair e2 (Abst a2 b2)) =
+  let sub = zip a1 (map Var a2)
+  in noModEq e1 e2 && noModEq (apply sub b1) b2
+
+noModEq (LetPat e1 (Abst (PApp id1 p1) b1)) (LetPat e2 (Abst (PApp id2 p2) b2)) =
+  noModEq e1 e2 && id1 == id2 && helper2 p1 b1 p2 b2 
+  where helper2 ((Left (NoBind a1)):ps1) e1 ((Left (NoBind a2)):ps2) e2 =
+          if noModEq a1 a2 then
+            helper2 ps1 e1 ps2 e2
+            else False
+        helper2 ((Right a1):ps1) e1 ((Right a2):ps2) e2 =
+          helper2 ps1 (apply [(a1, Var a2)] e1) ps2 e2
+        helper2 [] e1 [] e2 = noModEq e1 e2
+
+noModEq a b = False
+  -- error $ show $ text "from noModEq:" <> disp a <> text ":" <> disp b
