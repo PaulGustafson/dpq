@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 68e936f41361ed64a22735e48127211b7456cacbb3d6c2ed5f1c1676c6a8403f
+-- hash: 3cf013f368049fc1d61083e0a7cc73d8595fdd84e11692fc1b41fd793b6bcfc8
 
 name:           dpq
 version:        0.0.1.0
@@ -38,6 +38,7 @@ library
       Parser
       Printcircuits
       ProcessDecls
+      Proofchecking
       ReadEvalPrint
       Resolve
       Simplecheck
