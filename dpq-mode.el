@@ -10,8 +10,8 @@
         ("\\b\\(Simple\\|Parameter\\|Unit\\|Type\\)\\b" . font-lock-builtin-face)
         ("\\b[[:upper:]][[:alnum:]'_]*\\b" . font-lock-type-face)
         
-        ("\\b\\(let\\|in\\|do\\|simple\\|forall\\|infixr\\|infixl\\|infix\\|import\\|type\\|gate\\|data\\|class\\|controlled\\|exists\\|instance\\|object\\|case\\|of\\|module\\|where\\|if\\|then\\|else\\)\\b" . font-lock-keyword-face)
-        ("\\b\\(box\\|unbox\\|reverse\\|existsBox\\|runCirc\\)\\b" . font-lock-constant-face)
+        ("\\b\\(let\\|in\\|do\\|simple\\|forall\\|infixr\\|infixl\\|infix\\|import\\|type\\|gate\\|data\\|class\\|exists\\|instance\\|object\\|case\\|of\\|module\\|where\\|if\\|then\\|else\\)\\b" . font-lock-keyword-face)
+        ("\\b\\(box\\|unbox\\|reverse\\|controlled\\|existsBox\\|runCirc\\)\\b" . font-lock-constant-face)
         ("\\([\\λ=*]\\|:\\|->\\|<-\\|\\.\\|()\\|!\\|&\\||\\|<\\|>\\|[[]\\|[]]\\|{\\|}\\|[$]\\)" . font-lock-constant-face)
         )
       )

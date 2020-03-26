@@ -103,5 +103,15 @@ boxG1 = box Qubit g1
 e : ! (Circ{1,0,0}(Qubit, Bit) -> Circ(Qubit, Bit))
 e x = x
 
-testE = e (box Qubit m)
+hadamard = box Qubit h
+
+testC : !(Qubit -> Qubit -> Qubit * Qubit)
+testC q s = controlled hadamard q s
+
+testBoxC = box (Qubit * Qubit) (\ x -> let (a, b) = x in testC a b)
+
+testC' : !(Qubit * Qubit * Qubit -> Qubit * Qubit * Qubit)
+testC' tr = let (a, b, c) = tr in controlled testBoxC (a, b) c
+
+testBoxC' = box (Qubit * Qubit * Qubit) testC'
 -- testG1 = reverse boxG1
