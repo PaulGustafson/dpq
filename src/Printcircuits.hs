@@ -377,6 +377,17 @@ render_gate fs (Gate name [] (VPair (VLabel w) (VLabel c)) output VStar) x ys ma
       t3 = render_not fs x y
   in (s2, t2 >> t3)
 
+render_gate fs (Gate name [] (VPair (VLabel w) (VLabel c)) output ctrl) x ys maxh
+  | getName name == "CNot" =
+  let ymap w = ys `mapLookup` w
+      y = ymap w
+      c' = positive c
+      cs' = map positive (getWires ctrl)
+      s2 = render_controlwire x ys [w, c] (c':cs')
+      t2 = render_controldots fs x ys (c':cs')
+      t3 = render_not fs x y
+  in (s2, t2 >> t3)
+
 render_gate fs (Gate name [v] ws@(VPair (VLabel w) (VLabel c)) output VStar) x ys maxh
   | getName name == "R" || getName name == "R*" =
   let
@@ -385,6 +396,18 @@ render_gate fs (Gate name [v] ws@(VPair (VLabel w) (VLabel c)) output VStar) x y
       s2 = render_controlwire x ys [w, c] [c']
       t2 = render_multi_gate fs x ys (r ++ "("++ show (toNum v) ++")") [w]
       t3 = render_controldots fs x ys [c']
+  in (s2, t2 >> t3)
+
+render_gate fs (Gate name [v] ws@(VPair (VLabel w) (VLabel c)) output ctrl) x ys maxh
+  | getName name == "R" || getName name == "R*" =
+  let
+      r = getName name
+      c' = positive c
+      cs = getWires ctrl
+      cs' = map positive cs
+      s2 = render_controlwire x ys [w, c] (c':cs')
+      t2 = render_multi_gate fs x ys (r ++ "("++ show (toNum v) ++")") [w]
+      t3 = render_controldots fs x ys (c':cs')
   in (s2, t2 >> t3)
 
 render_gate fs (Gate name [v] ws@(VPair (VLabel w) (VLabel c)) output VStar) x ys maxh
@@ -404,6 +427,16 @@ render_gate fs (Gate name [] (VLabel w) output VStar) x ys maxh
       y = ymap w
       t = render_not fs x y
   in (return (), t)
+
+render_gate fs (Gate name [] (VLabel w) output ctrl) x ys maxh
+  | getName name == "QNot" =
+  let ymap w = ys `mapLookup` w
+      y = ymap w
+      cs = map positive (getWires ctrl)
+      s2 = render_controlwire x ys [w] cs
+      t3 = render_controldots fs x ys cs
+      t = render_not fs x y
+  in (s2, t >> t3)
 
 render_gate fs (Gate name [] VStar (VLabel w) VStar) x ys maxh
   | getName name == "Init0" =

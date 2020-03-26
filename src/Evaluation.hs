@@ -346,28 +346,27 @@ evalApp v w =
         updateCirc sub lenv =
              let (x, (circ, n)):[] = Map.toList lenv
                  Wired (Abst wires (VCircuit (Morphism ins
-                                               [Gate id params gin gout ctrls] outs)))
+                                               gs outs)))
                    = circ
-                 params' = helper params sub
-                 ctrls':[] = helper [ctrls] sub
+                 params = map (\ (Gate _ p _ _ _) -> p) gs
+                 ctrls = map (\ (Gate _ _ _ _ c) -> c) gs
+                 params' = map (\ p -> helper p sub) params
+                 ctrls' = helper ctrls sub
+                 gs' = zipWith3 (\ p c (Gate id _ inn oot _) -> Gate id p inn oot c)
+                       params' ctrls' gs
                  circ' = Wired (abst wires
                                  (VCircuit (Morphism ins
-                                             [Gate id params' gin gout ctrls'] outs)))
+                                             gs' outs))) 
              in [(x, (circ', n))]
         -- Perfrom substitution.             
         helper :: [Value] -> [(Variable, Value)] -> [Value]
         helper [] lc = []
-        -- helper (VStar:xs) lc = VStar:helper xs lc
-        -- helper ((VVar x):xs) lc =
-        --      let res = helper xs lc in
-        --      case lookup x lc of
-        --        Just v -> v:res
-        --        Nothing -> error $ "can't find variable " ++ (show $ disp x)
         helper (b:xs) lc =
           let b' = applyValSubst b lc
               res = helper xs lc
           in b':res
         applyValSubst VStar lc = VStar
+        applyValSubst a@(VConst _) lc = a
         applyValSubst l@(VLabel _) lc = l
         applyValSubst (VVar x) lc =
           case lookup x lc of
@@ -381,8 +380,8 @@ evalApp v w =
           let a' = applyValSubst a lc
               b' = applyValSubst b lc
           in VApp a' b'
-        
-          -- error $ "from helperSubst" ++ (show $ disp b)
+        applyValSubst c lc = 
+          error $ "from applyValSubst" ++ (show $ disp c)
 -- | Evaluate a box term.
 evalBox :: Either Value EExp -> Value -> Eval Value               
 evalBox body uv =

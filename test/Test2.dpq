@@ -5,6 +5,7 @@ object Qubit
 object Bit
 
 gate{1,1,1} H : Qubit -> Qubit
+gate{1,1,1} QNot : Qubit -> Qubit
 gate{1,1,1} CNot : Qubit -> Qubit -> Qubit * Qubit
 gate{1,0,1} Init0 : Unit -> Qubit
 gate{1,0,1} Term0 : Qubit -> Unit
@@ -77,6 +78,7 @@ cp (x : Qubit) =
 
 boxCp = box Qubit cp
 
+-- contrlCp = controlled boxCp
 rev (x : Qubit) = (unbox (reverse boxCp)) (cp x)
 
 -- boxRev = box Qubit rev
@@ -105,8 +107,14 @@ e x = x
 
 hadamard = box Qubit h
 
+control : ! {a : Type} -> forall (b s : Type) ->
+              (Simple s, Simple a, Simple b) =>
+                !(a -> b) -> !(a -> s -> b * s)
+control a f q s = controlled (box a f) q s
+
 testC : !(Qubit -> Qubit -> Qubit * Qubit)
-testC q s = controlled hadamard q s
+testC q s = CNot q s
+-- control QNot q s
 
 testBoxC = box (Qubit * Qubit) (\ x -> let (a, b) = x in testC a b)
 
