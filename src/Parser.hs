@@ -202,7 +202,7 @@ decls = do
   bs <- block
         (simpleDecl <|> importDecl
         <|> classDecl <|> instanceDecl
-        <|> controlDecl <|>  gateDecl <|>  objectDecl <|>  dataDecl
+        <|>  gateDecl <|>  objectDecl <|>  dataDecl
         <|> operatorDecl
         <|> funDecl <|> funDef <?> "top level declaration") 
   st <- getState
@@ -316,15 +316,17 @@ gateDecl =
      return $ GateDecl (P p) g args ty m
 
 -- | Parse a generalized controlled gate declaration. 
-controlDecl :: Parser Decl
-controlDecl =
-  do reserved "controlled"
-     p <- getPosition
-     g <- const
-     args <- many (const >>= \ a -> return $ Pos (P p) (Base a))
-     reservedOp ":"
-     ty <- typeExp
-     return $ ControlDecl (P p) g args ty
+
+-- deprecated
+-- controlDecl :: Parser Decl
+-- controlDecl =
+--   do reserved "controlled"
+--      p <- getPosition
+--      g <- const
+--      args <- many (const >>= \ a -> return $ Pos (P p) (Base a))
+--      reservedOp ":"
+--      ty <- typeExp
+--      return $ ControlDecl (P p) g args ty
 
 -- | Parse a data type declaration. We allow data type without any constructor,
 -- in that case, one should not use '='. The syntax is similar to Haskell 98
@@ -689,6 +691,10 @@ unBoxExp = reserved "unbox" >> return UnBox
 reverseExp :: Parser Exp
 reverseExp = reserved "reverse" >> return Reverse
 
+-- | Parse a control expression.
+controlExp :: Parser Exp
+controlExp = reserved "controlled" >> return Controlled
+
 -- | Parse a runCirc expression.
 runCircExp :: Parser Exp
 runCircExp = reserved "runCirc" >> return RunCirc
@@ -755,7 +761,7 @@ appExp =
                  pos <- getPosition;
                  return $ foldl (\ z x -> Pos (P pos) $ App z x) head}) arg
   where headExp = wrapPos $ try unit <|> try opExp <|> unitTy <|> set <|> boxExp <|> exBoxExp
-                  <|> unBoxExp <|> reverseExp <|> runCircExp
+                  <|> unBoxExp <|> reverseExp <|> controlExp <|> runCircExp
                   <|> try varExp <|> try constExp <|>
                   do{
                      tms <- parens (term `sepBy1` comma);
@@ -901,7 +907,7 @@ dpqStyle = Token.LanguageDef
                 , Token.caseSensitive  = True
                 , Token.reservedNames =
                   [
-                    "gate", "in", "let", "controlled",
+                    "gate", "in", "let",
                     "case", "of",
                     "data", "import", "class", "instance",
                     "simple", "reverse", "box", "unbox", "existsBox", "controlled",

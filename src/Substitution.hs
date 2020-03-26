@@ -177,6 +177,7 @@ substitute s (Force' t) = Force' (substitute s t)
 substitute s (Lift t) = Lift (substitute s t) 
 substitute s (UnBox) = UnBox
 substitute s (Reverse) = Reverse
+substitute s (Controlled) = Controlled
 substitute s (RunCirc) = RunCirc
 substitute s a@(Box) = a
 substitute s a@(ExBox) = a

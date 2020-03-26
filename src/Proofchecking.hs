@@ -289,6 +289,18 @@ proofInfer flag Reverse =
       ty = Forall (abst [a, b] t1') Set
   in return ty
 
+proofInfer flag a@(Controlled) =
+  freshNames ["a", "b", "s"] $ \ [a, b, s'] ->
+  let va = Var a
+      s = Var s'
+      vb = Var b
+      simpClass = Id "Simple"
+      t1 = Arrow (Circ va vb identityMod) (Circ (Tensor vb s) (Tensor va s) identityMod)
+      t1' = Imply [App' (Base simpClass) s, App' (Base simpClass) va , App' (Base simpClass) vb] t1
+      ty = Forall (abst [a, b, s'] t1') Set
+      ty' = abstractMode ty
+  in return ty'
+
 proofInfer flag UnBox =
   freshNames ["a", "b"] $ \ [a, b] ->
   let va = Var a

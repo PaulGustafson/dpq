@@ -100,7 +100,7 @@ g1' z = let (a, b) = ((\ (x : Qubit) -> Discard (Meas x)) : !(Qubit -> Unit) , \
 
 boxG1 = box Qubit g1
 
-e : ! (Circ{1,1,0}(Qubit, Bit) -> Circ(Qubit, Bit))
+e : ! (Circ{1,0,0}(Qubit, Bit) -> Circ(Qubit, Bit))
 e x = x
 
 testE = e (box Qubit m)

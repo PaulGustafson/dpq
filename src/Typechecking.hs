@@ -111,6 +111,18 @@ typeInfer False a@(Reverse) =
       ty' = abstractMode ty
   in return (ty', Reverse, identityMod)
 
+typeInfer False a@(Controlled) =
+  freshNames ["a", "b", "s"] $ \ [a, b, s'] ->
+  let va = Var a
+      s = Var s'
+      vb = Var b
+      simpClass = Id "Simple"
+      t1 = Arrow (Circ va vb identityMod) (Circ (Tensor vb s) (Tensor va s) identityMod)
+      t1' = Imply [App' (Base simpClass) s, App' (Base simpClass) va , App' (Base simpClass) vb] t1
+      ty = Forall (abst [a, b, s'] t1') Set
+      ty' = abstractMode ty
+  in return (ty', Controlled, identityMod)
+
 typeInfer False t@(Box) = freshNames ["a", "b", "alpha", "beta"] $ \ [a, b, alpha, beta] ->
   do let va = Var a
          vb = Var b
