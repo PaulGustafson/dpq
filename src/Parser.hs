@@ -287,10 +287,14 @@ objectDecl =
 
 -- | Parse a mode declaration.
 parseMode =
-  do input <- braces $ sepBy1 zeroOrOne comma 
-     when (length input /= 3) $ unexpected "expecting exactly 3 modalities."
-     let [a, b, c] = input
-     return (a, b, c)
+  braces $ do
+    a <- zeroOrOne
+    comma
+    b <- zeroOrOne
+    comma
+    c <- zeroOrOne
+    return (a, b, c)
+
 
 zeroOrOne :: Parser Bool
 zeroOrOne = 
@@ -380,12 +384,11 @@ simpleDecl =
 -- | Parse a function declaration with top-level type annotation.
 funDecl :: Parser Decl
 funDecl =
-  do (f, ty) <- try $ do{ 
+  do f <- try $ do{ 
        f <- parens operator <|> var;
        reservedOp ":";
-       ty <- typeExp;
-       return (f, ty);
-       }
+       return f}
+     ty <- typeExp
      p <- getPosition                  
      f' <- try var <|> parens operator
      when (f /= f')
@@ -901,7 +904,7 @@ dpqStyle = Token.LanguageDef
                     "gate", "in", "let", "controlled",
                     "case", "of",
                     "data", "import", "class", "instance",
-                    "simple", "reverse", "box", "unbox", "existsBox",
+                    "simple", "reverse", "box", "unbox", "existsBox", "controlled",
                     "runCirc", "Mode", "Adj", "Ctrl",
                     "object", "Circ", "Unit", "do",
                     "where", "module", "infix","infixr", "infixl",

@@ -104,6 +104,7 @@ data Exp =
   | UnBox -- ^ Circuit unboxing.
   | RunCirc -- ^ Run classical circuits.
   | Reverse  -- ^ Obtain the adjoint of a circuit.
+  | Controlled  -- ^ Obtain the controlled version of a circuit.
   | Circ Exp Exp Modality -- ^ The circuit type. 
     
     -- constants  
@@ -317,6 +318,7 @@ instance Disp Exp where
   display flag (ExBox) = text "existsBox"
   display flag (UnBox) = text "unbox" 
   display flag (Reverse) = text "reverse"
+  display flag (Controlled) = text "controlled"
   display flag (RunCirc) = text "runCirc"
   display flag (Let m bd) =
     open bd $ \ x b ->

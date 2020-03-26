@@ -38,7 +38,7 @@ circ2 = box Qubit (\ x -> Term0 (h x))
 test2 : Circ(Unit, Qubit)
 test2 = reverse circ2
 
-f2 : ! (Circ{1,0,1}(Unit, Qubit) -> Circ{0,0,0}(Unit, Qubit))
+f2 : ! (Circ{1,0,1}(Unit, Qubit) -> Circ{1,0,0}(Unit, Qubit))
 f2 x = f2 x
 
 test2' : !(Unit -> Circ(Unit, Qubit))
@@ -100,5 +100,8 @@ g1' z = let (a, b) = ((\ (x : Qubit) -> Discard (Meas x)) : !(Qubit -> Unit) , \
 
 boxG1 = box Qubit g1
 
+e : ! (Circ{1,1,0}(Qubit, Bit) -> Circ(Qubit, Bit))
+e x = x
 
+testE = e (box Qubit m)
 -- testG1 = reverse boxG1

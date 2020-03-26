@@ -106,7 +106,7 @@ data ScopeError = NotInScope String
                  | NoNest 
                  | MultiDef Position String Position
                  | LengthMismatch Int Int
-
+                 | CircModeErr Modality
 instance Disp ScopeError where
   display flag (ScopePos p e) = display flag p $$ display flag e
   display flag (NotInScope s) =
@@ -122,6 +122,9 @@ instance Disp ScopeError where
     text "arguments length mismatch:" $$
     text "expecting" <+> int l <+> text "non-uniform arguments" $$
     text "but get" <+> int n <+> text "non-uniform arguments"
+  display flag (CircModeErr m@(M x y z)) =
+    text "circuit modality error:" <+> display flag m $$
+    text "it should be: " <+> display flag (M (BConst True) y z)
 
 
 
@@ -309,13 +312,14 @@ resolve d (C.Circ t u Nothing) =
   do t' <- resolve d t
      u' <- resolve d u
      ns <- refresh ["#x", "#y", "#z"]
-     let m = freshMode ns
-     return (Circ t' u' m)
+     let M _ x y = freshMode ns
+     return (Circ t' u' (M (BConst True) x y))
 
 resolve d (C.Circ t u (Just (a, b, c))) = 
   do t' <- resolve d t
      u' <- resolve d u
      let m = M (BConst a) (BConst b) (BConst c)
+     when (not a) $ throwError $ CircModeErr m
      return (Circ t' u' m)
 
 resolve d (C.Pi vs t1 t2) =
