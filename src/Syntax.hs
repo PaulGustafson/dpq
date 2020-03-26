@@ -594,8 +594,6 @@ data Decl = Object Position Id -- ^ Declaration for qubit or bit.
             -- ^ Function declaration. 'Id': name, 'Exp': type, 'Exp': definition
           | GateDecl Position Id [Exp] Exp Modality
             -- ^ Gate declaration. 'Id': name, ['Exp']: parameters, 'Exp': input/output.
-          | ControlDecl Position Id [Exp] Exp
-            -- ^ Controlled gate declaration. 'Id': name, ['Exp']: parameters, 'Exp': input/output.
           | ImportDecl Position String
             -- ^ Importation.
           | OperatorDecl Position String Int String

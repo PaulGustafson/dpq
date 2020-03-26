@@ -69,9 +69,9 @@ instance BooleanLogic Qubit where
 
   -- generate 3 garbage
   bif q q1 q2 =
-       let (out1, cs) = Not_g (Init0 ()) (q1, q)
+       let (out1, cs) = not_g (Init0 ()) (q1, q)
            (q1', q') = cs
-           (out2, cs')  = Not_g out1 (q2, QNot q')
+           (out2, cs')  = not_g out1 (q2, QNot q')
            (q2', q'') = cs'
      in  dispose (QNot q'') >> dispose q1' >> dispose q2' >> return out2
 

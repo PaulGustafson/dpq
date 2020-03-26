@@ -371,13 +371,6 @@ resolveDecl scope (C.GateDecl p gn params t (a, b, c)) =
                  (M (BConst a) (BConst b) (BConst c)), scope')
      
 
-resolveDecl scope (C.ControlDecl p gn params t) =
-  do (id, scope') <- addConst p gn Const scope 
-     let lscope' = toLScope scope'
-     params' <- mapM (resolve lscope') params
-     e <- resolve lscope' t
-     return (ControlDecl p id params' e, scope')
-
 resolveDecl scope (C.Object p x) =
   do (id, scope') <- addConst p x LBase scope
      return (Object p id, scope')

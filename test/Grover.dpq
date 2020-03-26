@@ -7,7 +7,11 @@ toffoli : ! (Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit)
 toffoli x y z = ToffoliGate True True x y z
 
 
-controlled CZ : Qubit -> Qubit
+-- controlled CZ : Qubit -> Qubit
+gate {1,1,1} ZGate : Qubit -> Qubit
+
+cz : ! forall s -> (Simple s) => Qubit -> s -> Qubit * s
+cz q s = controlled (box Qubit ZGate) q s
 
 -- There are some reshuffling using reverse_vec to make the order match up with
 -- Mermin's book-> But the core part is the mapM->
@@ -39,7 +43,7 @@ nfoldZ : ! (n : Nat) -> Vec Qubit n -> Qubit -> Vec Qubit n -> Qubit -> Qubit ->
               Qubit * Qubit * Vec Qubit n * Qubit * Vec Qubit n
 nfoldZ n a c b d1 d2 =
   let (a', b', c') = cascade n a c b
-      (d1', r) = CZ d1 (d2, c')
+      (d1', r) = cz d1 (d2, c')
       (d2', c'') = r
       cascade' = unbox $ reverse $ box_cascade n
       (a'', c''', b'') = cascade' (a', b', c'')

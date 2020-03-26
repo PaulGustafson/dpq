@@ -8,10 +8,12 @@ toffoli x c =
 
 tgate_inv : ! (Qubit -> Qubit)
 tgate_inv x = (unbox $ reverse $ box Qubit TGate) x
-controlled SGate : Qubit -> Qubit
+
+-- controlled SGate : Qubit -> Qubit
+gate {1,1,1} SGate : Qubit -> Qubit
 
 sgate : ! (Qubit -> Qubit)
-sgate x = fst $ SGate x ()
+sgate x = SGate x -- fst $ SGate x ()
 
 makeToffoli : !(Qubit -> Qubit -> Qubit -> Qubit * Qubit * Qubit)
 makeToffoli a b c =

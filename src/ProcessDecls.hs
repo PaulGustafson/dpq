@@ -283,40 +283,6 @@ process (GateDecl pos id params t m) =
                   checkStrictSimple b
              checkStrictSimple a = throwError (NotStrictSimple a)
 
-
-process (ControlDecl pos id params t) =
-  do mapM_ checkParam params
-     let (bds, h) = flattenArrows t
-     mapM_ checkSimple (h:(map snd bds))
-     when (null bds) $ throwError (GateErr pos id)
-     let s = Base $ Id "Simple"
-     freshNames ["a"] $ \ (a:[]) ->
-       do let head = Tensor h (Var a)
-              bds' = (map snd bds)++[Var a]
-              t' = foldr Arrow head bds' 
-              ty = Bang (Forall (abst [a] (Imply [App s (Var a)]
-                                           $ foldr Arrow t' params)) Set)
-                   (M (BConst True) (BConst True) (BConst True))
-          (_, tk) <- typeChecking True ty Set 
-          let gate = makeControl id (map erasePos params) (erasePos t)
-          let fp = Info {classifier = erasePos tk,
-                        identification = DefinedGate gate
-                        }
-          addNewId id fp
-
-       where checkParam t =
-               do p <- isParam t
-                  when (not p) $ throwError $ ErrPos pos (NotAParam t)
-             checkSimple (Pos p e) =
-               checkSimple e `catchError` \ e -> throwError $ collapsePos p e
-             checkSimple (LBase x) = return ()
-             checkSimple (Unit) = throwError (NotUnit)
-             checkSimple (Tensor a b) =
-               do checkSimple a
-                  checkSimple b
-             checkSimple a = throwError (NotStrictSimple a)
-
-
 process (SimpData pos d n k0 eqs) = 
   do (_, k2) <- typeChecking True k0 Sort `catchError`
                 \ e -> throwError $ collapsePos pos e
@@ -577,48 +543,6 @@ makeGate id ps t =
               pairs = foldl EPair (head xs') (tail xs')
           in abst (zip xs $ repeat 1) (EApp e pairs)
 
--- | Construct a generic controlled gate from a controlled declaration.
-makeControl :: Id -> [Exp] -> Exp -> Value
-makeControl id ps t =
-  let lp = length ps + 1
-      ns = getName "x" lp
-      (inss, outExp) = makeInOut t
-      outNames = size outExp
-      inExp = if null inss then VUnit
-                else foldl VTensor (head inss) (tail inss)
-      inNames = size inExp
-  in
-      freshNames ("dict":"ctrl":ns) $ \ (d:c:y:xs) ->
-      freshLabels inNames $ \ ins ->
-      freshLabels outNames $ \ outs ->
-      let params = map VVar xs
-          inExp' = toVal inExp ins
-          outExp' = toVal outExp outs
-          g = Gate id params inExp' outExp' (VVar c)
-          morph = Wired $ abst (ins ++ outs) (VCircuit $ Morphism inExp' [g] outExp')
-          env = Map.fromList [(y, (morph, 1))] 
-          unbox_morph = etaPair (length inss) (EForce $ EApp EUnBox (EVar y)) c
-          res = open unbox_morph $ \ ys m ->
-              VLiftCirc $ abst ((d:xs)++ys ++ [c]) (abst env m)
-      in res
-  where makeInOut (Arrow t t') =
-          let (ins, outs) = makeInOut t'
-          in (toV t:ins, outs)
-        makeInOut (Pos p e) = makeInOut e
-        makeInOut a = ([], toV a)
-        toV Unit = VUnit
-        toV (Tensor a b) = VTensor (toV a) (toV b)
-        toV (LBase x) = VLBase x
-        getName x lp =
-          let xs = x:xs
-          in zipWith (\ x y -> x ++ show y) (take lp xs) [0 .. ]
-          
-        etaPair n e c | n == 0 = error "from etaPair"
-        etaPair n e c =
-          freshNames (getName "y" n) $ \ xs ->
-          let xs' = map EVar xs
-              pairs = foldl EPair (head xs') (tail xs')
-          in (abst xs (EPair (EApp e pairs) (EVar c))) 
 
 
 -- | Make a type function for runtime labels generation. The input /n/

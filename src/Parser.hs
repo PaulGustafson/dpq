@@ -202,7 +202,7 @@ decls = do
   bs <- block
         (simpleDecl <|> importDecl
         <|> classDecl <|> instanceDecl
-        <|>  gateDecl <|> controlDecl <|>  objectDecl <|>  dataDecl
+        <|>  gateDecl <|>  objectDecl <|>  dataDecl
         <|> operatorDecl
         <|> funDecl <|> funDef <?> "top level declaration") 
   st <- getState
@@ -314,19 +314,6 @@ gateDecl =
      reservedOp ":"
      ty <- typeExp
      return $ GateDecl (P p) g args ty m
-
--- | Parse a generalized controlled gate declaration. 
-
--- deprecated
-controlDecl :: Parser Decl
-controlDecl =
-  do reserved "controlled"
-     p <- getPosition
-     g <- const
-     args <- many (const >>= \ a -> return $ Pos (P p) (Base a))
-     reservedOp ":"
-     ty <- typeExp
-     return $ ControlDecl (P p) g args ty
 
 -- | Parse a data type declaration. We allow data type without any constructor,
 -- in that case, one should not use '='. The syntax is similar to Haskell 98

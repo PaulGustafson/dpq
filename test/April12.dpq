@@ -1,19 +1,27 @@
 module Apil12 where
 import "lib/Prelude.dpq"
 
-controlled ZGate : Qubit -> Qubit
+-- controlled ZGate : Qubit -> Qubit
 
-controlled SGate : Qubit -> Qubit
+gate {1,1,1} SGate : Qubit -> Qubit
+
+gate {1,1,1} ZGate : Qubit -> Qubit
+
+z_gate : ! forall s -> (Simple s) => Qubit -> s -> Qubit * s
+z_gate q s = controlled (box Qubit ZGate) q s
+
+s_gate : ! forall s -> (Simple s) => Qubit -> s -> Qubit * s
+s_gate q s = controlled (box Qubit SGate) q s
 
 
 cZ : ! (Qubit -> Qubit -> Qubit * Qubit)
-cZ x y = ZGate x y
+cZ x y = z_gate x y
 
 -- f : !(Qubit -> Qubit * Qubit)
 -- f q = cZ q q 
 
 cS : ! (Qubit -> Qubit -> Qubit * Qubit)
-cS x y = SGate x y
+cS x y = s_gate x y
 
 box_cZ : Circ(Qubit * Qubit, Qubit * Qubit)
 box_cZ = box (Qubit * Qubit) $ \ x -> uncurry cZ x

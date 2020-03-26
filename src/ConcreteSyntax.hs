@@ -61,10 +61,6 @@ data Binding =
 data Decl = GateDecl Position String [Exp] Exp (Bool, Bool, Bool)
             -- ^ Gate declaration, ['Exp'] are the parameters for the gate, 'Exp' is
             -- a type expression specifying the input and output of the gate. 
-          | ControlDecl Position String [Exp] Exp
-            -- ^ Generic control gate declaration, ['Exp'] are the parameters.'Exp' is
-            -- a type expression specifying the (non-controlled) input and (non-controlled)
-            -- output of the gate.  
           | Object Position String
             -- ^  Object declaration for simple types such as @Qubit@ or @Bit@.
           | Def Position String Exp [String] Exp
