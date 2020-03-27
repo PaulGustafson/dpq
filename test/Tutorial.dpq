@@ -333,10 +333,25 @@ with_computed' a b c f g input =
       (d, r') = g (y, r)
   in (d, circ_rev (v, r'))
 
+swap : ! forall a b -> a * b -> b * a
+swap u = let (x, y) = u in (y, x)
+
+with_computed'' : ! forall d ->  (a b c : Type) ->
+                    (Simple a, Simple b, Simple c, Simple d) =>
+                    !(a -> WithGarbage b) ->
+                    !(c * b -> d * b) -> !(c * a -> d * a)
+with_computed'' a b c f g input =
+  let (_, circ) = existsBox a (λx -> Vec Qubit x * b) (λz -> unGarbage (f z))
+      circ' = box a (\ x -> swap (unbox circ x))
+      gCirc = box (b * c) (\ x -> let (a, b) = x in swap (g (b, a)))
+      h = withComputed circ' gCirc
+      (e1, e2) = input
+  in swap (unbox h (e2, e1))
+
 boxGarbage : ! forall c -> (a b d : Type) -> (Simple a , Simple b, Simple c, Simple d) =>
                      !(a -> WithGarbage b) -> !(d * b -> c * b) -> Circ(d * a, c * a)
 boxGarbage a b d f g =
-   box (d * a) (λ x -> with_computed a b d f g x) 
+   box (d * a) (λ x -> with_computed'' a b d f g x) 
 
 boxGarbage' : ! forall c -> {a b d : Type} -> (Simple a , Simple b, Simple c, Simple d) =>
                      !(a -> WithGarbage b) -> !(d * b -> c * b) -> Circ(d * a, c * a)
@@ -424,8 +439,11 @@ uncurry f x = let (a, b) = x in f a b
 
 -- adderRev2 : Circ(Qubit * Qubit * (Qubit * Qubit * Qubit) * Qubit,
                     --       Qubit * Qubit * (Qubit * Qubit * Qubit)*Qubit)
-
--- adderRev2 = controlled adderRev
+adderRev2 : ! (n : Nat) ->
+                Circ((Qubit * Qubit * (Qubit * Qubit * Qubit)) * Vec Qubit n,
+                    (Qubit * Qubit * (Qubit * Qubit * Qubit)) * Vec Qubit n)
+adderRev2 n = box ((Qubit * Qubit * (Qubit * Qubit * Qubit)) * Vec Qubit n)
+                (\ x -> uncurry (controlled adderRev) x)
 --   boxGarbage' adder' (\ x -> uncurry (controlling copy) x)
 
 
