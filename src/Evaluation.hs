@@ -296,8 +296,9 @@ evalApp (VApp (VApp (VApp VControlled _) _) _) m =
           exp = EPair (EApp (EForce $ EApp EUnBox (EVar circ)) (EVar input)) (EVar ctrl)
       in return $ VLiftCirc (abst [input, ctrl] $ abst env exp)
   where controlledGates a gs = map (helper a) gs
-        helper a (Gate id ps ins outs VStar) = Gate id ps ins outs (VVar a)
-        helper a (Gate id ps ins outs b) = Gate id ps ins outs (VPair b (VVar a))
+        helper a (Gate id ps ins outs b False) = Gate id ps ins outs b False
+        helper a (Gate id ps ins outs VStar flag) = Gate id ps ins outs (VVar a) flag
+        helper a (Gate id ps ins outs b flag) = Gate id ps ins outs (VPair b (VVar a)) flag
 
   
 evalApp a@(Wired _) w = return a
@@ -348,11 +349,11 @@ evalApp v w =
                  Wired (Abst wires (VCircuit (Morphism ins
                                                gs outs)))
                    = circ
-                 params = map (\ (Gate _ p _ _ _) -> p) gs
-                 ctrls = map (\ (Gate _ _ _ _ c) -> c) gs
+                 params = map (\ (Gate _ p _ _ _ _) -> p) gs
+                 ctrls = map (\ (Gate _ _ _ _ c _) -> c) gs
                  params' = map (\ p -> helper p sub) params
                  ctrls' = helper ctrls sub
-                 gs' = zipWith3 (\ p c (Gate id _ inn oot _) -> Gate id p inn oot c)
+                 gs' = zipWith3 (\ p c (Gate id _ inn oot _ flag) -> Gate id p inn oot c flag)
                        params' ctrls' gs
                  circ' = Wired (abst wires
                                  (VCircuit (Morphism ins
@@ -467,9 +468,9 @@ makeBinding w v =
 revGates :: [Gate] -> [Gate]
 revGates xs = revGatesh xs [] 
   where revGatesh [] gs = gs
-        revGatesh ((Gate id params ins outs ctrls):res) gs =
+        revGatesh ((Gate id params ins outs ctrls flag):res) gs =
           let id' = invertName id
-          in revGatesh res ((Gate id' params outs ins ctrls):gs)
+          in revGatesh res ((Gate id' params outs ins ctrls flag):gs)
 
 -- | Change the name of a gate to its adjoint
 invertName :: Id -> Id             
@@ -533,7 +534,7 @@ getAllWires (Morphism ins gs outs) =
       outWires = S.fromList $ getWires outs
       gsWires = S.unions $ map getGateWires gs
   in S.toList (inWires `S.union` outWires `S.union` gsWires)
-  where getGateWires (Gate _ _ ins outs ctrls) =
+  where getGateWires (Gate _ _ ins outs ctrls _) =
           S.fromList (getWires ins) `S.union`
           S.fromList (getWires outs) `S.union`
           S.fromList (getWires ctrls)

@@ -115,36 +115,36 @@ updateValue x v =
 -- | Update the current state according to the meaning of the
 -- gate. The termination of a wired will invoke a runtime check.
 applyGate :: Gate -> Simulate ()
-applyGate (Gate id [] (VLabel input) (VLabel output) VStar) | getName id == "QNot" = 
+applyGate (Gate id [] (VLabel input) (VLabel output) VStar b) | getName id == "QNot" = 
   do v <- lookupValue input
      updateValue output (not v)
-applyGate (Gate name [] (VPair (VLabel w) (VLabel c)) (VPair (VLabel t) (VLabel c')) VStar) 
+applyGate (Gate name [] (VPair (VLabel w) (VLabel c)) (VPair (VLabel t) (VLabel c')) VStar b) 
   | getName name == "CNot" =
     do wv <- lookupValue w
        cv <- lookupValue c
        updateValue c' cv
        updateValue t (booleanAdd cv wv)
 
-applyGate (Gate name [] VStar (VLabel w) VStar) 
+applyGate (Gate name [] VStar (VLabel w) VStar b) 
   | getName name == "Init0" = updateValue w False
 
-applyGate (Gate name [] VStar (VLabel w) VStar) 
+applyGate (Gate name [] VStar (VLabel w) VStar b) 
   | getName name == "Init1" = updateValue w True
 
-applyGate (Gate name [] (VLabel w) VStar VStar) 
+applyGate (Gate name [] (VLabel w) VStar VStar b) 
   | getName name == "Term0" =
     do w' <- lookupValue w
        if w' then throwError $ AssertionErr w False True
          else return ()
 
-applyGate (Gate name [] (VLabel w) VStar VStar) 
+applyGate (Gate name [] (VLabel w) VStar VStar b) 
   | getName name == "Term1" =
     do w' <- lookupValue w
        if w' then return ()
          else throwError $ AssertionErr w  True False
 
 
-applyGate (Gate name [v] (VPair (VLabel w) (VLabel c)) (VPair (VLabel t) (VLabel c')) VStar)
+applyGate (Gate name [v] (VPair (VLabel w) (VLabel c)) (VPair (VLabel t) (VLabel c')) VStar b)
   | getName name == "CNotGate" =
     do let v' = toBool v
        wv <- lookupValue w
@@ -155,7 +155,7 @@ applyGate (Gate name [v] (VPair (VLabel w) (VLabel c)) (VPair (VLabel t) (VLabel
          else updateValue t (booleanAdd (not cv) wv)
          
 applyGate (Gate name [v1, v2] (VPair (VPair (VLabel w) (VLabel c1)) (VLabel c2))
-           (VPair (VPair (VLabel t) (VLabel c1')) (VLabel c2')) VStar)
+           (VPair (VPair (VLabel t) (VLabel c1')) (VLabel c2')) VStar b)
   | getName name == "ToffoliGate" =
     do let v1' = toBool v1
            v2' = toBool v2
@@ -170,7 +170,7 @@ applyGate (Gate name [v1, v2] (VPair (VPair (VLabel w) (VLabel c1)) (VLabel c2))
          (False, True) -> updateValue t $ (not c1value && c2value) `booleanAdd` wvalue
          (False, False) -> updateValue t $ (not c1value && not c2value) `booleanAdd` wvalue 
 
-applyGate (Gate name [] (VLabel input) (VLabel output) ctrl) | getName name == "Not_g"  =
+applyGate (Gate name [] (VLabel input) (VLabel output) ctrl b) | getName name == "Not_g"  =
   do let ws = getWires ctrl
      values <- mapM lookupValue ws
      v <- lookupValue input
@@ -180,7 +180,7 @@ applyGate (Gate name [] (VLabel input) (VLabel output) ctrl) | getName name == "
           
        else do updateValue output v
                mapM_ (\ (x, v) -> updateValue x v) (zip ws values)
-applyGate (Gate name ps input output ctrl) =
+applyGate (Gate name ps input output ctrl b) =
   throwError $ NotSupported (getName name)
 
 -- | Convert 'Bool' to a boolean data type.

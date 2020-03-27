@@ -338,10 +338,15 @@ boxGarbage : ! forall c -> (a b d : Type) -> (Simple a , Simple b, Simple c, Sim
 boxGarbage a b d f g =
    box (d * a) (λ x -> with_computed a b d f g x) 
 
+boxGarbage' : ! forall c -> {a b d : Type} -> (Simple a , Simple b, Simple c, Simple d) =>
+                     !(a -> WithGarbage b) -> !(d * b -> c * b) -> Circ(d * a, c * a)
+boxGarbage' a b d f g =
+   box (d * a) (λ x -> with_computed a b d f g x) 
+
 -- boxGarbage' : ! forall c -> (a b d : Type) -> (Simple a , Simple b, Simple c, Simple d) =>
 --                      !(a -> WithGarbage b) -> !(d * b -> c * b) -> !(d * a -> c * a)
-boxGarbage' (c : Type) . (a b d : Type) (Simple a) (Simple b) (Simple c) (Simple d) (f : !(a -> WithGarbage b)) (g : !(d * b -> c * b)) =
-    box (d * a) (λ x -> with_computed a b d f g x)
+-- boxGarbage' (c : Type) . (a b d : Type) (Simple a) (Simple b) (Simple c) (Simple d) (f : !(a -> WithGarbage b)) (g : !(d * b -> c * b)) =
+--     box (d * a) (λ x -> with_computed a b d f g x)
 
 -- ----------------------------------------------------------------------
 -- * Reversible adder oracle
@@ -408,6 +413,20 @@ adderRev : Circ(Qubit * Qubit * (Qubit * Qubit * Qubit),
                            Qubit * Qubit * (Qubit * Qubit * Qubit))
 adderRev = 
    boxGarbage (Qubit * Qubit * Qubit) (Qubit * Qubit) (Qubit * Qubit) adder' copy
+
+controlling : ! {a : Type} -> forall (b s : Type) ->
+              (Simple s, Simple a, Simple b) =>
+                !(a -> b) -> !(a -> s -> b * s)
+controlling a f = controlled (box a f) 
+
+uncurry : ! forall a b c -> (a -> b -> c) -> (a * b -> c)
+uncurry f x = let (a, b) = x in f a b
+
+-- adderRev2 : Circ(Qubit * Qubit * (Qubit * Qubit * Qubit) * Qubit,
+                    --       Qubit * Qubit * (Qubit * Qubit * Qubit)*Qubit)
+
+-- adderRev2 = controlled adderRev
+--   boxGarbage' adder' (\ x -> uncurry (controlling copy) x)
 
 
 b : ! (a : Type) ->

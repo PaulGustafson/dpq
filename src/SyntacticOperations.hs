@@ -967,7 +967,7 @@ gateCount Nothing (Wired (Abst _ (VCircuit (Morphism _ gs _)))) = genericLength 
 gateCount (Just n) (Wired (Abst _ (VCircuit (Morphism _ gs _)))) =
   helper n gs 0
   where helper n [] m = m
-        helper n (Gate d _ _ _ _:s) m
+        helper n (Gate d _ _ _ _ _:s) m
           | getName d == n = helper n s (m+1)
           | otherwise = helper n s m
         
@@ -980,43 +980,43 @@ gateCount (Just n) (Wired (Abst _ (VCircuit (Morphism _ gs _)))) =
 
 refresh_gates ::  Map Label Label -> [Gate] -> [Label] -> ([Gate], Map Label Label)
 refresh_gates m [] s = ([], m)
-refresh_gates m (Gate name [] input VStar VStar : gs) s
+refresh_gates m (Gate name [] input VStar VStar b: gs) s
   | getName name == "Term0" || getName name == "Term1" =
     let newInput = renameTemp input m
         (gs', newMap') = refresh_gates m gs (getWires newInput ++ s)
-    in (Gate name [] newInput VStar VStar : gs', newMap')
+    in (Gate name [] newInput VStar VStar b : gs', newMap')
 
-refresh_gates m (Gate name [] input VStar VStar : gs) s
+refresh_gates m (Gate name [] input VStar VStar b : gs) s
   | getName name == "Discard" =
     let newInput = renameTemp input m
         (gs', newMap') = refresh_gates m gs (getWires newInput ++ s)
-    in (Gate name [] newInput VStar VStar : gs', newMap')
+    in (Gate name [] newInput VStar VStar b : gs', newMap')
 
-refresh_gates m (Gate name [] VStar output VStar : gs) []
+refresh_gates m (Gate name [] VStar output VStar b : gs) []
   | getName name == "Init0" || getName name == "Init1" =
     let (gs', newMap') = refresh_gates m gs []
-    in (Gate name [] VStar output VStar : gs', newMap')
+    in (Gate name [] VStar output VStar b : gs', newMap')
 
-refresh_gates m (Gate name [] VStar output VStar : gs) (h:s)
+refresh_gates m (Gate name [] VStar output VStar b : gs) (h:s)
   | getName name == "Init0" || getName name == "Init1" =
     let x:[] = getWires output
         m' = m `Map.union` Map.fromList [(x, h)]
         (gs', newMap') = refresh_gates m' gs s
-    in (Gate name [] VStar (VLabel h) VStar : gs', newMap')
+    in (Gate name [] VStar (VLabel h) VStar b : gs', newMap')
 
 -- All the other possible initialization.
-refresh_gates m (Gate name vs VStar output ctrl : gs) s =
+refresh_gates m (Gate name vs VStar output ctrl b : gs) s =
   let (gs', newMap') = refresh_gates m gs s
-  in (Gate name vs VStar output ctrl : gs', newMap')
+  in (Gate name vs VStar output ctrl b : gs', newMap')
 
 -- All the other possible termination.
-refresh_gates m (Gate name vs input VStar ctrl : gs) s =
+refresh_gates m (Gate name vs input VStar ctrl b : gs) s =
   let input' = renameTemp input m
       (gs', newMap') = refresh_gates m gs s
-  in (Gate name vs input' VStar ctrl : gs', newMap')
+  in (Gate name vs input' VStar ctrl b : gs', newMap')
 
 
-refresh_gates m (Gate name vs input output ctrl : gs) s =
+refresh_gates m (Gate name vs input output ctrl b : gs) s =
   let newInput = renameTemp input m
       newCtrl = renameTemp ctrl m
       outWires = getWires output
@@ -1024,7 +1024,7 @@ refresh_gates m (Gate name vs input output ctrl : gs) s =
       ins = getWires newInput
       newMap = m `Map.union` Map.fromList (zip outWires ins)
       (gs', newMap') = refresh_gates newMap gs s
-  in (Gate name vs newInput newOutput newCtrl : gs', newMap')
+  in (Gate name vs newInput newOutput newCtrl b : gs', newMap')
 
 -- | Check whether a value is a boolean constant.
 isBool :: Value -> Bool
@@ -1069,8 +1069,8 @@ renameTemp a m = error "applying renameTemp function to an ill-formed template"
 -- | Rename a list of gates according to a binding.
 renameGs :: [Gate] -> Map Label Label -> [Gate]
 renameGs gs m = map helper gs
-  where helper (Gate id params ins outs ctrls) =
-          Gate id params (renameTemp ins m) (renameTemp outs m) (renameTemp ctrls m)
+  where helper (Gate id params ins outs ctrls b) =
+          Gate id params (renameTemp ins m) (renameTemp outs m) (renameTemp ctrls m) b
 
 -- | Get the set of free variables from a 'EExp'.
 evarsHelper :: EExp -> S.MultiSet Variable

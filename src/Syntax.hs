@@ -432,8 +432,8 @@ instance Bindable (Map Variable (Value, Integer)) where
           pure ((k',v'):t')  
 
 -- | Gate, ['Value'] is a list of parameters, the last three values
--- are input, output and control.          
-data Gate = Gate Id [Value] Value Value Value
+-- are input, output, control and controllable flag.          
+data Gate = Gate Id [Value] Value Value Value Bool
   deriving (Show, NominalShow, NominalSupport, Generic)
 
 -- | A list of gates.
@@ -445,7 +445,7 @@ data Morphism = Morphism Value Gates Value
   deriving (Show, NominalShow, NominalSupport, Generic)
            
 instance Nominal Gate where
-  pi • Gate id params v1 v2 ctrl = Gate id (pi • params) (pi • v1) (pi • v2) (pi • ctrl)
+  pi • Gate id params v1 v2 ctrl b = Gate id (pi • params) (pi • v1) (pi • v2) (pi • ctrl) b
 
 instance Nominal Morphism where
   pi • Morphism v1 gs v2 = Morphism (pi • v1) (pi • gs) (pi • v2)
@@ -554,7 +554,7 @@ instance Disp Morphism where
     (braces $ display flag outs) 
 
 instance Disp Gate where
-  display flag (Gate g params ins outs ctrls) =
+  display flag (Gate g params ins outs ctrls _) =
     display flag g <+> brackets (hsep $ punctuate comma (map (display flag) params))
     <+> (braces $ (display flag ins)) <+> (braces $ (display flag outs))
     <+> (brackets $ display flag ctrls)
