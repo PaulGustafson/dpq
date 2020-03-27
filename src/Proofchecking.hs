@@ -613,9 +613,9 @@ proofCheck flag a goal =
 -- these two cases are not dependent pattern matching.
 dependentUnif :: Maybe Int -> Bool -> Exp -> Exp -> TCMonad (UnifResult, (Subst, BSubst))
 dependentUnif index isDpm head t =
-  if not isDpm then return $ runUnify Equal head t
+  if not isDpm then return $ runUnify GEq head t
   else case index of
-         Nothing -> return $ runUnify Equal head t
+         Nothing -> return $ runUnify GEq head t
          Just i ->
            case flatten t of
             Just (Right h, args) -> 
@@ -624,7 +624,7 @@ dependentUnif index isDpm head t =
                   eSub = zip vars (map EigenVar vars)
                   a' = unEigenBound vars a
                   t' = foldl App' (LBase h) (bs++(a':as))
-                  u@(res, (subst, bss)) =  runUnify Equal head t'
+                  u@(res, (subst, bss)) =  runUnify GEq head t'
               in case res of
                    UnifError -> return u
                    Success -> 

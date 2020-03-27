@@ -67,7 +67,7 @@ data TypeError = Unhandle Exp
                | ImplicitVarErr Variable Exp
                | LamInferErr Exp
                | ArityExistsErr Exp [Variable]
-               | ModalityEqErr Modality Modality Exp
+               | ModalityErr Modality Modality Exp
                | ModalityGEqErr Exp Exp Exp (Modality, Exp) (Modality, Exp)
                deriving Show
 
@@ -413,8 +413,8 @@ instance Disp TypeError where
     text "when checking:" <+> hsep (map (display flag) xs) $$
     text "against:" <+> display flag at
 
-  display flag (ModalityEqErr cm m a) =
-    text "modality mismatch." $$
+  display flag (ModalityErr cm m a) =
+    text "can't resolve modality inequality." $$
     nest 2 (text "current mode:") <+> display flag cm $$
     nest 2 (text "expected mode:") <+> display flag m $$
     text "when checking" $$ nest 2 (display flag a)

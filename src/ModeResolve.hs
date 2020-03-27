@@ -47,12 +47,11 @@ instance Disp [(Variable, BExp)] where
 modeResolve :: InEquality -> BExp -> BExp -> [ModeSubst]
 modeResolve b e1 e2 = modeResolve' b (simplifyB e1) (simplifyB e2)
 
-data InEquality = Equal | GEq | LEq | Null deriving (Show, Eq)
+data InEquality = Equal | GEq | LEq deriving (Show, Eq)
 
 -- | Reverse the direction of the inequality.
-flipSide :: InEquality -> InEquality 
+flipSide :: InEquality -> InEquality
 flipSide Equal = Equal
-flipSide Null = Null
 flipSide GEq = LEq
 flipSide LEq = GEq
 
@@ -290,7 +289,9 @@ booleanVarElim e =
           let t1' = helper b s1 t1
               t2' = helper (not b) s1 t2
           in Forall (abst xs t1') t2'
-             
+        helper b s1 (Imply t1 t2) =
+          let t2' = helper b s1 t2
+          in Imply t1 t2'
         helper b s1 t = t
         
             

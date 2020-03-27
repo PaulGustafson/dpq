@@ -65,6 +65,7 @@ class Bogus a where
 
 instance Bogus Qubit where
   haha x = Meas x
+--  haha x = H x
 
 circ3 : Circ(Qubit, Bit)
 circ3 = box Qubit (\ x -> haha (h x))
@@ -110,11 +111,12 @@ hadamard = box Qubit h
 control : ! {a : Type} -> forall (b s : Type) ->
               (Simple s, Simple a, Simple b) =>
                 !(a -> b) -> !(a -> s -> b * s)
-control a f q s = controlled (box a f) q s
+control a f = controlled (box a f) 
 
 testC : !(Qubit -> Qubit -> Qubit * Qubit)
-testC q s = CNot q s
--- control QNot q s
+testC = control QNot 
+-- CNot q s
+-- 
 
 testBoxC = box (Qubit * Qubit) (\ x -> let (a, b) = x in testC a b)
 
@@ -123,3 +125,11 @@ testC' tr = let (a, b, c) = tr in controlled testBoxC (a, b) c
 
 testBoxC' = box (Qubit * Qubit * Qubit) testC'
 -- testG1 = reverse boxG1
+
+apply : ! {s : Type} -> forall u v -> (Simple s, Simple u, Simple v) =>
+             Circ(s, u) -> Circ(u, v) -> Circ(s, v)
+apply s circ1 circ2 = box s (\ x -> unbox circ2 ((unbox circ1) x))
+
+withComputed : ! {s : Type} -> forall u -> (Simple s, Simple u) =>
+                  Circ(s, u) -> Circ(u, u) -> Circ(s,s)
+withComputed s a b = apply (apply a b) (reverse a)

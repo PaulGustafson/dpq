@@ -584,7 +584,8 @@ typeCheck flag a@(Pair t1 t2) d =
             return (Tensor ty1' ty2', Pair t1' t2', modalAnd mode1 mode2)
        b -> freshNames ns $
             \ (x1:x2:[]) ->
-              do let (res, (s, bs)) = runUnify Equal sd (Tensor (Var x1) (Var x2))
+              do let ty = Tensor (Var x1) (Var x2)
+                     (res, (s, bs)) = runUnify GEq sd ty
                  case res of
                    Success ->
                      do ss <- getSubst
@@ -598,7 +599,8 @@ typeCheck flag a@(Pair t1 t2) d =
                         let res = Pair t1' t2'
                         return (Tensor x1'' x2'', res, modalAnd mode1 mode2)
                    UnifError -> throwError (TensorExpErr a b)
-
+                   ModeError p1 p2 -> throwError $ ModalityGEqErr a sd ty p1 p2
+                   
 typeCheck flag (Let m bd) goal =
   do (t', ann, mode) <- typeInfer flag m
      open bd $ \ x t ->
@@ -652,9 +654,10 @@ typeCheck flag (LetPair m (Abst xs n)) goal =
               freshNames nss $ \ (h:ns) ->
                   do let newTensor = foldl Tensor (Var h) (map Var ns)
                          vars = map Var (h:ns)
-                         (res, (s, bs)) = runUnify Equal at newTensor
+                         (res, (s, bs)) = runUnify GEq at newTensor
                      case res of
                        UnifError -> throwError $ TensorErr (length xs) m at
+                       ModeError p1 p2 -> throwError $ ModalityGEqErr m at newTensor p1 p2
                        Success ->
                          do ss <- getSubst
                             let sub' = s `mergeSub` ss
@@ -773,6 +776,7 @@ typeCheck flag a@(Case tm (B brs)) goal =
                   (unifRes, (sub', bs)) <- patternUnif tm isDpm index head t
                   case unifRes of
                     UnifError -> throwError $ withPosition tm (UnifErr head t)
+                    ModeError p1 p2 -> throwError $ ModalityGEqErr tm head t p1 p2
                     Success -> do
                          sub1 <- if matchEigen && not inf then
                                       makeSub tm sub' $
@@ -855,7 +859,7 @@ patternUnif :: Exp -> Bool -> Maybe Int -> Exp -> Exp -> TCMonad (UnifResult, (S
 patternUnif m isDpm index head t =
   if isDpm then
     case index of
-        Nothing -> normalizeUnif Equal head t
+        Nothing -> normalizeUnif GEq head t
         Just i ->
           case flatten t of
             Just (Right h, args) -> 
@@ -864,14 +868,14 @@ patternUnif m isDpm index head t =
                   eSub = zip vars (map EigenVar vars)
                   a' = unEigenBound vars a
                   t' = foldl App' (LBase h) (bs++(a':as))
-              in do res@(r, (subst, bs)) <- normalizeUnif Equal head t'
+              in do res@(r, (subst, bs)) <- normalizeUnif GEq head t'
                     case r of
                       Success ->
                         let subst' = helper subst vars eSub
                         in return (r, (subst', bs))
                       _ -> return res
             _ -> throwError $ withPosition m (UnifErr head t)
-  else normalizeUnif Equal head t
+  else normalizeUnif GEq head t
   where -- change relavent variables back into eigenvariables after dependent pattern-matching. 
         helper subst (v:vars) eSub =
           let subst' = Map.mapWithKey (\ k val -> if k == v then toEigen val else val) subst
@@ -1089,19 +1093,38 @@ handleBangConstVar flag a (Bang ty2 m2) =
          equality flag a (Bang ty2 m2)
        _ -> handleBangValue flag a (Bang ty2 m2)
 
-handleBangValue flag a (Bang ty m) =
+handleBangValue flag a ty1@(Bang ty m) =
   do r <- isValue a
      if r then
        do checkParamCxt a
           (t, ann, cMode) <- typeCheck flag a ty
-          let s = modeResolution Equal cMode m
-          when (s == Nothing) $ throwError $ ModalityEqErr cMode m a
+          let s = modeResolution GEq cMode m
+          when (s == Nothing) $ throwError $ ModalityErr cMode m a
           let Just s'@(s1, s2, s3) = s
           updateModeSubst s'
           cMode' <- updateModality cMode
           t' <- updateWithModeSubst t
           return (Bang t' (simplify cMode'), Lift ann, identityMod)
-       else throwError $ BangValue a (Bang ty m)
+       else
+       do checkParamCxt a
+          (tym, ann, cMode) <- typeInfer flag a
+          case erasePos tym of
+            tym1@(Bang _ _) ->
+              do (unifRes, (s, bs)) <- normalizeUnif GEq tym1 ty1
+                 case unifRes of
+                   UnifError -> throwError $ NotEq a ty1 tym1
+                   ModeError p1 p2 -> 
+                     throwError $ ModalityGEqErr a ty1 tym1 p1 p2
+                   Success ->
+                     do ss <- getSubst
+                        let sub' = s `mergeSub` ss
+                        updateSubst sub'
+                        updateModeSubst bs
+                        ty1' <- updateWithModeSubst ty1 >>= updateWithSubst
+                        mode' <- updateModality cMode
+                        return (ty1', ann, mode')
+            _ ->
+              throwError $ BangValue a (Bang ty m)
 
 -- note that ty1 is prefix free.
 inferAddAnn flag a ty =
