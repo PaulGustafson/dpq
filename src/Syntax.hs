@@ -105,6 +105,7 @@ data Exp =
   | RunCirc -- ^ Run classical circuits.
   | Reverse  -- ^ Obtain the adjoint of a circuit.
   | Controlled  -- ^ Obtain the controlled version of a circuit.
+  | WithComputed  
   | Circ Exp Exp Modality -- ^ The circuit type. 
     
     -- constants  
@@ -319,6 +320,7 @@ instance Disp Exp where
   display flag (UnBox) = text "unbox" 
   display flag (Reverse) = text "reverse"
   display flag (Controlled) = text "controlled"
+  display flag (WithComputed) = text "withComputed"
   display flag (RunCirc) = text "runCirc"
   display flag (Let m bd) =
     open bd $ \ x b ->
@@ -402,16 +404,18 @@ data Value =
     -- ^ Circuit binding, [Variable] is like a lambda that handles the parameter arguments
     -- and the control argument, LEnv binds a variable to a circuit value.
   | VCircuit Morphism
-    -- ^ Unbound circuit (incomplete). 
+    -- ^ Unbound circuit (incomplete).
   | Wired (Bind [Label] Value)
     -- ^ Complete circuit.
   | VApp Value Value -- ^ Applicative value. 
   | VForce Value -- ^ Value version of 'Force'.
+  | VComputed Value
   | VBox -- ^ Value version of 'Box'.
   | VExBox -- ^ Value version of 'ExBox'.
   | VUnBox -- ^ Value version of 'UnBox'.
   | VReverse -- ^ Value version of 'Reverse'.
   | VControlled -- ^ Value version of 'Controlled'.
+  | VWithComputed
   | VRunCirc -- ^ Value version of 'RunCirc'.
   deriving (Show, NominalShow, NominalSupport, Generic)
 
@@ -471,6 +475,7 @@ instance Nominal Value where
   pi • VExBox = VExBox
   pi • VReverse = VReverse
   pi • VControlled = VControlled
+  pi • VWithComputed = VWithComputed
   pi • VRunCirc = VRunCirc 
   pi • VUnBox = VUnBox
 
@@ -492,6 +497,7 @@ instance Disp Value where
   display flag (VUnBox) = text "unbox"
   display flag (VReverse) = text "reverse"
   display flag (VControlled) = text "controlled"
+  display flag (VWithComputed) = text "withComputed"
   display flag (VRunCirc) = text "runCirc"
   display flag (VCircuit m) = display flag m
   display flag (VLam ws (Abst vs e)) = 
@@ -622,6 +628,7 @@ data EExp =
   | EUnBox
   | EReverse
   | EControlled
+  | EWithComputed
   | ERunCirc
   | EBox
   | EExBox
@@ -657,6 +664,7 @@ instance Disp EExp where
   display flag (EUnBox) = text "unbox"
   display flag (EReverse) = text "reverse"
   display flag (EControlled) = text "controlled"
+  display flag (EWithComputed) = text "withComputed"
   display flag (ERunCirc) = text "runCirc"
   display flag (ELam ws (Abst vs e)) = 
     sep [text "\\elam" <+> brackets (sep $ map (display flag) ws),

@@ -132,6 +132,7 @@ eval a@(ELift ws body) = return (VLift ws body)
 eval EUnBox = return VUnBox
 eval EReverse = return VReverse
 eval EControlled = return VControlled
+eval EWithComputed = return VWithComputed
 eval a@(EBox) = return VBox
 eval a@(EExBox) = return VExBox
 eval ERunCirc = return VRunCirc
@@ -300,6 +301,23 @@ evalApp (VApp (VApp (VApp VControlled _) _) _) m =
         helper a (Gate id ps ins outs VStar flag) = Gate id ps ins outs (VVar a) flag
         helper a (Gate id ps ins outs b flag) = Gate id ps ins outs (VPair b (VVar a)) flag
 
+evalApp (VApp (VApp (VApp (VApp (VApp VWithComputed _) _) _)_)_) m =
+  return $ VComputed m 
+
+evalApp (VComputed m1) m2 =
+  let (Wired (Abst ws1 (VCircuit (Morphism a gs1 (VPair b1 e))))) = m1
+      (Wired (Abst ws2 (VCircuit circ2@(Morphism (VPair b2 _) _ (VPair _ _))))) = m2
+      gs1' = map negateCtrl gs1
+      gs1'' = revGates gs1'
+      circ1' = (Morphism (VPair b1 e) gs1'' a)
+      binding = makeBinding b2 b1
+      circ2' = rename circ2 binding
+      (Morphism (VPair _ c) gs2 (VPair b3 d)) = circ2'
+      binding2 = makeBinding b1 b3
+      (Morphism (VPair _ _) gs1''' a') = rename circ1' binding2
+      res = Wired (abst (ws1 ++ ws2) $ VCircuit (Morphism (VPair a c) (gs1' ++ gs2 ++ gs1''') (VPair a' d)))
+  in return res
+  where negateCtrl (Gate e1 e2 e3 e4 e5 b) = Gate e1 e2 e3 e4 e5 False
   
 evalApp a@(Wired _) w = return a
 

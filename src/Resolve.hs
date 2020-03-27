@@ -253,6 +253,7 @@ resolve d (C.ExBox) = return ExBox
 resolve d (C.UnBox) = return (UnBox)
 resolve d (C.Reverse) = return (Reverse)
 resolve d (C.Controlled) = return (Controlled)
+resolve d (C.WithComputed) = return (WithComputed)
 resolve d (C.RunCirc) = return (RunCirc)
      
 

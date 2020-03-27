@@ -266,7 +266,17 @@ proofInfer flag a@(AppType t1 t2) =
                  if null (tail xs)
                    then return m''
                    else return $ Forall (abst (tail xs) m'') kd
-
+       b@(Mod (Abst _ (Forall bd kd))) | isKind kd -> 
+             open bd $ \ xs m ->
+              do let t2' = toEigen t2
+                 proofCheck True t2 kd
+                 m' <- betaNormalize (apply [(head xs,  t2')] m)
+                 m'' <- if flag then shape m' else return m'
+                 if null (tail xs)
+                   then return m''
+                   else return $ Forall (abst (tail xs) m'') kd
+                        
+       b -> error $ "from proofInfer:" ++ show b
 proofInfer flag a@(AppTm t1 t2) =
   do t' <- proofInfer flag t1
      case erasePos t' of
@@ -288,6 +298,20 @@ proofInfer flag Reverse =
       t1' = Imply [App' (Base simpClass) va , App' (Base simpClass) vb] t1
       ty = Forall (abst [a, b] t1') Set
   in return ty
+
+proofInfer flag a@(WithComputed) =
+  freshNames ["a", "b", "c", "d", "e", "x", "y"] $ \ xs@[a, b, c, d, e, x, y] ->
+  let vxs@[va, vb, vc, vd, ve, vx, vy] = map Var xs
+      simpClass = Id "Simple"
+      mod1 = M (BConst True) (BConst False) (BConst True)
+      mod2 = M (BConst True) (BVar x) (BVar y)
+      t1 = Arrow (Circ va (Tensor vb ve) mod1)
+           (Arrow (Circ (Tensor vb vc) (Tensor vb vd) mod2)
+            (Circ (Tensor va vc) (Tensor va vd) mod2))
+      t1' = Imply (map (App' (Base simpClass)) (take 5 vxs)) t1
+      ty = Forall (abst [a, b,c,d,e] t1') Set
+      ty' = abstractMode ty
+  in return ty'
 
 proofInfer flag a@(Controlled) =
   freshNames ["a", "b", "s"] $ \ [a, b, s'] ->

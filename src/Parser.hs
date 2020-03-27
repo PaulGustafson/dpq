@@ -682,6 +682,10 @@ reverseExp = reserved "reverse" >> return Reverse
 controlExp :: Parser Exp
 controlExp = reserved "controlled" >> return Controlled
 
+
+withComputedExp :: Parser Exp
+withComputedExp = reserved "withComputed" >> return WithComputed
+
 -- | Parse a runCirc expression.
 runCircExp :: Parser Exp
 runCircExp = reserved "runCirc" >> return RunCirc
@@ -748,7 +752,7 @@ appExp =
                  pos <- getPosition;
                  return $ foldl (\ z x -> Pos (P pos) $ App z x) head}) arg
   where headExp = wrapPos $ try unit <|> try opExp <|> unitTy <|> set <|> boxExp <|> exBoxExp
-                  <|> unBoxExp <|> reverseExp <|> controlExp <|> runCircExp
+                  <|> unBoxExp <|> reverseExp <|> controlExp <|> withComputedExp <|> runCircExp
                   <|> try varExp <|> try constExp <|>
                   do{
                      tms <- parens (term `sepBy1` comma);
@@ -897,8 +901,9 @@ dpqStyle = Token.LanguageDef
                     "gate", "in", "let",
                     "case", "of",
                     "data", "import", "class", "instance",
-                    "simple", "reverse", "box", "unbox", "existsBox", "controlled",
-                    "runCirc", "Mode", "Adj", "Ctrl",
+                    "simple",
+                    "reverse", "box", "unbox", "existsBox", "controlled",
+                    "runCirc", "withComputed",
                     "object", "Circ", "Unit", "do",
                     "where", "module", "infix","infixr", "infixl",
                     "Type", "forall", "if", "then", "else",

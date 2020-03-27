@@ -106,19 +106,36 @@ boxG1 = box Qubit g1
 e : ! (Circ{1,0,0}(Qubit, Bit) -> Circ(Qubit, Bit))
 e x = x
 
-hadamard = box Qubit h
+-- hadamard = box (Qubit * Unit) (\ x -> let (y, u) = x in (h y, u))
+hadamard = box (Qubit) h
+--initialization = box Unit (\ x -> (Init0 (), x))
+initialization = box Unit Init0
 
-control : ! {a : Type} -> forall (b s : Type) ->
-              (Simple s, Simple a, Simple b) =>
+controlling : ! {a : Type} -> forall (b s : Type) ->
+                (Simple s, Simple a, Simple b) =>
                 !(a -> b) -> !(a -> s -> b * s)
-control a f = controlled (box a f) 
+controlling a f = controlled (box a f) 
 
-testC : !(Qubit -> Qubit -> Qubit * Qubit)
-testC = control QNot 
--- CNot q s
--- 
+withBasisChange :
+  ! {a b : Type} -> (Simple a, Simple b) =>
+       Circ(a, b) -> Circ(b, b) -> Circ(a, a)
+withBasisChange a b circ1 circ2 =
+  let circ1' = box a (\ x -> (unbox circ1 x, ()))
+      circ2' = box (b * Unit) (\ x -> let (y, z) = x in (unbox circ2 y, z))
+      circ3 = withComputed circ1' circ2'
+  in box a (\ x -> let (r, _) = unbox circ3 (x, ()) in r)
 
-testBoxC = box (Qubit * Qubit) (\ x -> let (a, b) = x in testC a b)
+testH' = withBasisChange initialization hadamard
+
+-- testH = withComputed initialization hadamard
+-- testH = reverse initialization
+
+testC : !(Qubit * Qubit -> Qubit * Qubit)
+testC q = let (_, r) = controlled testH' () q in r
+--- controlling (withComputed )
+--  CNot
+
+testBoxC = box (Qubit * Qubit) testC
 
 testC' : !(Qubit * Qubit * Qubit -> Qubit * Qubit * Qubit)
 testC' tr = let (a, b, c) = tr in controlled testBoxC (a, b) c
@@ -130,6 +147,3 @@ apply : ! {s : Type} -> forall u v -> (Simple s, Simple u, Simple v) =>
              Circ(s, u) -> Circ(u, v) -> Circ(s, v)
 apply s circ1 circ2 = box s (\ x -> unbox circ2 ((unbox circ1) x))
 
-withComputed : ! {s : Type} -> forall u -> (Simple s, Simple u) =>
-                  Circ(s, u) -> Circ(u, u) -> Circ(s,s)
-withComputed s a b = apply (apply a b) (reverse a)

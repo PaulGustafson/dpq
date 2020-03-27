@@ -38,6 +38,7 @@ data Exp =
   | UnBox -- ^ Circuit unbox: @unbox@.
   | Reverse -- ^ Circuit reversal: @reverse@.
   | Controlled -- ^ Circuit control: @controlled@.
+  | WithComputed -- ^ Circuit control: @controlled@.
   | RunCirc -- ^ Run classical circuit: @runCirc@.
   | Case Exp Branches -- ^ Case expression.
   | Wild -- ^ Wildcard. 

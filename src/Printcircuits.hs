@@ -718,7 +718,7 @@ page_of_ocircuit fs (Wired bd) =
     setlinewidth (linewidth fs)
     rendered_wires
     rendered_gates
-
+page_of_ocircuit fs c = error $ "from page_of_ocircuit:" ++ show c
 -- | Print a circuit to a file path.
 printCirc circ s = do
   h <- openFile s WriteMode

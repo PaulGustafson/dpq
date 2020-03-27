@@ -123,6 +123,20 @@ typeInfer False a@(Controlled) =
       ty' = abstractMode ty
   in return (ty', Controlled, identityMod)
 
+typeInfer False a@(WithComputed) =
+  freshNames ["a", "b", "c", "d", "e", "x", "y"] $ \ xs@[a, b, c, d, e, x, y] ->
+  let vxs@[va, vb, vc, vd, ve, vx, vy] = map Var xs
+      simpClass = Id "Simple"
+      mod1 = M (BConst True) (BConst False) (BConst True)
+      mod2 = M (BConst True) (BVar x) (BVar y)
+      t1 = Arrow (Circ va (Tensor vb ve) mod1)
+           (Arrow (Circ (Tensor vb vc) (Tensor vb vd) mod2)
+            (Circ (Tensor va vc) (Tensor va vd) mod2))
+      t1' = Imply (map (App' (Base simpClass)) (take 5 vxs)) t1
+      ty = Forall (abst [a, b,c,d,e] t1') Set
+      ty' = abstractMode ty
+  in return (ty', WithComputed, identityMod)
+
 typeInfer False t@(Box) = freshNames ["a", "b", "alpha", "beta"] $ \ [a, b, alpha, beta] ->
   do let va = Var a
          vb = Var b
@@ -1108,7 +1122,8 @@ handleBangValue flag a ty1@(Bang ty m) =
        else
        do checkParamCxt a
           (tym, ann, cMode) <- typeInfer flag a
-          case erasePos tym of
+          tym' <- updateWithSubst tym
+          case erasePos tym' of
             tym1@(Bang _ _) ->
               do (unifRes, (s, bs)) <- normalizeUnif GEq tym1 ty1
                  case unifRes of
