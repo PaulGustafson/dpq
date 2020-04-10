@@ -236,7 +236,7 @@ a_small_board_red =
   $ VCons True $ VCons True $ VCons True $ VCons True $ VCons True VNil
 
 
-main = box_checkwin_red (3 @ 7 - 1) 7 refl refl
+main (u : Unit) = box_checkwin_red (5 @ 7 - 1) 7 refl refl
 
 -- box_checkwin_red (9 @ 7 - 1) 7 refl refl
 
